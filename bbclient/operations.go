@@ -23,6 +23,8 @@ type IResult interface {
 
 	GetValue() []byte
 
+	GetTimestamp() uint64
+
 	IsError() bool
 
 	GetError() error
@@ -149,17 +151,19 @@ func (this* Remove) toProto() *bbproto.RecordOpeation {
 }
 
 type ExistsResult struct {
-	Result   bool
+	Result     bool
+	Timestamp  uint64
 }
 
 type UpdatedResult struct {
-	Status    bbproto.StatusCode
-	Result    bool
+	Status     bbproto.StatusCode
+	Result     bool
 }
 
 type ValueResult struct {
-	Version  int64
-	Value    []byte
+	Version    int64
+	Value      []byte
+	Timestamp  uint64
 }
 
 type ErrorResult struct {
@@ -184,12 +188,15 @@ func ParseSuccessResult(result *bbproto.RecordResult) IResult {
 	switch result.Result.(type) {
 
 	case *bbproto.RecordResult_Exists:
-		return &ExistsResult{result.GetExists().Exists}
+		{
+			exists := result.GetExists()
+			return &ExistsResult{exists.Exists, exists.Timestamp}
+		}
 
 	case *bbproto.RecordResult_Get:
 		{
 			get := result.GetGet()
-			return &ValueResult{get.Version, get.Value}
+			return &ValueResult{get.Version, get.Value, get.Timestamp}
 		}
 
 	case *bbproto.RecordResult_Touch:
@@ -229,6 +236,10 @@ func (this *ExistsResult) GetValue() []byte {
 	return nil
 }
 
+func (this *ExistsResult) GetTimestamp() uint64 {
+	return this.Timestamp
+}
+
 func (this *ExistsResult) IsError() bool {
 	return false
 }
@@ -263,6 +274,10 @@ func (this *UpdatedResult) GetVersion() int64 {
 
 func (this *UpdatedResult) GetValue() []byte {
 	return nil
+}
+
+func (this *UpdatedResult) GetTimestamp() uint64 {
+	return 0
 }
 
 func (this *UpdatedResult) IsError() bool {
@@ -302,6 +317,10 @@ func (this *ValueResult) GetValue() []byte {
 	return this.Value
 }
 
+func (this *ValueResult) GetTimestamp() uint64 {
+	return this.Timestamp
+}
+
 func (this *ValueResult) IsError() bool {
 	return false
 }
@@ -336,6 +355,10 @@ func (this *ErrorResult) GetVersion() int64 {
 
 func (this *ErrorResult) GetValue() []byte {
 	return nil
+}
+
+func (this *ErrorResult) GetTimestamp() uint64 {
+	return 0
 }
 
 func (this *ErrorResult) IsError() bool {

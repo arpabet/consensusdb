@@ -1,3 +1,5 @@
 {
-       "name" : "test"
+       "name" : "TEST",
+       "distr": "REPLICATION",
+       "pit": "PIT_NO"
 }

@@ -230,8 +230,7 @@
           "type": "string"
         },
         "pit": {
-          "type": "boolean",
-          "format": "boolean"
+          "$ref": "#/definitions/bbPointInTime"
         }
       }
     },
@@ -252,6 +251,10 @@
         "exists": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
@@ -276,6 +279,10 @@
         "value": {
           "type": "string",
           "format": "byte"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "uint64"
         }
       }
     },
@@ -285,7 +292,7 @@
         "setName": {
           "type": "string"
         },
-        "patKey": {
+        "partitionKey": {
           "type": "string",
           "format": "byte"
         },
@@ -322,6 +329,17 @@
           "format": "int32"
         }
       }
+    },
+    "bbPointInTime": {
+      "type": "string",
+      "enum": [
+        "PIT_NO",
+        "PIT_LAST_ONE",
+        "PIT_LAST_FIVE",
+        "PIT_LAST_TEN",
+        "PIT_ALL"
+      ],
+      "default": "PIT_NO"
     },
     "bbPutOperation": {
       "type": "object",
