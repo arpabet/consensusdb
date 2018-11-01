@@ -17,7 +17,7 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
         contact: {
             name: "BigBagger";
             url: "https://github.com/BigBagger/bigbagger";
-            email: "a@shvid.com";
+            email: "alex@shvid.com";
         };
     };
     schemes: HTTP;
@@ -84,7 +84,8 @@ message Dataset {
 }
 
 message CreateDatasetRequest {
-    Dataset   dataset = 1;
+    string    token = 1;
+    Dataset   dataset = 2;
 }
 
 message CreateDatasetResponse {
@@ -92,8 +93,9 @@ message CreateDatasetResponse {
 }
 
 message UpdateDatasetRequest {
-    string   name = 1;
-    Dataset  dataset = 2;
+    string   token = 1;
+    string   name = 2;
+    Dataset  dataset = 3;
 }
 
 message UpdateDatasetResponse {
@@ -101,7 +103,8 @@ message UpdateDatasetResponse {
 }
 
 message DeleteDatasetRequest {
-    string   name = 1;
+    string   token = 1;
+    string   name  = 2;
 }
 
 message DeleteDatasetResponse {
@@ -109,6 +112,7 @@ message DeleteDatasetResponse {
 }
 
 message ListDatasetsRequest {
+    string   token = 1;
 }
 
 message ListDatasetsResponse {
@@ -116,7 +120,8 @@ message ListDatasetsResponse {
 }
 
 message GetDatasetStatusRequest {
-    string  name = 1;
+    string  token = 1;
+    string  name = 2;
 }
 
 message GetDatasetStatusResponse {
@@ -153,11 +158,11 @@ message RecordOpeation {
   Key key = 1;
 
   oneof operation {
-    ExistsOperation exists = 2;
-    GetOperation    get    = 3;
-    TouchOperation  touch  = 4;
-    PutOperation    put    = 5;
-    RemoveOperation remove = 6;
+    ExistsOperation exists = 10;
+    GetOperation    get    = 11;
+    TouchOperation  touch  = 12;
+    PutOperation    put    = 13;
+    RemoveOperation remove = 14;
   }
 
 }
@@ -188,7 +193,7 @@ enum StatusCode {
      SUCCESS = 0;
      SUCCESS_NOT_UPDATED = 1;  // for compare and put operation that is non-locking algorithm
 
-     ERROR_DATASET = 10;       // not found: database, namespace, store, table, cache, catalog, etc.
+     ERROR_NO_DATASET = 10;    // not found: database, namespace, store, table, cache, catalog, etc.
      ERROR_BAD_REQUEST = 11;   // invalid parameters in request
      ERROR_POLICY = 12;        // exists record for operation that requires record and vise versa
      ERROR_MIGRATION = 13;     // data or connections migration occur during operation
@@ -200,7 +205,7 @@ enum StatusCode {
      ERROR_OVERFLOW = 19;      // all errors related to data space
      ERROR_LOCKED = 20;        // all tries to update data that was in pessimistic lock
      ERROR_ABORTED = 21;       // client aborted stream operation
-     ERROR_END_CQ = 22;        // server aborted stream operation
+     ERROR_INTERRUPTED = 22;   // server aborted stream operation
      ERROR_UNSUPPORTED = 23;   // unsupported commands
      ERROR_DRIVER = 24;        // data access driver specific errors
      ERROR_IO = 25;            // file, serialization, network i/o errors
@@ -211,27 +216,28 @@ enum StatusCode {
 message RecordResult {
 
   StatusCode status = 1;
+  string     errorMessage = 2;
 
   oneof result {
-    ExistsResult    exists = 2;
-    GetResult       get    = 3;
-    TouchResult     touch  = 4;
-    PutResult       put    = 5;
-    RemoveResult    remove = 6;
+    ExistsResult    exists = 10;
+    GetResult       get    = 11;
+    TouchResult     touch  = 12;
+    PutResult       put    = 13;
+    RemoveResult    remove = 14;
   }
 
 }
 
 message ExistsResult {
 
-   bool       exists = 2;
+   bool       exists = 1;
 
 }
 
 message GetResult {
 
-   int64   version   = 2;
-   bytes   value     = 3;
+   int64   version   = 1;
+   bytes   value     = 2;
 
 }
 

@@ -6,7 +6,7 @@
     "contact": {
       "name": "BigBagger",
       "url": "https://github.com/BigBagger/bigbagger",
-      "email": "a@shvid.com"
+      "email": "alex@shvid.com"
     }
   },
   "schemes": [
@@ -31,6 +31,14 @@
             }
           }
         },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "type": "string"
+          }
+        ],
         "tags": [
           "DatasetService"
         ]
@@ -77,6 +85,12 @@
             "in": "path",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [
@@ -98,6 +112,12 @@
             "name": "name",
             "in": "path",
             "required": true,
+            "type": "string"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
             "type": "string"
           }
         ],
@@ -167,6 +187,9 @@
     "bbCreateDatasetRequest": {
       "type": "object",
       "properties": {
+        "token": {
+          "type": "string"
+        },
         "dataset": {
           "$ref": "#/definitions/bbDataset"
         }
@@ -378,6 +401,9 @@
         "status": {
           "$ref": "#/definitions/bbStatusCode"
         },
+        "errorMessage": {
+          "type": "string"
+        },
         "exists": {
           "$ref": "#/definitions/bbExistsResult"
         },
@@ -406,7 +432,7 @@
       "enum": [
         "SUCCESS",
         "SUCCESS_NOT_UPDATED",
-        "ERROR_DATASET",
+        "ERROR_NO_DATASET",
         "ERROR_BAD_REQUEST",
         "ERROR_POLICY",
         "ERROR_MIGRATION",
@@ -418,7 +444,7 @@
         "ERROR_OVERFLOW",
         "ERROR_LOCKED",
         "ERROR_ABORTED",
-        "ERROR_END_CQ",
+        "ERROR_INTERRUPTED",
         "ERROR_UNSUPPORTED",
         "ERROR_DRIVER",
         "ERROR_IO",
@@ -435,6 +461,9 @@
     "bbUpdateDatasetRequest": {
       "type": "object",
       "properties": {
+        "token": {
+          "type": "string"
+        },
         "name": {
           "type": "string"
         },
