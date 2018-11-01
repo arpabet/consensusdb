@@ -14,6 +14,7 @@ import (
 	"text/template"
 	"bigbagger/proto/bbproto"
 	"bigbagger/bbserver"
+	"os/signal"
 )
 
 func main() {
@@ -30,6 +31,7 @@ func main() {
 	grpcAddress := cfg.Section("server").Key("grpcAddress").String()
 
 	server, err := bbserver.NewServer(cfg)
+	defer server.Close();
 
 	if err != nil {
 		log.Fatal("fail to create a bbserver ", err)
@@ -40,9 +42,23 @@ func main() {
 	go server.StartServer(grpcAddress)
 
 	log.Println("Starting HTTP bbserver on " + httpAddress)
-	err = run(httpAddress, grpcAddress)
+	httpServer, err := NewHttpServer(httpAddress, grpcAddress)
 	if err != nil {
 		log.Fatal("port is busy " + httpAddress, err)
+	}
+
+	signalChain := make(chan os.Signal, 1)
+	signal.Notify(signalChain, os.Interrupt)
+	go func(){
+		for _ = range signalChain {
+			server.Close()
+			httpServer.Close()
+		}
+	}()
+
+	err = httpServer.ListenAndServe()
+	if err != nil {
+		log.Fatal("Exit: ", err)
 	}
 
 	/*
@@ -81,16 +97,20 @@ func serveSwagger(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func run(httpAddress, grpcAddress string) error {
+func NewHttpServer(httpAddress, grpcAddress string) (*http.Server, error) {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	gw := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := bbproto.RegisterBigBaggerServiceHandlerFromEndpoint(ctx, gw, "localhost"+grpcAddress, opts)
+	err := bbproto.RegisterDatasetServiceHandlerFromEndpoint(ctx, gw, "localhost"+grpcAddress, opts)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	err = bbproto.RegisterRecordServiceHandlerFromEndpoint(ctx, gw, "localhost"+grpcAddress, opts)
+	if err != nil {
+		return nil, err
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/swagger/", serveSwagger)
@@ -101,5 +121,6 @@ func run(httpAddress, grpcAddress string) error {
 	//mux.Handle("/swagger/", swagger)
 	mux.Handle("/v1/", gw)
 
-	return http.ListenAndServe(httpAddress, mux)
+	return &http.Server{Addr: httpAddress, Handler: mux}, nil
+
 }

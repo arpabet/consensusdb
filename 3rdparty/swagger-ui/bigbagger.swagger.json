@@ -27,36 +27,12 @@
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/genprotoListDatasetsResponse"
+              "$ref": "#/definitions/bbListDatasetsResponse"
             }
           }
         },
         "tags": [
-          "BigBaggerService"
-        ]
-      },
-      "delete": {
-        "operationId": "delete",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/genprotoDeleteDatasetResponse"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/genprotoDeleteDatasetRequest"
-            }
-          }
-        ],
-        "tags": [
-          "BigBaggerService"
+          "DatasetService"
         ]
       },
       "post": {
@@ -65,7 +41,7 @@
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/genprotoCreateDatasetResponse"
+              "$ref": "#/definitions/bbCreateDatasetResponse"
             }
           }
         },
@@ -75,36 +51,12 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/genprotoCreateDatasetRequest"
+              "$ref": "#/definitions/bbCreateDatasetRequest"
             }
           }
         ],
         "tags": [
-          "BigBaggerService"
-        ]
-      },
-      "put": {
-        "operationId": "update",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/genprotoUpdateDatasetResponse"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/genprotoUpdateDatasetRequest"
-            }
-          }
-        ],
-        "tags": [
-          "BigBaggerService"
+          "DatasetService"
         ]
       }
     },
@@ -115,7 +67,7 @@
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/genprotoGetDatasetStatusResponse"
+              "$ref": "#/definitions/bbGetDatasetStatusResponse"
             }
           }
         },
@@ -128,21 +80,99 @@
           }
         ],
         "tags": [
-          "BigBaggerService"
+          "DatasetService"
+        ]
+      },
+      "delete": {
+        "operationId": "delete",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bbDeleteDatasetResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "DatasetService"
+        ]
+      },
+      "put": {
+        "operationId": "update",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bbUpdateDatasetResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/bbUpdateDatasetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "DatasetService"
+        ]
+      }
+    },
+    "/v1/record": {
+      "put": {
+        "operationId": "execute",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bbRecordResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/bbRecordRequest"
+            }
+          }
+        ],
+        "tags": [
+          "RecordService"
         ]
       }
     }
   },
   "definitions": {
-    "genprotoCreateDatasetRequest": {
+    "bbCreateDatasetRequest": {
       "type": "object",
       "properties": {
         "dataset": {
-          "$ref": "#/definitions/genprotoDataset"
+          "$ref": "#/definitions/bbDataset"
         }
       }
     },
-    "genprotoCreateDatasetResponse": {
+    "bbCreateDatasetResponse": {
       "type": "object",
       "properties": {
         "name": {
@@ -150,7 +180,7 @@
         }
       }
     },
-    "genprotoDataDistribution": {
+    "bbDataDistribution": {
       "type": "string",
       "enum": [
         "REPLICATION",
@@ -158,39 +188,31 @@
       ],
       "default": "REPLICATION"
     },
-    "genprotoDataset": {
+    "bbDataset": {
       "type": "object",
       "properties": {
         "name": {
           "type": "string"
         },
         "distr": {
-          "$ref": "#/definitions/genprotoDataDistribution"
+          "$ref": "#/definitions/bbDataDistribution"
         },
         "partition": {
-          "$ref": "#/definitions/genprotoPartition"
+          "$ref": "#/definitions/bbPartition"
         },
         "encryption": {
           "type": "string"
         },
         "compression": {
           "type": "string"
-        }
-      }
-    },
-    "genprotoDeleteDatasetRequest": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
         },
-        "deleteRecords": {
+        "pit": {
           "type": "boolean",
           "format": "boolean"
         }
       }
     },
-    "genprotoDeleteDatasetResponse": {
+    "bbDeleteDatasetResponse": {
       "type": "object",
       "properties": {
         "name": {
@@ -198,15 +220,63 @@
         }
       }
     },
-    "genprotoGetDatasetStatusResponse": {
+    "bbExistsOperation": {
+      "type": "object"
+    },
+    "bbExistsResult": {
       "type": "object",
       "properties": {
-        "dataset": {
-          "$ref": "#/definitions/genprotoDataset"
+        "exists": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },
-    "genprotoListDatasetsResponse": {
+    "bbGetDatasetStatusResponse": {
+      "type": "object",
+      "properties": {
+        "dataset": {
+          "$ref": "#/definitions/bbDataset"
+        }
+      }
+    },
+    "bbGetOperation": {
+      "type": "object"
+    },
+    "bbGetResult": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "format": "int64"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "bbKey": {
+      "type": "object",
+      "properties": {
+        "setName": {
+          "type": "string"
+        },
+        "patKey": {
+          "type": "string",
+          "format": "byte"
+        },
+        "recordKey": {
+          "type": "string",
+          "format": "byte"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
+    "bbListDatasetsResponse": {
       "type": "object",
       "properties": {
         "name": {
@@ -217,7 +287,7 @@
         }
       }
     },
-    "genprotoPartition": {
+    "bbPartition": {
       "type": "object",
       "properties": {
         "total": {
@@ -230,15 +300,150 @@
         }
       }
     },
-    "genprotoUpdateDatasetRequest": {
+    "bbPutOperation": {
       "type": "object",
       "properties": {
-        "dataset": {
-          "$ref": "#/definitions/genprotoDataset"
+        "compareAndSet": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "version": {
+          "type": "string",
+          "format": "int64"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte"
+        },
+        "ttlSeconds": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
-    "genprotoUpdateDatasetResponse": {
+    "bbPutResult": {
+      "type": "object"
+    },
+    "bbRecordOpeation": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/bbKey"
+        },
+        "exists": {
+          "$ref": "#/definitions/bbExistsOperation"
+        },
+        "get": {
+          "$ref": "#/definitions/bbGetOperation"
+        },
+        "touch": {
+          "$ref": "#/definitions/bbTouchOperation"
+        },
+        "put": {
+          "$ref": "#/definitions/bbPutOperation"
+        },
+        "remove": {
+          "$ref": "#/definitions/bbRemoveOperation"
+        }
+      }
+    },
+    "bbRecordRequest": {
+      "type": "object",
+      "properties": {
+        "token": {
+          "type": "string"
+        },
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bbRecordOpeation"
+          }
+        }
+      }
+    },
+    "bbRecordResponse": {
+      "type": "object",
+      "properties": {
+        "list": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bbRecordResult"
+          }
+        }
+      }
+    },
+    "bbRecordResult": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/bbStatusCode"
+        },
+        "exists": {
+          "$ref": "#/definitions/bbExistsResult"
+        },
+        "get": {
+          "$ref": "#/definitions/bbGetResult"
+        },
+        "touch": {
+          "$ref": "#/definitions/bbTouchResult"
+        },
+        "put": {
+          "$ref": "#/definitions/bbPutResult"
+        },
+        "remove": {
+          "$ref": "#/definitions/bbRemoveResult"
+        }
+      }
+    },
+    "bbRemoveOperation": {
+      "type": "object"
+    },
+    "bbRemoveResult": {
+      "type": "object"
+    },
+    "bbStatusCode": {
+      "type": "string",
+      "enum": [
+        "SUCCESS",
+        "SUCCESS_NOT_UPDATED",
+        "ERROR_DATASET",
+        "ERROR_BAD_REQUEST",
+        "ERROR_POLICY",
+        "ERROR_MIGRATION",
+        "ERROR_NETWORK",
+        "ERROR_AUTH",
+        "ERROR_FORBIDDEN",
+        "ERROR_TIMEOUT",
+        "ERROR_OVERLOAD",
+        "ERROR_OVERFLOW",
+        "ERROR_LOCKED",
+        "ERROR_ABORTED",
+        "ERROR_END_CQ",
+        "ERROR_UNSUPPORTED",
+        "ERROR_DRIVER",
+        "ERROR_IO",
+        "ERROR_INTERNAL"
+      ],
+      "default": "SUCCESS"
+    },
+    "bbTouchOperation": {
+      "type": "object"
+    },
+    "bbTouchResult": {
+      "type": "object"
+    },
+    "bbUpdateDatasetRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "dataset": {
+          "$ref": "#/definitions/bbDataset"
+        }
+      }
+    },
+    "bbUpdateDatasetResponse": {
       "type": "object",
       "properties": {
         "name": {
