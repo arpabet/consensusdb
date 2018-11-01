@@ -16,6 +16,8 @@ import (
 	"bigbagger/bbserver"
 	"os/signal"
 	"bigbagger/bbclient"
+	"io/ioutil"
+	"encoding/json"
 )
 
 func main() {
@@ -99,10 +101,16 @@ func testClient(grpcAddress string) error {
 		return err
 	}
 
-	err = client.CreateDataset(map[string]string{
-		"name": "TEST",
-		"distr": "REPLICATION",
-	})
+	data, err := ioutil.ReadFile("create.json")
+	if err != nil {
+		return err
+	}
+
+	var dataset bbproto.Dataset
+
+	json.Unmarshal(data, &dataset)
+
+	err = client.CreateDataset(&dataset)
 
 	return err
 

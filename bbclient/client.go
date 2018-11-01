@@ -5,17 +5,16 @@ import (
 	"google.golang.org/grpc"
 	"bigbagger/proto/bbproto"
 	"github.com/pkg/errors"
-	"strconv"
 )
 
 type IBigBagger interface {
-	CreateDataset(props map[string]string) error
+	CreateDataset(dataset *bbproto.Dataset) error
 
-	UpdateDataset(props map[string]string) error
+	UpdateDataset(dataset *bbproto.Dataset) error
 
 	DeleteDataset(name string) error
 
-	GetDatasetStatus(name string) (map[string]string, error)
+	GetDatasetStatus(name string) (*bbproto.Dataset, error)
 
 	ListDatasets() ([]string, error)
 
@@ -40,15 +39,11 @@ func (cli *BigBaggerClient) Close() error {
 	return nil
 }
 
-func (this *BigBaggerClient) CreateDataset(props map[string]string) (err error) {
+func (this *BigBaggerClient) CreateDataset(dataset *bbproto.Dataset) (err error) {
 
 	request := new(bbproto.CreateDatasetRequest)
 	request.Token = this.token
-
-	request.Dataset, err = ParseDatasetProps(props)
-	if err != nil {
-		return err
-	}
+	request.Dataset = dataset
 
 	_, err = this.datasetService.Create(context.Background(), request)
 
@@ -60,15 +55,11 @@ func (this *BigBaggerClient) CreateDataset(props map[string]string) (err error) 
 
 }
 
-func (this *BigBaggerClient) UpdateDataset(props map[string]string) (err error) {
+func (this *BigBaggerClient) UpdateDataset(dataset *bbproto.Dataset) (err error) {
 
 	request := new(bbproto.UpdateDatasetRequest)
 	request.Token = this.token
-
-	request.Dataset, err = ParseDatasetProps(props)
-	if err != nil {
-		return err
-	}
+	request.Dataset = dataset
 
 	_, err = this.datasetService.Update(context.Background(), request)
 
@@ -78,51 +69,6 @@ func (this *BigBaggerClient) UpdateDataset(props map[string]string) (err error) 
 
 	return nil
 
-}
-
-
-func ParseDatasetProps(props map[string]string) (*bbproto.Dataset, error) {
-
-	dataset := new(bbproto.Dataset)
-	dataset.Name = props["name"]
-
-	distr, ok := props["distr"]
-	if !ok {
-		return nil, errors.New("empty distr prop")
-	}
-
-	distrCode, ok := bbproto.DataDistribution_value[distr]
-	if !ok {
-		return nil, errors.New("wrong distr prop")
-	}
-
-	dataset.Distr = bbproto.DataDistribution(distrCode)
-
-	if dataset.Distr == bbproto.DataDistribution_PARTITION {
-
-		total := props["partition.total"]
-
-		totalNum, err := strconv.ParseInt(total, 10, 32)
-		if err != nil {
-			return nil, errors.New("wrong partition.total prop")
-		}
-
-		replicationFactor := props["partition.replicationFactor"]
-
-		replicationFactorNum, err := strconv.ParseInt(replicationFactor, 10, 32)
-		if err != nil {
-			return nil, errors.New("wrong partition.replicationFactor prop")
-		}
-
-		dataset.Partition.Total = int32(totalNum)
-		dataset.Partition.ReplicationFactor = int32(replicationFactorNum)
-
-	}
-
-	dataset.Encryption = props["encryption"]
-	dataset.Compression = props["compression"]
-
-	return dataset, nil
 }
 
 func (this *BigBaggerClient) DeleteDataset(name string) error {
@@ -141,7 +87,7 @@ func (this *BigBaggerClient) DeleteDataset(name string) error {
 
 }
 
-func (this *BigBaggerClient) GetDatasetStatus(name string) (status map[string]string, err error) {
+func (this *BigBaggerClient) GetDatasetStatus(name string) (dataset *bbproto.Dataset, err error) {
 
 	request := new(bbproto.GetDatasetStatusRequest)
 	request.Token = this.token
@@ -153,19 +99,7 @@ func (this *BigBaggerClient) GetDatasetStatus(name string) (status map[string]st
 		return nil, err
 	}
 
-	status = make(map[string]string)
-
-	status["name"] = response.Dataset.Name
-	status["distr"] = response.Dataset.Distr.String()
-	if response.Dataset.Distr == bbproto.DataDistribution_PARTITION {
-		status["partition.total"] = string(response.Dataset.Partition.Total)
-		status["partition.replicationFactor"] = string(response.Dataset.Partition.ReplicationFactor)
-	}
-	status["encryption"] = response.Dataset.Encryption
-	status["compression"] = response.Dataset.Compression
-
-	return status, nil
-
+	return response.Dataset, nil
 }
 
 func (this *BigBaggerClient) ListDatasets() (list []string, err error) {

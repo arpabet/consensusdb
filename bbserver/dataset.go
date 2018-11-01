@@ -4,6 +4,8 @@ import (
 	"github.com/dgraph-io/badger"
 	"bigbagger/proto/bbproto"
 	"os"
+	"encoding/json"
+	"go.etcd.io/etcd/pkg/ioutil"
 )
 
 type DatasetContext struct {
@@ -31,6 +33,17 @@ func NewDataset(dataDir string, dataset *bbproto.Dataset) (context *DatasetConte
 		if err != nil {
 			return nil, err
 		}
+
+		data, err := json.Marshal(dataset)
+		if err != nil {
+			return nil, err
+		}
+
+		err = ioutil.WriteAndSyncFile(dbDir + "/dataset.json", data, 0755)
+		if err != nil {
+			return nil, err
+		}
+
 	}
 
 	opts := badger.DefaultOptions

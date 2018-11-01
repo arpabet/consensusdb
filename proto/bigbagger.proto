@@ -74,13 +74,21 @@ message Partition {
     int32 replicationFactor = 2;
 }
 
+enum PointInTime {
+    PIT_NO = 0;
+    PIT_LAST_ONE = 1;
+    PIT_LAST_FIVE = 5;
+    PIT_LAST_TEN = 10;
+    PIT_ALL = 100;
+}
+
 message Dataset {
-    string    name         = 1;
-    DataDistribution distr = 2;
-    Partition partition    = 3;
-    string    encryption   = 4;
-    string    compression  = 5;
-    bool      pit          = 6;
+    string       name         = 1;
+    DataDistribution distr    = 2;
+    Partition    partition    = 3;
+    string       encryption   = 4;
+    string       compression  = 5;
+    PointInTime  pit          = 6;
 }
 
 message CreateDatasetRequest {
@@ -141,10 +149,10 @@ service RecordService {
 
 message Key {
 
-    string   setName   = 1;
-    bytes    patKey    = 2;
-    bytes    recordKey = 3;
-    fixed64  timestamp = 4;
+    string   setName       = 1;
+    bytes    partitionKey  = 2;
+    bytes    recordKey     = 3;
+    fixed64  timestamp     = 4;   // requests before or equal to this timestamp if not 0
 
 }
 
@@ -178,10 +186,10 @@ message TouchOperation {
 
 message PutOperation {
 
-    bool    compareAndSet = 3;
-    int64   version    = 4;
-    bytes   value      = 5;
-    int32   ttlSeconds = 6;
+    bool    compareAndSet = 1;
+    int64   version       = 2;
+    bytes   value         = 3;
+    int32   ttlSeconds    = 4;
 
 }
 
@@ -215,8 +223,8 @@ enum StatusCode {
 
 message RecordResult {
 
-  StatusCode status = 1;
-  string     errorMessage = 2;
+  StatusCode    status = 1;
+  string        errorMessage = 2;
 
   oneof result {
     ExistsResult    exists = 10;
@@ -230,14 +238,15 @@ message RecordResult {
 
 message ExistsResult {
 
-   bool       exists = 1;
-
+   bool       exists    = 1;
+   fixed64    timestamp = 2;
 }
 
 message GetResult {
 
-   int64   version   = 1;
-   bytes   value     = 2;
+   int64    version   = 1;
+   bytes    value     = 2;
+   fixed64  timestamp = 3;
 
 }
 
