@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+import "google/api/annotations.proto";
+
+option go_package = "proto/bbproto";
+option java_multiple_files = true;
+option java_package = "io.github.bigbagger";
+option java_outer_classname = "BigBaggerProtos";
+option objc_class_prefix = "BigBagger";
+
+import "protoc-gen-swagger/options/annotations.proto";
+
+option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
+    info: {
+        title: "BigBagger";
+        version: "1.0";
+        contact: {
+            name: "BigBagger";
+            url: "https://github.com/BigBagger/bigbagger";
+            email: "a@shvid.com";
+        };
+    };
+    schemes: HTTP;
+    schemes: HTTPS;
+    consumes: "application/json";
+    produces: "application/json";
+};
+
+package genproto;
+
+service BigBaggerService {
+
+    rpc create (CreateDatasetRequest) returns (CreateDatasetResponse) {
+        option (google.api.http) = {
+            post: "/v1/dataset"
+            body: "*"
+        };
+    }
+
+    rpc update (UpdateDatasetRequest) returns (UpdateDatasetResponse) {
+        option (google.api.http) = {
+            put: "/v1/dataset"
+            body: "*"
+        };
+    }
+
+    rpc delete (DeleteDatasetRequest) returns (DeleteDatasetResponse) {
+        option (google.api.http) = {
+            delete: "/v1/dataset"
+            body: "*"
+        };
+    }
+
+    rpc list (ListDatasetsRequest) returns (ListDatasetsResponse) {
+        option (google.api.http) = {
+            get: "/v1/dataset"
+        };
+    }
+
+    rpc status (GetDatasetStatusRequest) returns (GetDatasetStatusResponse) {
+        option (google.api.http) = {
+            get: "/v1/dataset/{name}"
+        };
+    }
+
+}
+
+enum DataDistribution {
+    REPLICATION = 0;
+    PARTITION = 1;
+}
+
+message Partition {
+    int32 total = 1;
+    int32 replicationFactor = 2;
+}
+
+message Dataset {
+    string   name = 1;
+    DataDistribution distr = 2;
+    Partition partition    = 3;
+    string    encryption   = 4;
+    string    compression  = 5;
+}
+
+message CreateDatasetRequest {
+    Dataset   dataset = 1;
+}
+
+message CreateDatasetResponse {
+    string   name = 1;
+}
+
+message UpdateDatasetRequest {
+    Dataset  dataset = 1;
+}
+
+message UpdateDatasetResponse {
+    string   name = 1;
+}
+
+message DeleteDatasetRequest {
+    string   name = 1;
+    bool     deleteRecords = 2;
+}
+
+message DeleteDatasetResponse {
+    string   name = 1;
+}
+
+message ListDatasetsRequest {
+}
+
+message ListDatasetsResponse {
+    repeated string name = 1;
+}
+
+message GetDatasetStatusRequest {
+    string  name = 1;
+}
+
+message GetDatasetStatusResponse {
+    Dataset   dataset = 1;
+}
+
+message Record {
+    int64   version     = 1;
+    string  encryption  = 2;  // algorithm name, if empty no encryption
+    string  keyId       = 3;  // key id used for encryption
+    string  compression = 4;  // algorithm name, if empty no compression
+    bytes   payload     = 5;
+}
