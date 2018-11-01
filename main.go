@@ -17,7 +17,8 @@ import (
 	"os/signal"
 	"bigbagger/bbclient"
 	"io/ioutil"
-	"encoding/json"
+	"github.com/golang/protobuf/jsonpb"
+	"time"
 )
 
 func main() {
@@ -94,6 +95,22 @@ func main() {
 
 func testClient(grpcAddress string) error {
 
+	time.Sleep(time.Second)
+
+	/*
+
+	ds := bbproto.Dataset{}
+	ds.Name = "TEST"
+	ds.Distr = bbproto.DataDistribution_DD_REPLICATION
+	ds.Compression = bbproto.Compression_DC_ZLIB
+	ds.Pit = bbproto.PointInTime_PIT_ALL
+	ds.TtlSeconds = 86356
+
+	str, err := new(jsonpb.Marshaler).MarshalToString(&ds)
+	ioutil.WriteFile("example.json", []byte(str), 0755)
+
+	*/
+
 	client, err := bbclient.NewClient(grpcAddress, "ahahahahaha")
 	defer client.Close()
 
@@ -106,11 +123,14 @@ func testClient(grpcAddress string) error {
 		return err
 	}
 
-	var dataset bbproto.Dataset
+	dataset := new(bbproto.Dataset)
+	err = jsonpb.UnmarshalString(string(data), dataset)
 
-	json.Unmarshal(data, &dataset)
+	if err != nil {
+		return err
+	}
 
-	err = client.CreateDataset(&dataset)
+	err = client.CreateDataset(dataset)
 
 	return err
 

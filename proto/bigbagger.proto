@@ -65,8 +65,9 @@ service DatasetService {
 }
 
 enum DataDistribution {
-    REPLICATION = 0;
-    PARTITION = 1;
+    DD_LOCAL = 0;
+    DD_REPLICATION = 1;
+    DD_PARTITION = 2;
 }
 
 message Partition {
@@ -79,16 +80,55 @@ enum PointInTime {
     PIT_LAST_ONE = 1;
     PIT_LAST_FIVE = 5;
     PIT_LAST_TEN = 10;
+    PIT_FIRST_TEN_LAST_TEN = 20;
     PIT_ALL = 100;
 }
 
+enum EncryptionAlgorithm {
+    ALG_NO     = 0;
+    ALG_AES256 = 1;
+}
+
+enum EncryptionMode {
+    MODE_NO   = 0;
+    MODE_ECB  = 1;
+    MODE_CBC  = 2;
+    MODE_OFB  = 3;
+    MODE_CFB  = 4;
+    MODE_CTR  = 5;
+    MODE_XTS  = 6;
+}
+
+message Encryption {
+    EncryptionAlgorithm  algorithm = 1;
+    EncryptionMode       mode      = 2;
+    string               topoKey   = 3;
+    string               topoIv    = 4;
+}
+
+enum DataCompression {
+    DC_NO      = 0;
+    DC_FLATE   = 1;
+    DC_GZIP    = 2;
+    DC_LZW     = 3;
+    DC_ZLIB    = 4;
+    DC_BZIP2   = 5;
+}
+
+message Compression {
+    DataCompression  comp      = 1;
+    int32            threshold = 2;    // threshold in bytes when compression will be enabled, 0 - no threshold
+}
+
 message Dataset {
-    string       name         = 1;
-    DataDistribution distr    = 2;
-    Partition    partition    = 3;
-    string       encryption   = 4;
-    string       compression  = 5;
-    PointInTime  pit          = 6;
+    string       version      = 1;     // version of the data structure, 1.0 - the first one
+    string       name         = 2;     // can not be changed
+    DataDistribution distr    = 3;     // can not be changed
+    Partition    partition    = 4;     // can not be changed
+    Compression  compression  = 5;
+    Encryption   encryption   = 6;
+    PointInTime  pit          = 7;     // can not be changed
+    int32        ttlSeconds   = 8;     // for 0 NO-TTL
 }
 
 message CreateDatasetRequest {
@@ -157,8 +197,14 @@ message Key {
 }
 
 message Record {
+
     int64   version     = 1;
     bytes   value       = 2;
+
+    // optional
+    Compression  compression  = 5;
+    Encryption   encryption   = 6;
+
 }
 
 message RecordOpeation {

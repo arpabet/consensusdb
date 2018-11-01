@@ -4,13 +4,22 @@ import (
 	"github.com/dgraph-io/badger"
 	"bigbagger/proto/bbproto"
 	"os"
-	"encoding/json"
-	"go.etcd.io/etcd/pkg/ioutil"
+	"io/ioutil"
+	"path/filepath"
+	"github.com/golang/protobuf/jsonpb"
+)
+
+const (
+	DATASET_JSON = "dataset.json"
 )
 
 type DatasetContext struct {
 	db *badger.DB
 	dataset *bbproto.Dataset
+}
+
+func (this *DatasetContext) GetName() string {
+	return this.dataset.Name
 }
 
 func (this *DatasetContext) Close() error {
@@ -21,12 +30,7 @@ func (this *DatasetContext) Close() error {
 	return nil
 }
 
-func NewDataset(dataDir string, dataset *bbproto.Dataset) (context *DatasetContext, err error) {
-
-	context = new(DatasetContext)
-	context.dataset = dataset
-
-	dbDir := dataDir + "/" + dataset.Name
+func NewDataset(dbDir string, dataset *bbproto.Dataset) (context *DatasetContext, err error) {
 
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
 		err = os.Mkdir(dbDir, 0755)
@@ -34,17 +38,27 @@ func NewDataset(dataDir string, dataset *bbproto.Dataset) (context *DatasetConte
 			return nil, err
 		}
 
-		data, err := json.Marshal(dataset)
+		str, err := new(jsonpb.Marshaler).MarshalToString(dataset)
 		if err != nil {
 			return nil, err
 		}
 
-		err = ioutil.WriteAndSyncFile(dbDir + "/dataset.json", data, 0755)
+		err = ioutil.WriteFile(filepath.Join(dbDir, DATASET_JSON), []byte(str), 0755)
+
 		if err != nil {
 			return nil, err
 		}
 
 	}
+
+	return OpenDataset(dbDir, dataset)
+
+}
+
+func OpenDataset(dbDir string, dataset *bbproto.Dataset) (context *DatasetContext, err error) {
+
+	context = new(DatasetContext)
+	context.dataset = dataset
 
 	opts := badger.DefaultOptions
 	opts.Dir = dbDir + "/key"
@@ -55,4 +69,21 @@ func NewDataset(dataDir string, dataset *bbproto.Dataset) (context *DatasetConte
 
 }
 
+func LoadDataset(dbDir string) (context *DatasetContext, err error) {
 
+	data, err := ioutil.ReadFile(filepath.Join(dbDir, DATASET_JSON))
+
+	if err != nil {
+		return nil, err
+	}
+
+	dataset := new(bbproto.Dataset)
+	err = jsonpb.UnmarshalString(string(data), dataset)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return OpenDataset(dbDir, dataset)
+
+}

@@ -1,5 +1,4 @@
 {
-       "name" : "TEST",
-       "distr": "REPLICATION",
-       "pit": "PIT_NO"
+       "version": "1.0",
+       "name" : "TEST"
 }
