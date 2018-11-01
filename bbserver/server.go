@@ -1,7 +1,6 @@
 package bbserver
 
 import (
-	"fmt"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"gopkg.in/ini.v1"
@@ -11,6 +10,8 @@ import (
 	"os"
 	"sync"
 	"github.com/pkg/errors"
+	"io/ioutil"
+	"path/filepath"
 )
 
 type BigBaggerServer struct {
@@ -46,11 +47,34 @@ func NewServer(cfg *ini.File) (server *BigBaggerServer, err error) {
 
 	server.dataDir = section.Key("dataDir").String()
 
+	log.Printf("init dataDir=%s\n", server.dataDir)
+
 	if _, err := os.Stat(server.dataDir); os.IsNotExist(err) {
 		return nil, err;
 	}
 
-	fmt.Print("init dataDir=", server.dataDir, "\n")
+	subDirs, err := ioutil.ReadDir(server.dataDir)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, dbDir := range subDirs {
+
+		if dbDir.IsDir() {
+
+			log.Printf("load dbDir=%s\n", dbDir.Name())
+
+			dataset, err := LoadDataset(filepath.Join(server.dataDir, dbDir.Name()))
+			if err != nil {
+				return nil, err
+			}
+
+			server.sets[dataset.GetName()] = dataset
+
+		}
+
+	}
 
 	return server, nil
 }
@@ -66,26 +90,26 @@ func (this *BigBaggerServer) Create(context context.Context, request *bbproto.Cr
 
 	name := request.Dataset.Name
 
+	response = new(bbproto.CreateDatasetResponse)
+	response.Name = name
+
 	log.Printf("Create dataset: %s\n", name)
 
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
-	dataset, ok := this.sets[name]
+	set, ok := this.sets[name]
 	if ok {
-		return nil, errors.New("dataset already exists")
+		return response, nil
 	}
 
-	dataset, err = NewDataset(this.dataDir, request.Dataset)
+	set, err = NewDataset(filepath.Join(this.dataDir, name), request.Dataset)
 
 	if err != nil {
 		return nil, err
 	}
 
-	this.sets[name] = dataset
-
-	response = new(bbproto.CreateDatasetResponse)
-	response.Name = name
+	this.sets[name] = set
 
 	return response, nil
 

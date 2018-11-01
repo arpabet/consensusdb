@@ -184,6 +184,18 @@
     }
   },
   "definitions": {
+    "bbCompression": {
+      "type": "object",
+      "properties": {
+        "comp": {
+          "$ref": "#/definitions/bbDataCompression"
+        },
+        "threshold": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
     "bbCreateDatasetRequest": {
       "type": "object",
       "properties": {
@@ -203,17 +215,33 @@
         }
       }
     },
+    "bbDataCompression": {
+      "type": "string",
+      "enum": [
+        "DC_NO",
+        "DC_FLATE",
+        "DC_GZIP",
+        "DC_LZW",
+        "DC_ZLIB",
+        "DC_BZIP2"
+      ],
+      "default": "DC_NO"
+    },
     "bbDataDistribution": {
       "type": "string",
       "enum": [
-        "REPLICATION",
-        "PARTITION"
+        "DD_LOCAL",
+        "DD_REPLICATION",
+        "DD_PARTITION"
       ],
-      "default": "REPLICATION"
+      "default": "DD_LOCAL"
     },
     "bbDataset": {
       "type": "object",
       "properties": {
+        "version": {
+          "type": "string"
+        },
         "name": {
           "type": "string"
         },
@@ -223,14 +251,18 @@
         "partition": {
           "$ref": "#/definitions/bbPartition"
         },
-        "encryption": {
-          "type": "string"
-        },
         "compression": {
-          "type": "string"
+          "$ref": "#/definitions/bbCompression"
+        },
+        "encryption": {
+          "$ref": "#/definitions/bbEncryption"
         },
         "pit": {
           "$ref": "#/definitions/bbPointInTime"
+        },
+        "ttlSeconds": {
+          "type": "integer",
+          "format": "int32"
         }
       }
     },
@@ -241,6 +273,44 @@
           "type": "string"
         }
       }
+    },
+    "bbEncryption": {
+      "type": "object",
+      "properties": {
+        "algorithm": {
+          "$ref": "#/definitions/bbEncryptionAlgorithm"
+        },
+        "mode": {
+          "$ref": "#/definitions/bbEncryptionMode"
+        },
+        "topoKey": {
+          "type": "string"
+        },
+        "topoIv": {
+          "type": "string"
+        }
+      }
+    },
+    "bbEncryptionAlgorithm": {
+      "type": "string",
+      "enum": [
+        "ALG_NO",
+        "ALG_AES256"
+      ],
+      "default": "ALG_NO"
+    },
+    "bbEncryptionMode": {
+      "type": "string",
+      "enum": [
+        "MODE_NO",
+        "MODE_ECB",
+        "MODE_CBC",
+        "MODE_OFB",
+        "MODE_CFB",
+        "MODE_CTR",
+        "MODE_XTS"
+      ],
+      "default": "MODE_NO"
     },
     "bbExistsOperation": {
       "type": "object"
@@ -337,6 +407,7 @@
         "PIT_LAST_ONE",
         "PIT_LAST_FIVE",
         "PIT_LAST_TEN",
+        "PIT_FIRST_TEN_LAST_TEN",
         "PIT_ALL"
       ],
       "default": "PIT_NO"
