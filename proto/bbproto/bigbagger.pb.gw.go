@@ -28,7 +28,7 @@ var _ status.Status
 var _ = runtime.String
 var _ = utilities.NewDoubleArray
 
-func request_BigBaggerService_Create_0(ctx context.Context, marshaler runtime.Marshaler, client BigBaggerServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_DatasetService_Create_0(ctx context.Context, marshaler runtime.Marshaler, client DatasetServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq CreateDatasetRequest
 	var metadata runtime.ServerMetadata
 
@@ -41,7 +41,7 @@ func request_BigBaggerService_Create_0(ctx context.Context, marshaler runtime.Ma
 
 }
 
-func request_BigBaggerService_Update_0(ctx context.Context, marshaler runtime.Marshaler, client BigBaggerServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_DatasetService_Update_0(ctx context.Context, marshaler runtime.Marshaler, client DatasetServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq UpdateDatasetRequest
 	var metadata runtime.ServerMetadata
 
@@ -49,17 +49,49 @@ func request_BigBaggerService_Update_0(ctx context.Context, marshaler runtime.Ma
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
 	}
 
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
+	}
+
 	msg, err := client.Update(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func request_BigBaggerService_Delete_0(ctx context.Context, marshaler runtime.Marshaler, client BigBaggerServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_DatasetService_Delete_0(ctx context.Context, marshaler runtime.Marshaler, client DatasetServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq DeleteDatasetRequest
 	var metadata runtime.ServerMetadata
 
-	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
-		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	var (
+		val string
+		ok  bool
+		err error
+		_   = err
+	)
+
+	val, ok = pathParams["name"]
+	if !ok {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "missing parameter %s", "name")
+	}
+
+	protoReq.Name, err = runtime.String(val)
+
+	if err != nil {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
 	msg, err := client.Delete(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
@@ -67,7 +99,7 @@ func request_BigBaggerService_Delete_0(ctx context.Context, marshaler runtime.Ma
 
 }
 
-func request_BigBaggerService_List_0(ctx context.Context, marshaler runtime.Marshaler, client BigBaggerServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_DatasetService_List_0(ctx context.Context, marshaler runtime.Marshaler, client DatasetServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq ListDatasetsRequest
 	var metadata runtime.ServerMetadata
 
@@ -76,7 +108,7 @@ func request_BigBaggerService_List_0(ctx context.Context, marshaler runtime.Mars
 
 }
 
-func request_BigBaggerService_Status_0(ctx context.Context, marshaler runtime.Marshaler, client BigBaggerServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_DatasetService_Status_0(ctx context.Context, marshaler runtime.Marshaler, client DatasetServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq GetDatasetStatusRequest
 	var metadata runtime.ServerMetadata
 
@@ -103,9 +135,22 @@ func request_BigBaggerService_Status_0(ctx context.Context, marshaler runtime.Ma
 
 }
 
-// RegisterBigBaggerServiceHandlerFromEndpoint is same as RegisterBigBaggerServiceHandler but
+func request_RecordService_Execute_0(ctx context.Context, marshaler runtime.Marshaler, client RecordServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq RecordRequest
+	var metadata runtime.ServerMetadata
+
+	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
+		return nil, metadata, status.Errorf(codes.InvalidArgument, "%v", err)
+	}
+
+	msg, err := client.Execute(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	return msg, metadata, err
+
+}
+
+// RegisterDatasetServiceHandlerFromEndpoint is same as RegisterDatasetServiceHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterBigBaggerServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterDatasetServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -125,23 +170,23 @@ func RegisterBigBaggerServiceHandlerFromEndpoint(ctx context.Context, mux *runti
 		}()
 	}()
 
-	return RegisterBigBaggerServiceHandler(ctx, mux, conn)
+	return RegisterDatasetServiceHandler(ctx, mux, conn)
 }
 
-// RegisterBigBaggerServiceHandler registers the http handlers for service BigBaggerService to "mux".
+// RegisterDatasetServiceHandler registers the http handlers for service DatasetService to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterBigBaggerServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterBigBaggerServiceHandlerClient(ctx, mux, NewBigBaggerServiceClient(conn))
+func RegisterDatasetServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterDatasetServiceHandlerClient(ctx, mux, NewDatasetServiceClient(conn))
 }
 
-// RegisterBigBaggerServiceHandlerClient registers the http handlers for service BigBaggerService
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "BigBaggerServiceClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "BigBaggerServiceClient"
-// doesn't go through the normal gRPC flow (creating a gRPC bbclient etc.) then it will be up to the passed in
-// "BigBaggerServiceClient" to call the correct interceptors.
-func RegisterBigBaggerServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client BigBaggerServiceClient) error {
+// RegisterDatasetServiceHandlerClient registers the http handlers for service DatasetService
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "DatasetServiceClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "DatasetServiceClient"
+// doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
+// "DatasetServiceClient" to call the correct interceptors.
+func RegisterDatasetServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client DatasetServiceClient) error {
 
-	mux.Handle("POST", pattern_BigBaggerService_Create_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_DatasetService_Create_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -159,18 +204,18 @@ func RegisterBigBaggerServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_BigBaggerService_Create_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_DatasetService_Create_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_BigBaggerService_Create_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_DatasetService_Create_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("PUT", pattern_BigBaggerService_Update_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_DatasetService_Update_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -188,18 +233,18 @@ func RegisterBigBaggerServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_BigBaggerService_Update_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_DatasetService_Update_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_BigBaggerService_Update_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_DatasetService_Update_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("DELETE", pattern_BigBaggerService_Delete_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("DELETE", pattern_DatasetService_Delete_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -217,18 +262,18 @@ func RegisterBigBaggerServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_BigBaggerService_Delete_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_DatasetService_Delete_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_BigBaggerService_Delete_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_DatasetService_Delete_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_BigBaggerService_List_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_DatasetService_List_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -246,18 +291,18 @@ func RegisterBigBaggerServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_BigBaggerService_List_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_DatasetService_List_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_BigBaggerService_List_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_DatasetService_List_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_BigBaggerService_Status_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_DatasetService_Status_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -275,14 +320,14 @@ func RegisterBigBaggerServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_BigBaggerService_Status_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_DatasetService_Status_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_BigBaggerService_Status_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_DatasetService_Status_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -290,25 +335,103 @@ func RegisterBigBaggerServiceHandlerClient(ctx context.Context, mux *runtime.Ser
 }
 
 var (
-	pattern_BigBaggerService_Create_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "dataset"}, ""))
+	pattern_DatasetService_Create_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "dataset"}, ""))
 
-	pattern_BigBaggerService_Update_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "dataset"}, ""))
+	pattern_DatasetService_Update_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "dataset", "name"}, ""))
 
-	pattern_BigBaggerService_Delete_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "dataset"}, ""))
+	pattern_DatasetService_Delete_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "dataset", "name"}, ""))
 
-	pattern_BigBaggerService_List_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "dataset"}, ""))
+	pattern_DatasetService_List_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "dataset"}, ""))
 
-	pattern_BigBaggerService_Status_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "dataset", "name"}, ""))
+	pattern_DatasetService_Status_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "dataset", "name"}, ""))
 )
 
 var (
-	forward_BigBaggerService_Create_0 = runtime.ForwardResponseMessage
+	forward_DatasetService_Create_0 = runtime.ForwardResponseMessage
 
-	forward_BigBaggerService_Update_0 = runtime.ForwardResponseMessage
+	forward_DatasetService_Update_0 = runtime.ForwardResponseMessage
 
-	forward_BigBaggerService_Delete_0 = runtime.ForwardResponseMessage
+	forward_DatasetService_Delete_0 = runtime.ForwardResponseMessage
 
-	forward_BigBaggerService_List_0 = runtime.ForwardResponseMessage
+	forward_DatasetService_List_0 = runtime.ForwardResponseMessage
 
-	forward_BigBaggerService_Status_0 = runtime.ForwardResponseMessage
+	forward_DatasetService_Status_0 = runtime.ForwardResponseMessage
+)
+
+// RegisterRecordServiceHandlerFromEndpoint is same as RegisterRecordServiceHandler but
+// automatically dials to "endpoint" and closes the connection when "ctx" gets done.
+func RegisterRecordServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+	conn, err := grpc.Dial(endpoint, opts...)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			if cerr := conn.Close(); cerr != nil {
+				grpclog.Infof("Failed to close conn to %s: %v", endpoint, cerr)
+			}
+			return
+		}
+		go func() {
+			<-ctx.Done()
+			if cerr := conn.Close(); cerr != nil {
+				grpclog.Infof("Failed to close conn to %s: %v", endpoint, cerr)
+			}
+		}()
+	}()
+
+	return RegisterRecordServiceHandler(ctx, mux, conn)
+}
+
+// RegisterRecordServiceHandler registers the http handlers for service RecordService to "mux".
+// The handlers forward requests to the grpc endpoint over "conn".
+func RegisterRecordServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterRecordServiceHandlerClient(ctx, mux, NewRecordServiceClient(conn))
+}
+
+// RegisterRecordServiceHandlerClient registers the http handlers for service RecordService
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "RecordServiceClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "RecordServiceClient"
+// doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
+// "RecordServiceClient" to call the correct interceptors.
+func RegisterRecordServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client RecordServiceClient) error {
+
+	mux.Handle("PUT", pattern_RecordService_Execute_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		if cn, ok := w.(http.CloseNotifier); ok {
+			go func(done <-chan struct{}, closed <-chan bool) {
+				select {
+				case <-done:
+				case <-closed:
+					cancel()
+				}
+			}(ctx.Done(), cn.CloseNotify())
+		}
+		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
+		rctx, err := runtime.AnnotateContext(ctx, mux, req)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+		resp, md, err := request_RecordService_Execute_0(rctx, inboundMarshaler, client, req, pathParams)
+		ctx = runtime.NewServerMetadataContext(ctx, md)
+		if err != nil {
+			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
+			return
+		}
+
+		forward_RecordService_Execute_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+
+	})
+
+	return nil
+}
+
+var (
+	pattern_RecordService_Execute_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "record"}, ""))
+)
+
+var (
+	forward_RecordService_Execute_0 = runtime.ForwardResponseMessage
 )

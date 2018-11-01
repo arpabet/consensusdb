@@ -5,8 +5,8 @@ import "google/api/annotations.proto";
 option go_package = "proto/bbproto";
 option java_multiple_files = true;
 option java_package = "io.github.bigbagger";
-option java_outer_classname = "BigBaggerProtos";
-option objc_class_prefix = "BigBagger";
+option java_outer_classname = "BbProtos";
+option objc_class_prefix = "Bb";
 
 import "protoc-gen-swagger/options/annotations.proto";
 
@@ -26,9 +26,9 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
     produces: "application/json";
 };
 
-package genproto;
+package bb;
 
-service BigBaggerService {
+service DatasetService {
 
     rpc create (CreateDatasetRequest) returns (CreateDatasetResponse) {
         option (google.api.http) = {
@@ -39,15 +39,14 @@ service BigBaggerService {
 
     rpc update (UpdateDatasetRequest) returns (UpdateDatasetResponse) {
         option (google.api.http) = {
-            put: "/v1/dataset"
+            put: "/v1/dataset/{name}"
             body: "*"
         };
     }
 
     rpc delete (DeleteDatasetRequest) returns (DeleteDatasetResponse) {
         option (google.api.http) = {
-            delete: "/v1/dataset"
-            body: "*"
+            delete: "/v1/dataset/{name}"
         };
     }
 
@@ -76,11 +75,12 @@ message Partition {
 }
 
 message Dataset {
-    string   name = 1;
+    string    name         = 1;
     DataDistribution distr = 2;
     Partition partition    = 3;
     string    encryption   = 4;
     string    compression  = 5;
+    bool      pit          = 6;
 }
 
 message CreateDatasetRequest {
@@ -92,7 +92,8 @@ message CreateDatasetResponse {
 }
 
 message UpdateDatasetRequest {
-    Dataset  dataset = 1;
+    string   name = 1;
+    Dataset  dataset = 2;
 }
 
 message UpdateDatasetResponse {
@@ -101,7 +102,6 @@ message UpdateDatasetResponse {
 
 message DeleteDatasetRequest {
     string   name = 1;
-    bool     deleteRecords = 2;
 }
 
 message DeleteDatasetResponse {
@@ -120,13 +120,141 @@ message GetDatasetStatusRequest {
 }
 
 message GetDatasetStatusResponse {
-    Dataset   dataset = 1;
+    Dataset  dataset = 1;
+}
+
+service RecordService {
+
+    rpc execute (RecordRequest) returns (RecordResponse) {
+        option (google.api.http) = {
+            put: "/v1/record"
+            body: "*"
+        };
+    }
+
+}
+
+message Key {
+
+    string   setName   = 1;
+    bytes    patKey    = 2;
+    bytes    recordKey = 3;
+    fixed64  timestamp = 4;
+
 }
 
 message Record {
     int64   version     = 1;
-    string  encryption  = 2;  // algorithm name, if empty no encryption
-    string  keyId       = 3;  // key id used for encryption
-    string  compression = 4;  // algorithm name, if empty no compression
-    bytes   payload     = 5;
+    bytes   value       = 2;
 }
+
+message RecordOpeation {
+
+  Key key = 1;
+
+  oneof operation {
+    ExistsOperation exists = 2;
+    GetOperation    get    = 3;
+    TouchOperation  touch  = 4;
+    PutOperation    put    = 5;
+    RemoveOperation remove = 6;
+  }
+
+}
+
+message ExistsOperation {
+}
+
+message GetOperation {
+}
+
+message TouchOperation {
+}
+
+message PutOperation {
+
+    bool    compareAndSet = 3;
+    int64   version    = 4;
+    bytes   value      = 5;
+    int32   ttlSeconds = 6;
+
+}
+
+message RemoveOperation {
+}
+
+enum StatusCode {
+
+     SUCCESS = 0;
+     SUCCESS_NOT_UPDATED = 1;  // for compare and put operation that is non-locking algorithm
+
+     ERROR_DATASET = 10;       // not found: database, namespace, store, table, cache, catalog, etc.
+     ERROR_BAD_REQUEST = 11;   // invalid parameters in request
+     ERROR_POLICY = 12;        // exists record for operation that requires record and vise versa
+     ERROR_MIGRATION = 13;     // data or connections migration occur during operation
+     ERROR_NETWORK = 14;       // all connection errors and network availability
+     ERROR_AUTH = 15;          // security configuration and authentication
+     ERROR_FORBIDDEN = 16;     // authorization
+     ERROR_TIMEOUT = 17;       // all SLA errors
+     ERROR_OVERLOAD = 18;      // all errors related to high load of operations, full queues and etc.
+     ERROR_OVERFLOW = 19;      // all errors related to data space
+     ERROR_LOCKED = 20;        // all tries to update data that was in pessimistic lock
+     ERROR_ABORTED = 21;       // client aborted stream operation
+     ERROR_END_CQ = 22;        // server aborted stream operation
+     ERROR_UNSUPPORTED = 23;   // unsupported commands
+     ERROR_DRIVER = 24;        // data access driver specific errors
+     ERROR_IO = 25;            // file, serialization, network i/o errors
+     ERROR_INTERNAL = 26;      // all unknown errors
+
+}
+
+message RecordResult {
+
+  StatusCode status = 1;
+
+  oneof result {
+    ExistsResult    exists = 2;
+    GetResult       get    = 3;
+    TouchResult     touch  = 4;
+    PutResult       put    = 5;
+    RemoveResult    remove = 6;
+  }
+
+}
+
+message ExistsResult {
+
+   bool       exists = 2;
+
+}
+
+message GetResult {
+
+   int64   version   = 2;
+   bytes   value     = 3;
+
+}
+
+message TouchResult {
+}
+
+message PutResult {
+}
+
+message RemoveResult {
+}
+
+message RecordRequest {
+
+    string   token = 1;
+    repeated RecordOpeation list = 2;
+
+}
+
+message RecordResponse {
+
+    repeated RecordResult list = 1;
+
+}
+
+

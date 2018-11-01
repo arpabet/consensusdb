@@ -22,7 +22,7 @@ type IBigBagger interface {
 
 type BigBaggerClient struct {
 	conn   *grpc.ClientConn
-	client bbproto.BigBaggerServiceClient
+	client bbproto.DatasetServiceClient
 }
 
 func (cli *BigBaggerClient) Close() error {
@@ -35,7 +35,7 @@ func (cli *BigBaggerClient) Close() error {
 
 func (this *BigBaggerClient) CreateDataset(name string, props map[string]string) error {
 
-	request := &bbproto.CreateDatasetRequest{}
+	request := new(bbproto.CreateDatasetRequest)
 	request.Dataset.Name = name
 
 	distr, ok := props["distr"]
@@ -86,7 +86,7 @@ func (this *BigBaggerClient) CreateDataset(name string, props map[string]string)
 
 func (this *BigBaggerClient) UpdateDataset(name string, props map[string]string) error {
 
-	request := &bbproto.UpdateDatasetRequest{}
+	request := new(bbproto.UpdateDatasetRequest)
 	request.Dataset.Name = name
 
 	_, err := this.client.Update(context.Background(), request)
@@ -101,7 +101,7 @@ func (this *BigBaggerClient) UpdateDataset(name string, props map[string]string)
 
 func (this *BigBaggerClient) DeleteDataset(name string, props map[string]string) error {
 
-	request := &bbproto.DeleteDatasetRequest{}
+	request := new(bbproto.DeleteDatasetRequest)
 	request.Name = name
 
 	_, err := this.client.Delete(context.Background(), request)
@@ -116,7 +116,7 @@ func (this *BigBaggerClient) DeleteDataset(name string, props map[string]string)
 
 func (this *BigBaggerClient) GetDatasetStatus(name string) (status map[string]string, err error) {
 
-	request := &bbproto.GetDatasetStatusRequest{}
+	request := new(bbproto.GetDatasetStatusRequest)
 	request.Name = name
 
 	response, err := this.client.Status(context.Background(), request)
@@ -142,7 +142,7 @@ func (this *BigBaggerClient) GetDatasetStatus(name string) (status map[string]st
 
 func (this *BigBaggerClient) ListDatasets() (list []string, err error) {
 
-	request := &bbproto.ListDatasetsRequest{}
+	request := new(bbproto.ListDatasetsRequest)
 
 	response, err := this.client.List(context.Background(), request)
 
@@ -162,7 +162,7 @@ func NewClient(grpcAddress string) (*BigBaggerClient, error) {
 		return nil, err
 	}
 
-	var cli = &BigBaggerClient{conn, bbproto.NewBigBaggerServiceClient(conn)}
+	var cli = &BigBaggerClient{conn, bbproto.NewDatasetServiceClient(conn)}
 
 	return cli, nil
 }
