@@ -1,0 +1,250 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "BigBagger",
+    "version": "1.0",
+    "contact": {
+      "name": "BigBagger",
+      "url": "https://github.com/BigBagger/bigbagger",
+      "email": "a@shvid.com"
+    }
+  },
+  "schemes": [
+    "http",
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/dataset": {
+      "get": {
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/genprotoListDatasetsResponse"
+            }
+          }
+        },
+        "tags": [
+          "BigBaggerService"
+        ]
+      },
+      "delete": {
+        "operationId": "delete",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/genprotoDeleteDatasetResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/genprotoDeleteDatasetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "BigBaggerService"
+        ]
+      },
+      "post": {
+        "operationId": "create",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/genprotoCreateDatasetResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/genprotoCreateDatasetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "BigBaggerService"
+        ]
+      },
+      "put": {
+        "operationId": "update",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/genprotoUpdateDatasetResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/genprotoUpdateDatasetRequest"
+            }
+          }
+        ],
+        "tags": [
+          "BigBaggerService"
+        ]
+      }
+    },
+    "/v1/dataset/{name}": {
+      "get": {
+        "operationId": "status",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/genprotoGetDatasetStatusResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "BigBaggerService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "genprotoCreateDatasetRequest": {
+      "type": "object",
+      "properties": {
+        "dataset": {
+          "$ref": "#/definitions/genprotoDataset"
+        }
+      }
+    },
+    "genprotoCreateDatasetResponse": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "genprotoDataDistribution": {
+      "type": "string",
+      "enum": [
+        "REPLICATION",
+        "PARTITION"
+      ],
+      "default": "REPLICATION"
+    },
+    "genprotoDataset": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "distr": {
+          "$ref": "#/definitions/genprotoDataDistribution"
+        },
+        "partition": {
+          "$ref": "#/definitions/genprotoPartition"
+        },
+        "encryption": {
+          "type": "string"
+        },
+        "compression": {
+          "type": "string"
+        }
+      }
+    },
+    "genprotoDeleteDatasetRequest": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "deleteRecords": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
+    },
+    "genprotoDeleteDatasetResponse": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "genprotoGetDatasetStatusResponse": {
+      "type": "object",
+      "properties": {
+        "dataset": {
+          "$ref": "#/definitions/genprotoDataset"
+        }
+      }
+    },
+    "genprotoListDatasetsResponse": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "genprotoPartition": {
+      "type": "object",
+      "properties": {
+        "total": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "replicationFactor": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
+    },
+    "genprotoUpdateDatasetRequest": {
+      "type": "object",
+      "properties": {
+        "dataset": {
+          "$ref": "#/definitions/genprotoDataset"
+        }
+      }
+    },
+    "genprotoUpdateDatasetResponse": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}
