@@ -153,12 +153,12 @@ func (this *BigBaggerServer) Status(context context.Context, request *bbproto.Ge
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
 
-	dataset, ok := this.sets[name]
+	set, ok := this.sets[name]
 	if !ok {
 		return nil, errors.New("dataset not found")
 	}
 
-	response.Dataset = dataset.proto
+	response.Dataset = set.dataset
 
 	return response, nil
 

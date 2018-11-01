@@ -15,6 +15,7 @@ import (
 	"bigbagger/proto/bbproto"
 	"bigbagger/bbserver"
 	"os/signal"
+	"bigbagger/bbclient"
 )
 
 func main() {
@@ -56,10 +57,19 @@ func main() {
 		}
 	}()
 
+	// Do some client stuff
+
+	err = testClient(grpcAddress)
+	if err != nil {
+		log.Fatal("Test client failed: ", err)
+	}
+
+
 	err = httpServer.ListenAndServe()
 	if err != nil {
 		log.Fatal("Exit: ", err)
 	}
+
 
 	/*
 		bbclient, err := bbclient.NewClient(grpcAddress)
@@ -80,6 +90,23 @@ func main() {
 
 }
 
+func testClient(grpcAddress string) error {
+
+	client, err := bbclient.NewClient(grpcAddress, "ahahahahaha")
+	defer client.Close()
+
+	if err != nil {
+		return err
+	}
+
+	err = client.CreateDataset(map[string]string{
+		"name": "TEST",
+		"distr": "REPLICATION",
+	})
+
+	return err
+
+}
 
 var welcomeTpl = template.Must(template.ParseFiles("templates/welcome.tmpl"))
 
