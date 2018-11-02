@@ -129,9 +129,9 @@ func (this *BigBaggerServer) Update(context context.Context, dataset *bbproto.Da
 
 }
 
-func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.Name) (response *empty.Empty, err error) {
+func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.String) (response *empty.Empty, err error) {
 
-	name := request.Name
+	name := request.Value
 
 	log.Printf("Delete dataset: %s\n", name)
 
@@ -144,9 +144,9 @@ func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.Na
 	return new(empty.Empty), nil
 }
 
-func (this *BigBaggerServer) Get(request *bbproto.Name, responseServer bbproto.DatasetService_GetServer) error {
+func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto.DatasetService_GetServer) error {
 
-    pattern := request.Name
+    pattern := request.Value
 
     if pattern == "" {
     	pattern = "*"

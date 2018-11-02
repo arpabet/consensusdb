@@ -62,8 +62,8 @@ func (this *BigBaggerClient) UpdateDataset(dataset *bbproto.Dataset) (err error)
 
 func (this *BigBaggerClient) DeleteDataset(name string) error {
 
-	request := new(bbproto.Name)
-	request.Name = name
+	request := new(bbproto.String)
+	request.Value = name
 
 	_, err := this.datasetService.Delete(context.Background(), request)
 
@@ -77,8 +77,8 @@ func (this *BigBaggerClient) DeleteDataset(name string) error {
 
 func (this *BigBaggerClient) GetDataset(pattern string) (result []*bbproto.Dataset, err error) {
 
-	request := new(bbproto.Name)
-	request.Name = pattern
+	request := new(bbproto.String)
+	request.Value = pattern
 
 	response, err := this.datasetService.Get(context.Background(), request)
 

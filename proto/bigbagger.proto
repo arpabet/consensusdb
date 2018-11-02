@@ -45,15 +45,15 @@ service DatasetService {
         };
     }
 
-    rpc Delete (Name) returns (google.protobuf.Empty) {
+    rpc Delete (String) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-            delete: "/v1/dataset/{name}"
+            delete: "/v1/dataset/{value}"
         };
     }
 
-    rpc Get (Name) returns (stream Dataset) {
+    rpc Get (String) returns (stream Dataset) {
         option (google.api.http) = {
-            get: "/v1/dataset/{name}"
+            get: "/v1/dataset/{value}"
         };
     }
 
@@ -126,16 +126,8 @@ message Dataset {
     int32        ttlSeconds   = 8;     // for 0 NO-TTL
 }
 
-message Empty {
-
-}
-
-message Name {
-    string   name  = 1;
-}
-
-message NameList {
-    repeated string name = 1;
+message String {
+    string  value  = 1;
 }
 
 service RecordService {
