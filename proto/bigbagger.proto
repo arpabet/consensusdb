@@ -51,13 +51,7 @@ service DatasetService {
         };
     }
 
-    rpc List (google.protobuf.Empty) returns (NameList) {
-        option (google.api.http) = {
-            get: "/v1/datasets"
-        };
-    }
-
-    rpc Status (Name) returns (Dataset) {
+    rpc Get (Name) returns (stream Dataset) {
         option (google.api.http) = {
             get: "/v1/dataset/{name}"
         };

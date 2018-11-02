@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/gobwas/glob"
 )
 
 type BigBaggerServer struct {
@@ -92,6 +93,10 @@ func (this *BigBaggerServer) Create(context context.Context, dataset *bbproto.Da
 
 	log.Printf("Create dataset: %s\n", name)
 
+	if name == "" {
+		return nil, errors.New("empty name")
+	}
+
 	set, ok := this.sets.Get(name)
 
 	if ok {
@@ -116,6 +121,10 @@ func (this *BigBaggerServer) Update(context context.Context, dataset *bbproto.Da
 
 	log.Printf("Update dataset: %s\n", name)
 
+	if name == "" {
+		return nil, errors.New("empty name")
+	}
+
 	return nil, errors.New("not supported")
 
 }
@@ -135,34 +144,38 @@ func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.Na
 	return new(empty.Empty), nil
 }
 
-func (this *BigBaggerServer) List(context context.Context, request *empty.Empty) (response *bbproto.NameList, err error) {
+func (this *BigBaggerServer) Get(request *bbproto.Name, responseServer bbproto.DatasetService_GetServer) error {
 
-	log.Printf("List datasets\n")
+    pattern := request.Name
 
-	response = new(bbproto.NameList)
-
-	for _, e := range this.sets.List() {
-		response.Name = append(response.Name, e.Key)
+    if pattern == "" {
+    	pattern = "*"
 	}
 
-	return response, nil
+	log.Printf("Get datasets: %s\n", pattern)
 
-}
+    matcher, err := glob.Compile(pattern)
 
-func (this *BigBaggerServer) Status(context context.Context, request *bbproto.Name) (response *bbproto.Dataset, err error) {
-
-	name := request.Name
-
-	log.Printf("Get dataset status: %s\n", name)
-
-	set, ok := this.sets.Get(name)
-	if !ok {
-		return nil, errors.New(bbproto.StatusCode_ERROR_NO_DATASET.String())
+	if err != nil {
+		return errors.New("wrong pattern")
 	}
 
-	return set.dataset, nil
 
+	list := this.sets.List()
+
+	for _, e := range list {
+
+		if matcher.Match(e.Key) {
+
+			responseServer.Send(e.Value.dataset)
+
+		}
+
+	}
+
+	return nil
 }
+
 
 //
 //
