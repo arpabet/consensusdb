@@ -29,4 +29,10 @@ open http://localhost:4481/
 curl -d "@create.json" -H "Content-Type: application/json" -X POST http://localhost:4481/v1/dataset
 ```
 
+### Check
 
+```
+lsof -n -i:$PORT | grep LISTEN
+```
+
+You have to see that bigbagger is listening 4481 and 4482 ports

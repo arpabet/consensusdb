@@ -52,7 +52,7 @@ service DatasetService {
 
     rpc list (ListDatasetsRequest) returns (ListDatasetsResponse) {
         option (google.api.http) = {
-            get: "/v1/dataset"
+            get: "/v1/datasets"
         };
     }
 

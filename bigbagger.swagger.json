@@ -21,28 +21,6 @@
   ],
   "paths": {
     "/v1/dataset": {
-      "get": {
-        "operationId": "list",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/bbListDatasetsResponse"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "DatasetService"
-        ]
-      },
       "post": {
         "operationId": "create",
         "responses": {
@@ -149,6 +127,30 @@
             "schema": {
               "$ref": "#/definitions/bbUpdateDatasetRequest"
             }
+          }
+        ],
+        "tags": [
+          "DatasetService"
+        ]
+      }
+    },
+    "/v1/datasets": {
+      "get": {
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/bbListDatasetsResponse"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "type": "string"
           }
         ],
         "tags": [

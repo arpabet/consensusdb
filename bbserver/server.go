@@ -88,6 +88,10 @@ func NewServer(cfg *ini.File) (server *BigBaggerServer, err error) {
 
 func (this *BigBaggerServer) Create(context context.Context, request *bbproto.CreateDatasetRequest) (response *bbproto.CreateDatasetResponse, err error) {
 
+	if request.Dataset == nil {
+		return nil, errors.New("empty dataset")
+	}
+
 	name := request.Dataset.Name
 
 	response = new(bbproto.CreateDatasetResponse)
@@ -117,6 +121,10 @@ func (this *BigBaggerServer) Create(context context.Context, request *bbproto.Cr
 
 func (this *BigBaggerServer) Update(context context.Context, request *bbproto.UpdateDatasetRequest) (response *bbproto.UpdateDatasetResponse, err error) {
 
+	if request.Dataset == nil {
+		return nil, errors.New("empty dataset")
+	}
+
 	name := request.Dataset.Name
 
 	log.Printf("Update dataset: %s\n", name)
@@ -129,7 +137,7 @@ func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.De
 
 	name := request.Name
 
-	log.Printf("Delete dataset: %s\n", request.Name)
+	log.Printf("Delete dataset: %s\n", name)
 
 	this.mutex.Lock()
 	defer this.mutex.Unlock()
@@ -217,7 +225,7 @@ func (this *BigBaggerServer) StartServer(grpcAddress string) error {
 
 	// Create new grpc bbserver
 	this.grpcServer = grpc.NewServer()
-	// Register service
+	// Register services
 	bbproto.RegisterDatasetServiceServer(this.grpcServer, this)
 	bbproto.RegisterRecordServiceServer(this.grpcServer, this)
 	// Start serving requests
