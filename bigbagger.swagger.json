@@ -48,10 +48,10 @@
     },
     "/v1/dataset/{name}": {
       "get": {
-        "operationId": "Status",
+        "operationId": "Get",
         "responses": {
           "200": {
-            "description": "",
+            "description": "(streaming responses)",
             "schema": {
               "$ref": "#/definitions/bbDataset"
             }
@@ -117,22 +117,6 @@
             }
           }
         ],
-        "tags": [
-          "DatasetService"
-        ]
-      }
-    },
-    "/v1/datasets": {
-      "get": {
-        "operationId": "List",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/bbNameList"
-            }
-          }
-        },
         "tags": [
           "DatasetService"
         ]
@@ -320,17 +304,6 @@
         "timestamp": {
           "type": "string",
           "format": "uint64"
-        }
-      }
-    },
-    "bbNameList": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         }
       }
     },

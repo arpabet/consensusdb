@@ -5,7 +5,6 @@ import (
 	"google.golang.org/grpc"
 	"bigbagger/proto/bbproto"
 	"github.com/pkg/errors"
-	"github.com/golang/protobuf/ptypes/empty"
 )
 
 type IBigBagger interface {
@@ -15,9 +14,7 @@ type IBigBagger interface {
 
 	DeleteDataset(name string) error
 
-	GetDatasetStatus(name string) (*bbproto.Dataset, error)
-
-	ListDatasets() ([]string, error)
+	GetDataset(pattern string) ([]*bbproto.Dataset, error)
 
 	Execute(IOperation) (IResult, error)
 
@@ -78,29 +75,26 @@ func (this *BigBaggerClient) DeleteDataset(name string) error {
 
 }
 
-func (this *BigBaggerClient) GetDatasetStatus(name string) (dataset *bbproto.Dataset, err error) {
+func (this *BigBaggerClient) GetDataset(pattern string) (result []*bbproto.Dataset, err error) {
 
 	request := new(bbproto.Name)
-	request.Name = name
+	request.Name = pattern
 
-	response, err := this.datasetService.Status(context.Background(), request)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return response, nil
-}
-
-func (this *BigBaggerClient) ListDatasets() (list []string, err error) {
-
-	response, err := this.datasetService.List(context.Background(), new(empty.Empty))
+	response, err := this.datasetService.Get(context.Background(), request)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return response.Name, nil
+	result = make([]*bbproto.Dataset, 0, 10)
+
+	for dataset, err := response.Recv(); err != nil; dataset, err = response.Recv() {
+
+		result = append(result, dataset)
+
+	}
+
+	return result, err
 
 }
 
