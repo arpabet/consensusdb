@@ -27,7 +27,7 @@
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/googleprotobufEmpty"
+              "$ref": "#/definitions/protobufEmpty"
             }
           }
         },
@@ -47,57 +47,13 @@
       }
     },
     "/v1/dataset/{name}": {
-      "get": {
-        "operationId": "Get",
-        "responses": {
-          "200": {
-            "description": "(streaming responses)",
-            "schema": {
-              "$ref": "#/definitions/bbDataset"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "DatasetService"
-        ]
-      },
-      "delete": {
-        "operationId": "Delete",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/googleprotobufEmpty"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "DatasetService"
-        ]
-      },
       "put": {
         "operationId": "Update",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/googleprotobufEmpty"
+              "$ref": "#/definitions/protobufEmpty"
             }
           }
         },
@@ -115,6 +71,52 @@
             "schema": {
               "$ref": "#/definitions/bbDataset"
             }
+          }
+        ],
+        "tags": [
+          "DatasetService"
+        ]
+      }
+    },
+    "/v1/dataset/{value}": {
+      "get": {
+        "operationId": "Get",
+        "responses": {
+          "200": {
+            "description": "(streaming responses)",
+            "schema": {
+              "$ref": "#/definitions/bbDataset"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "DatasetService"
+        ]
+      },
+      "delete": {
+        "operationId": "Delete",
+        "responses": {
+          "200": {
+            "description": "",
+            "schema": {
+              "$ref": "#/definitions/protobufEmpty"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "value",
+            "in": "path",
+            "required": true,
+            "type": "string"
           }
         ],
         "tags": [
@@ -464,7 +466,7 @@
     "bbTouchResult": {
       "type": "object"
     },
-    "googleprotobufEmpty": {
+    "protobufEmpty": {
       "type": "object",
       "description": "service Foo {\n      rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);\n    }\n\nThe JSON representation for `Empty` is empty JSON object `{}`.",
       "title": "A generic empty message that you can re-use to avoid defining duplicated\nempty messages in your APIs. A typical example is to use it as the request\nor the response type of an API method. For instance:"
