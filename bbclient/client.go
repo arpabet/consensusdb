@@ -5,6 +5,7 @@ import (
 	"google.golang.org/grpc"
 	"bigbagger/proto/bbproto"
 	"github.com/pkg/errors"
+	"github.com/golang/protobuf/ptypes/empty"
 )
 
 type IBigBagger interface {
@@ -24,7 +25,6 @@ type IBigBagger interface {
 }
 
 type BigBaggerClient struct {
-	token           string
 	conn            *grpc.ClientConn
 	datasetService  bbproto.DatasetServiceClient
 	recordService   bbproto.RecordServiceClient
@@ -41,11 +41,7 @@ func (cli *BigBaggerClient) Close() error {
 
 func (this *BigBaggerClient) CreateDataset(dataset *bbproto.Dataset) (err error) {
 
-	request := new(bbproto.CreateDatasetRequest)
-	request.Token = this.token
-	request.Dataset = dataset
-
-	_, err = this.datasetService.Create(context.Background(), request)
+	_, err = this.datasetService.Create(context.Background(), dataset)
 
 	if err != nil {
 		return err
@@ -57,11 +53,7 @@ func (this *BigBaggerClient) CreateDataset(dataset *bbproto.Dataset) (err error)
 
 func (this *BigBaggerClient) UpdateDataset(dataset *bbproto.Dataset) (err error) {
 
-	request := new(bbproto.UpdateDatasetRequest)
-	request.Token = this.token
-	request.Dataset = dataset
-
-	_, err = this.datasetService.Update(context.Background(), request)
+	_, err = this.datasetService.Update(context.Background(), dataset)
 
 	if err != nil {
 		return err
@@ -73,8 +65,7 @@ func (this *BigBaggerClient) UpdateDataset(dataset *bbproto.Dataset) (err error)
 
 func (this *BigBaggerClient) DeleteDataset(name string) error {
 
-	request := new(bbproto.DeleteDatasetRequest)
-	request.Token = this.token
+	request := new(bbproto.Name)
 	request.Name = name
 
 	_, err := this.datasetService.Delete(context.Background(), request)
@@ -89,8 +80,7 @@ func (this *BigBaggerClient) DeleteDataset(name string) error {
 
 func (this *BigBaggerClient) GetDatasetStatus(name string) (dataset *bbproto.Dataset, err error) {
 
-	request := new(bbproto.GetDatasetStatusRequest)
-	request.Token = this.token
+	request := new(bbproto.Name)
 	request.Name = name
 
 	response, err := this.datasetService.Status(context.Background(), request)
@@ -99,14 +89,12 @@ func (this *BigBaggerClient) GetDatasetStatus(name string) (dataset *bbproto.Dat
 		return nil, err
 	}
 
-	return response.Dataset, nil
+	return response, nil
 }
 
 func (this *BigBaggerClient) ListDatasets() (list []string, err error) {
 
-	request := new(bbproto.ListDatasetsRequest)
-	request.Token = this.token
-	response, err := this.datasetService.List(context.Background(), request)
+	response, err := this.datasetService.List(context.Background(), new(empty.Empty))
 
 	if err != nil {
 		return nil, err
@@ -119,8 +107,7 @@ func (this *BigBaggerClient) ListDatasets() (list []string, err error) {
 func (this *BigBaggerClient) Execute(op IOperation) (res IResult, err error) {
 
 	request := new(bbproto.RecordRequest)
-	request.Token = this.token
-	request.List = make([]*bbproto.RecordOpeation, 1)
+	request.List = make([]*bbproto.RecordOperation, 1)
 
 	request.List[0] = op.toProto()
 
@@ -143,8 +130,7 @@ func (this *BigBaggerClient) ExecuteList(ops []IOperation) (res []IResult, err e
 	size := len(ops)
 
 	request := new(bbproto.RecordRequest)
-	request.Token = this.token
-	request.List = make([]*bbproto.RecordOpeation, size)
+	request.List = make([]*bbproto.RecordOperation, size)
 
 	for i, op := range ops {
 		request.List[i] = op.toProto()
@@ -177,7 +163,7 @@ func NewClient(grpcAddress, token string) (*BigBaggerClient, error) {
 		return nil, err
 	}
 
-	var cli = &BigBaggerClient{token, conn, bbproto.NewDatasetServiceClient(conn), bbproto.NewRecordServiceClient(conn)}
+	var cli = &BigBaggerClient{conn, bbproto.NewDatasetServiceClient(conn), bbproto.NewRecordServiceClient(conn)}
 
 	return cli, nil
 }

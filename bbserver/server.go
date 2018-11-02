@@ -8,18 +8,16 @@ import (
 	"net"
 	"bigbagger/proto/bbproto"
 	"os"
-	"sync"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"path/filepath"
+	"github.com/golang/protobuf/ptypes/empty"
 )
 
 type BigBaggerServer struct {
 	grpcServer   *grpc.Server
 	dataDir      string
-
-	mutex        sync.Mutex
-	sets         map[string]*DatasetContext
+	sets         *DatasetMap
 }
 
 func (this *BigBaggerServer) Close() {
@@ -30,18 +28,20 @@ func (this *BigBaggerServer) Close() {
 		this.grpcServer = nil
 	}
 
-	for _, v := range this.sets {
-		v.Close();
-	}
+	list := this.sets.List()
 
-	this.sets = make(map[string]*DatasetContext)
+	this.sets.Clear()
+
+	for _, e := range list {
+		e.Value.Close();
+	}
 
 }
 
 func NewServer(cfg *ini.File) (server *BigBaggerServer, err error) {
 
 	server = new(BigBaggerServer)
-	server.sets = make(map[string]*DatasetContext)
+	server.sets = NewDatasetMap()
 
 	section := cfg.Section("database")
 
@@ -70,7 +70,7 @@ func NewServer(cfg *ini.File) (server *BigBaggerServer, err error) {
 				return nil, err
 			}
 
-			server.sets[dataset.GetName()] = dataset
+			server.sets.Put(dataset.GetName(), dataset)
 
 		}
 
@@ -86,46 +86,33 @@ func NewServer(cfg *ini.File) (server *BigBaggerServer, err error) {
 //
 
 
-func (this *BigBaggerServer) Create(context context.Context, request *bbproto.CreateDatasetRequest) (response *bbproto.CreateDatasetResponse, err error) {
+func (this *BigBaggerServer) Create(context context.Context, dataset *bbproto.Dataset) (response *empty.Empty, err error) {
 
-	if request.Dataset == nil {
-		return nil, errors.New("empty dataset")
-	}
-
-	name := request.Dataset.Name
-
-	response = new(bbproto.CreateDatasetResponse)
-	response.Name = name
+	name := dataset.Name
 
 	log.Printf("Create dataset: %s\n", name)
 
-	this.mutex.Lock()
-	defer this.mutex.Unlock()
+	set, ok := this.sets.Get(name)
 
-	set, ok := this.sets[name]
 	if ok {
-		return response, nil
+		return new(empty.Empty), nil
 	}
 
-	set, err = NewDataset(filepath.Join(this.dataDir, name), request.Dataset)
+	set, err = NewDataset(filepath.Join(this.dataDir, name), dataset)
 
 	if err != nil {
 		return nil, err
 	}
 
-	this.sets[name] = set
+	this.sets.Put(name, set)
 
-	return response, nil
+	return new(empty.Empty), nil
 
 }
 
-func (this *BigBaggerServer) Update(context context.Context, request *bbproto.UpdateDatasetRequest) (response *bbproto.UpdateDatasetResponse, err error) {
+func (this *BigBaggerServer) Update(context context.Context, dataset *bbproto.Dataset) (response *empty.Empty, err error) {
 
-	if request.Dataset == nil {
-		return nil, errors.New("empty dataset")
-	}
-
-	name := request.Dataset.Name
+	name := dataset.Name
 
 	log.Printf("Update dataset: %s\n", name)
 
@@ -133,66 +120,47 @@ func (this *BigBaggerServer) Update(context context.Context, request *bbproto.Up
 
 }
 
-func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.DeleteDatasetRequest) (response *bbproto.DeleteDatasetResponse, err error) {
+func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.Name) (response *empty.Empty, err error) {
 
 	name := request.Name
 
 	log.Printf("Delete dataset: %s\n", name)
 
-	this.mutex.Lock()
-	defer this.mutex.Unlock()
+	prev, ok := this.sets.Remove(name)
 
-	dataset, ok := this.sets[name]
-	if !ok {
-		return nil, errors.New("dataset not found")
+	if ok {
+		prev.Close()
 	}
 
-	dataset.Close()
-
-	delete(this.sets, name)
-
-	response = new(bbproto.DeleteDatasetResponse)
-	response.Name = name
-
-	return response, nil
+	return new(empty.Empty), nil
 }
 
-func (this *BigBaggerServer) List(context context.Context, request *bbproto.ListDatasetsRequest) (response *bbproto.ListDatasetsResponse, err error) {
+func (this *BigBaggerServer) List(context context.Context, request *empty.Empty) (response *bbproto.NameList, err error) {
 
 	log.Printf("List datasets\n")
 
-	response = new(bbproto.ListDatasetsResponse)
+	response = new(bbproto.NameList)
 
-	this.mutex.Lock()
-	defer this.mutex.Unlock()
-
-	for k, _ := range this.sets {
-		response.Name = append(response.Name, k)
+	for _, e := range this.sets.List() {
+		response.Name = append(response.Name, e.Key)
 	}
 
 	return response, nil
 
 }
 
-func (this *BigBaggerServer) Status(context context.Context, request *bbproto.GetDatasetStatusRequest) (response *bbproto.GetDatasetStatusResponse, err error) {
+func (this *BigBaggerServer) Status(context context.Context, request *bbproto.Name) (response *bbproto.Dataset, err error) {
 
 	name := request.Name
 
 	log.Printf("Get dataset status: %s\n", name)
 
-	response = new(bbproto.GetDatasetStatusResponse)
-
-	this.mutex.Lock()
-	defer this.mutex.Unlock()
-
-	set, ok := this.sets[name]
+	set, ok := this.sets.Get(name)
 	if !ok {
-		return nil, errors.New("dataset not found")
+		return nil, errors.New(bbproto.StatusCode_ERROR_NO_DATASET.String())
 	}
 
-	response.Dataset = set.dataset
-
-	return response, nil
+	return set.dataset, nil
 
 }
 
@@ -204,8 +172,7 @@ func (this *BigBaggerServer) Status(context context.Context, request *bbproto.Ge
 
 func (this *BigBaggerServer) Execute(context context.Context, request *bbproto.RecordRequest) (response *bbproto.RecordResponse, err error) {
 
-	log.Printf("Execute record dataset: %s\n", request.Token)
-
+	log.Printf("Execute record dataset\n")
 
 	response = new(bbproto.RecordResponse)
 

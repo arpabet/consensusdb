@@ -7,7 +7,7 @@ import (
 
 type IOperation interface {
 
-	toProto() *bbproto.RecordOpeation
+	toProto() *bbproto.RecordOperation
 
 }
 
@@ -81,9 +81,9 @@ type Get struct {
 
 }
 
-func (this* Get) toProto() *bbproto.RecordOpeation {
+func (this* Get) toProto() *bbproto.RecordOperation {
 
-	op := new(bbproto.RecordOpeation)
+	op := new(bbproto.RecordOperation)
 
 	return op
 
@@ -95,9 +95,9 @@ type Exists struct {
 
 }
 
-func (this* Exists) toProto() *bbproto.RecordOpeation {
+func (this* Exists) toProto() *bbproto.RecordOperation {
 
-	op := new(bbproto.RecordOpeation)
+	op := new(bbproto.RecordOperation)
 
 	return op
 
@@ -109,9 +109,9 @@ type Touch struct {
 
 }
 
-func (this* Touch) toProto() *bbproto.RecordOpeation {
+func (this* Touch) toProto() *bbproto.RecordOperation {
 
-	op := new(bbproto.RecordOpeation)
+	op := new(bbproto.RecordOperation)
 
 	return op
 
@@ -128,9 +128,9 @@ type Put struct {
 
 }
 
-func (this* Put) toProto() *bbproto.RecordOpeation {
+func (this* Put) toProto() *bbproto.RecordOperation {
 
-	op := new(bbproto.RecordOpeation)
+	op := new(bbproto.RecordOperation)
 
 	return op
 
@@ -142,9 +142,9 @@ type Remove struct {
 
 }
 
-func (this* Remove) toProto() *bbproto.RecordOpeation {
+func (this* Remove) toProto() *bbproto.RecordOperation {
 
-	op := new(bbproto.RecordOpeation)
+	op := new(bbproto.RecordOperation)
 
 	return op
 
