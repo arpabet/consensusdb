@@ -22,12 +22,12 @@
   "paths": {
     "/v1/dataset": {
       "post": {
-        "operationId": "create",
+        "operationId": "Create",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/bbCreateDatasetResponse"
+              "$ref": "#/definitions/googleprotobufEmpty"
             }
           }
         },
@@ -37,7 +37,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bbCreateDatasetRequest"
+              "$ref": "#/definitions/bbDataset"
             }
           }
         ],
@@ -48,12 +48,12 @@
     },
     "/v1/dataset/{name}": {
       "get": {
-        "operationId": "status",
+        "operationId": "Status",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/bbGetDatasetStatusResponse"
+              "$ref": "#/definitions/bbDataset"
             }
           }
         },
@@ -62,12 +62,6 @@
             "name": "name",
             "in": "path",
             "required": true,
-            "type": "string"
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
             "type": "string"
           }
         ],
@@ -76,12 +70,12 @@
         ]
       },
       "delete": {
-        "operationId": "delete",
+        "operationId": "Delete",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/bbDeleteDatasetResponse"
+              "$ref": "#/definitions/googleprotobufEmpty"
             }
           }
         },
@@ -91,12 +85,6 @@
             "in": "path",
             "required": true,
             "type": "string"
-          },
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "type": "string"
           }
         ],
         "tags": [
@@ -104,12 +92,12 @@
         ]
       },
       "put": {
-        "operationId": "update",
+        "operationId": "Update",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/bbUpdateDatasetResponse"
+              "$ref": "#/definitions/googleprotobufEmpty"
             }
           }
         },
@@ -125,7 +113,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bbUpdateDatasetRequest"
+              "$ref": "#/definitions/bbDataset"
             }
           }
         ],
@@ -136,23 +124,15 @@
     },
     "/v1/datasets": {
       "get": {
-        "operationId": "list",
+        "operationId": "List",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/bbListDatasetsResponse"
+              "$ref": "#/definitions/bbNameList"
             }
           }
         },
-        "parameters": [
-          {
-            "name": "token",
-            "in": "query",
-            "required": false,
-            "type": "string"
-          }
-        ],
         "tags": [
           "DatasetService"
         ]
@@ -195,25 +175,6 @@
         "threshold": {
           "type": "integer",
           "format": "int32"
-        }
-      }
-    },
-    "bbCreateDatasetRequest": {
-      "type": "object",
-      "properties": {
-        "token": {
-          "type": "string"
-        },
-        "dataset": {
-          "$ref": "#/definitions/bbDataset"
-        }
-      }
-    },
-    "bbCreateDatasetResponse": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
         }
       }
     },
@@ -265,14 +226,6 @@
         "ttlSeconds": {
           "type": "integer",
           "format": "int32"
-        }
-      }
-    },
-    "bbDeleteDatasetResponse": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
         }
       }
     },
@@ -330,14 +283,6 @@
         }
       }
     },
-    "bbGetDatasetStatusResponse": {
-      "type": "object",
-      "properties": {
-        "dataset": {
-          "$ref": "#/definitions/bbDataset"
-        }
-      }
-    },
     "bbGetOperation": {
       "type": "object"
     },
@@ -378,7 +323,7 @@
         }
       }
     },
-    "bbListDatasetsResponse": {
+    "bbNameList": {
       "type": "object",
       "properties": {
         "name": {
@@ -438,7 +383,7 @@
     "bbPutResult": {
       "type": "object"
     },
-    "bbRecordOpeation": {
+    "bbRecordOperation": {
       "type": "object",
       "properties": {
         "key": {
@@ -464,13 +409,10 @@
     "bbRecordRequest": {
       "type": "object",
       "properties": {
-        "token": {
-          "type": "string"
-        },
         "list": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bbRecordOpeation"
+            "$ref": "#/definitions/bbRecordOperation"
           }
         }
       }
@@ -549,27 +491,10 @@
     "bbTouchResult": {
       "type": "object"
     },
-    "bbUpdateDatasetRequest": {
+    "googleprotobufEmpty": {
       "type": "object",
-      "properties": {
-        "token": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "dataset": {
-          "$ref": "#/definitions/bbDataset"
-        }
-      }
-    },
-    "bbUpdateDatasetResponse": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string"
-        }
-      }
+      "description": "service Foo {\n      rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);\n    }\n\nThe JSON representation for `Empty` is empty JSON object `{}`.",
+      "title": "A generic empty message that you can re-use to avoid defining duplicated\nempty messages in your APIs. A typical example is to use it as the request\nor the response type of an API method. For instance:"
     }
   }
 }

@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
 
 option go_package = "proto/bbproto";
 option java_multiple_files = true;
@@ -30,33 +31,33 @@ package bb;
 
 service DatasetService {
 
-    rpc create (CreateDatasetRequest) returns (CreateDatasetResponse) {
+    rpc Create (Dataset) returns (google.protobuf.Empty) {
         option (google.api.http) = {
             post: "/v1/dataset"
             body: "*"
         };
     }
 
-    rpc update (UpdateDatasetRequest) returns (UpdateDatasetResponse) {
+    rpc Update (Dataset) returns (google.protobuf.Empty) {
         option (google.api.http) = {
             put: "/v1/dataset/{name}"
             body: "*"
         };
     }
 
-    rpc delete (DeleteDatasetRequest) returns (DeleteDatasetResponse) {
+    rpc Delete (Name) returns (google.protobuf.Empty) {
         option (google.api.http) = {
             delete: "/v1/dataset/{name}"
         };
     }
 
-    rpc list (ListDatasetsRequest) returns (ListDatasetsResponse) {
+    rpc List (google.protobuf.Empty) returns (NameList) {
         option (google.api.http) = {
             get: "/v1/datasets"
         };
     }
 
-    rpc status (GetDatasetStatusRequest) returns (GetDatasetStatusResponse) {
+    rpc Status (Name) returns (Dataset) {
         option (google.api.http) = {
             get: "/v1/dataset/{name}"
         };
@@ -131,49 +132,16 @@ message Dataset {
     int32        ttlSeconds   = 8;     // for 0 NO-TTL
 }
 
-message CreateDatasetRequest {
-    string    token = 1;
-    Dataset   dataset = 2;
+message Empty {
+
 }
 
-message CreateDatasetResponse {
-    string   name = 1;
+message Name {
+    string   name  = 1;
 }
 
-message UpdateDatasetRequest {
-    string   token = 1;
-    string   name = 2;
-    Dataset  dataset = 3;
-}
-
-message UpdateDatasetResponse {
-    string   name = 1;
-}
-
-message DeleteDatasetRequest {
-    string   token = 1;
-    string   name  = 2;
-}
-
-message DeleteDatasetResponse {
-    string   name = 1;
-}
-
-message ListDatasetsRequest {
-    string   token = 1;
-}
-
-message ListDatasetsResponse {
+message NameList {
     repeated string name = 1;
-}
-
-message GetDatasetStatusRequest {
-    string  token = 1;
-    string  name = 2;
-}
-
-message GetDatasetStatusResponse {
-    Dataset  dataset = 1;
 }
 
 service RecordService {
@@ -207,7 +175,7 @@ message Record {
 
 }
 
-message RecordOpeation {
+message RecordOperation {
 
   Key key = 1;
 
@@ -307,8 +275,7 @@ message RemoveResult {
 
 message RecordRequest {
 
-    string   token = 1;
-    repeated RecordOpeation list = 2;
+    repeated RecordOperation list = 1;
 
 }
 
