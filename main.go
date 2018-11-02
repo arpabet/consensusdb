@@ -35,18 +35,24 @@ func main() {
 	grpcAddress := cfg.Section("server").Key("grpcAddress").String()
 
 	server, err := bbserver.NewServer(cfg)
-	defer server.Close();
+	defer server.Close()
 
 	if err != nil {
 		log.Fatal("fail to create a bbserver ", err)
 		os.Exit(1)
 	}
 
-	log.Println("Starting gRPC bbserver on " + grpcAddress)
+	log.Println("Starting gRPC server on " + grpcAddress)
 	go server.StartServer(grpcAddress)
 
-	log.Println("Starting HTTP bbserver on " + httpAddress)
-	httpServer, err := NewHttpServer(httpAddress, grpcAddress)
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	log.Println("Starting HTTP server on " + httpAddress)
+	httpServer, err := NewHttpServer(ctx, httpAddress, grpcAddress)
+	defer httpServer.Close()
+
 	if err != nil {
 		log.Fatal("port is busy " + httpAddress, err)
 	}
@@ -55,8 +61,9 @@ func main() {
 	signal.Notify(signalChain, os.Interrupt)
 	go func(){
 		for _ = range signalChain {
-			server.Close()
 			httpServer.Close()
+			cancel()
+			server.Close()
 		}
 	}()
 
@@ -118,7 +125,7 @@ func testClient(grpcAddress string) error {
 		return err
 	}
 
-	data, err := ioutil.ReadFile("create.json")
+	data, err := ioutil.ReadFile("example.json")
 	if err != nil {
 		return err
 	}
@@ -152,10 +159,7 @@ func serveSwagger(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func NewHttpServer(httpAddress, grpcAddress string) (*http.Server, error) {
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string) (*http.Server, error) {
 
 	gw := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
@@ -168,13 +172,12 @@ func NewHttpServer(httpAddress, grpcAddress string) (*http.Server, error) {
 		return nil, err
 	}
 	mux := http.NewServeMux()
+	mux.Handle("/v1/", gw)
 	mux.HandleFunc("/swagger/", serveSwagger)
 	mux.HandleFunc("/", serveWelcome)
+
 	curdir, _ := os.Getwd()
 	fmt.Println("cur dir", curdir)
-	//swagger := http.FileServer(http.Dir(filepath.Join(curdir, "3rdparty", "swagger-ui")))
-	//mux.Handle("/swagger/", swagger)
-	mux.Handle("/v1/", gw)
 
 	return &http.Server{Addr: httpAddress, Handler: mux}, nil
 

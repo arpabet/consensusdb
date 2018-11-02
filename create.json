@@ -1,4 +1,7 @@
 {
-       "version": "1.0",
-       "name" : "TEST"
+  "token" : "app1",
+  "dataset": {
+    "version": "1.0",
+    "name": "TEST"
+  }
 }
