@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"github.com/golang/protobuf/jsonpb"
+	"bigbagger/bbcommon"
+	"fmt"
 )
 
 const (
@@ -86,4 +88,102 @@ func LoadDataset(dbDir string) (context *DatasetContext, err error) {
 
 	return OpenDataset(dbDir, dataset)
 
+}
+
+func (this *DatasetContext) ProcessExistsOperation(key *bbproto.Key, operation *bbproto.ExistsOperation) *bbproto.RecordResult {
+
+	txn := this.db.NewTransaction(false)
+	defer txn.Discard()
+
+	item, err := txn.Get(key.RecordKey)
+	if err != nil {
+		return bbcommon.SuccessExistsResult(0)
+	}
+
+	return bbcommon.SuccessExistsResult(item.Version())
+
+}
+
+func (this *DatasetContext) ProcessGetOperation(key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.RecordResult {
+
+	txn := this.db.NewTransaction(false)
+	defer txn.Discard()
+
+	item, err := txn.Get(key.RecordKey)
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("get failed: ", err))
+	}
+
+	data, err := item.Value()
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("get fetch failed: ", err))
+	}
+
+	return bbcommon.SuccessGetResult(data, item.Version())
+
+}
+
+func (this *DatasetContext) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.RecordResult {
+
+	return nil
+
+}
+
+func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.RecordResult {
+
+	txn := this.db.NewTransaction(true)
+
+	err := txn.Set(key.RecordKey, operation.Value)
+
+	if err != nil {
+		txn.Discard()
+		return bbcommon.ErrorDriver(fmt.Sprint("set failed: ", err))
+	}
+
+	err = txn.Commit(nil)
+
+	return bbcommon.SuccessPutResult()
+
+}
+
+func (this *DatasetContext) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.RecordResult {
+
+	txn := this.db.NewTransaction(true)
+
+	err := txn.Delete(key.RecordKey)
+
+	if err != nil {
+		txn.Discard()
+		return bbcommon.ErrorDriver(fmt.Sprint("remove failed: ", err))
+	}
+
+	err = txn.Commit(nil)
+
+	return bbcommon.SuccessRemoveResult()
+
+}
+
+
+func (this *DatasetContext) ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
+
+	switch operation.Operation.(type) {
+
+		case *bbproto.RecordOperation_Exists:
+			return this.ProcessExistsOperation(operation.Key, operation.GetExists())
+
+		case *bbproto.RecordOperation_Get:
+			return this.ProcessGetOperation(operation.Key, operation.GetGet())
+
+		case *bbproto.RecordOperation_Touch:
+			return this.ProcessTouchOperation(operation.Key, operation.GetTouch())
+
+		case *bbproto.RecordOperation_Put:
+			return this.ProcessPutOperation(operation.Key, operation.GetPut())
+
+		case *bbproto.RecordOperation_Remove:
+			return this.ProcessRemoveOperation(operation.Key, operation.GetRemove())
+
+	}
+
+	return bbcommon.ErrorUnsupported("unknown operation type")
 }

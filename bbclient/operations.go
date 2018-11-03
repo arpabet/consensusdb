@@ -19,7 +19,7 @@ type IResult interface {
 
 	Exists() bool
 
-	GetVersion() int64
+	GetVersion() uint64
 
 	GetValue() []byte
 
@@ -122,7 +122,7 @@ type Put struct {
 	Key Key
 
 	CompareAndSet bool
-	Version       int64
+	Version       uint64
 	Value         []byte
 	TtlSeconds    int32
 
@@ -161,7 +161,7 @@ type UpdatedResult struct {
 }
 
 type ValueResult struct {
-	Version    int64
+	Version    uint64
 	Value      []byte
 	Timestamp  uint64
 }
@@ -228,7 +228,7 @@ func (this *ExistsResult) Exists() bool {
 	return this.Result
 }
 
-func (this *ExistsResult) GetVersion() int64 {
+func (this *ExistsResult) GetVersion() uint64 {
 	return 0
 }
 
@@ -268,7 +268,7 @@ func (this *UpdatedResult) Exists() bool {
 	return true
 }
 
-func (this *UpdatedResult) GetVersion() int64 {
+func (this *UpdatedResult) GetVersion() uint64 {
 	return 0
 }
 
@@ -309,7 +309,7 @@ func (this *ValueResult) Exists() bool {
 	return this.Value != nil
 }
 
-func (this *ValueResult) GetVersion() int64 {
+func (this *ValueResult) GetVersion() uint64 {
 	return this.Version
 }
 
@@ -349,7 +349,7 @@ func (this *ErrorResult) Exists() bool {
 	return false
 }
 
-func (this *ErrorResult) GetVersion() int64 {
+func (this *ErrorResult) GetVersion() uint64 {
 	return 0
 }
 
