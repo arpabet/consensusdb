@@ -11,7 +11,7 @@ type IOperation interface {
 
 	WithTimestamp(timestamp uint64) IOperation
 
-	WithTtl(ttlSeconds int32) IOperation
+	WithTtl(ttlSeconds uint32) IOperation
 
 	CompareAndSet(version uint64) IOperation
 
@@ -194,27 +194,27 @@ func (this *RemoveOp) WithTimestamp(timestamp uint64) IOperation {
 //  WithTtl
 //
 
-func (this *HeadOp) WithTtl(ttlSeconds int32) IOperation {
+func (this *HeadOp) WithTtl(ttlSeconds uint32) IOperation {
 	return this
 }
 
-func (this *GetOp) WithTtl(ttlSeconds int32) IOperation {
+func (this *GetOp) WithTtl(ttlSeconds uint32) IOperation {
 	return this
 }
 
-func (this *TouchOp) WithTtl(ttlSeconds int32) IOperation {
+func (this *TouchOp) WithTtl(ttlSeconds uint32) IOperation {
 	this.Touch.OverrideTtl = true
 	this.Touch.TtlSeconds = ttlSeconds
 	return this
 }
 
-func (this *PutOp) WithTtl(ttlSeconds int32) IOperation {
+func (this *PutOp) WithTtl(ttlSeconds uint32) IOperation {
 	this.Put.OverrideTtl = true
 	this.Put.TtlSeconds = ttlSeconds
 	return this
 }
 
-func (this *RemoveOp) WithTtl(ttlSeconds int32) IOperation {
+func (this *RemoveOp) WithTtl(ttlSeconds uint32) IOperation {
 	return this
 }
 

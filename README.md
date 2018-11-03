@@ -44,7 +44,7 @@ You have to see that bigbagger is listening 4481 and 4482 ports
     // connect to BigBagger server
     //
 
-	client, err := bbclient.NewClient(grpcAddress)
+    client, err := bbclient.NewClient(grpcAddress)
 	defer client.Close()
 
     //

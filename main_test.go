@@ -8,7 +8,6 @@ import (
 	"bigbagger/bbclient"
 	"bigbagger/proto/bbproto"
 	"os"
-	"fmt"
 )
 
 const (
@@ -92,13 +91,12 @@ func TestSuit(t *testing.T) {
 
 	RunCRUIDTests(t, client, "TEST_SECOND")
 	RunCompareAndSetTests(t, client, "TEST_SECOND")
+	RunWithTtlTests(t, client, "TEST_SECOND")
 
 	if err != nil {
 		t.Fatal("fail to remove dataset ", err)
 	}
 
-	println("remove all files in " + dataDir)
-	os.RemoveAll(dataDir)
 
 }
 
@@ -275,7 +273,7 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 		t.Fatal("wrong value of the first version", err)
 	}
 
-	fmt.Print("firstVersion=", firstVersion, "\n")
+	//fmt.Print("firstVersion=", firstVersion, "\n")
 
 	//
 	//  Test Replace
@@ -320,7 +318,7 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 		t.Fatal("wrong value of the second version", err)
 	}
 
-	fmt.Print("secondVersion=", secondVersion, "\n")
+	//fmt.Print("secondVersion=", secondVersion, "\n")
 
 	//
 	//  Test Remove
@@ -338,5 +336,92 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 		t.Fatal("remove fail to remove entry ", res.GetError())
 	}
 
+
+}
+
+
+func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
+
+	//
+	//  Test Not Exists
+	//
+
+	op := bbclient.Head(set, []byte("ttl"))
+
+	res, err := client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o exists entry ", err)
+	}
+
+	if res.Exists() {
+		t.Fatal("this is a new test, entry must not exists", err)
+	}
+
+	if res.GetExpiresAt() > 0 {
+		t.Fatal("expected zero for expiration time", err)
+	}
+
+	//
+	//  Test Put With TTL
+	//
+
+	op = bbclient.Put(set, []byte("ttl"), []byte("value")).WithTtl(100)
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o put entry ", err)
+	}
+
+	if res.IsError() {
+		t.Fatal("remove fail to put entry ", res.GetError())
+	}
+
+	//
+	//  Test Exists With TTL
+	//
+
+	op = bbclient.Head(set, []byte("ttl"))
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o exists entry ", err)
+	}
+
+	if !res.Exists() {
+		t.Fatal("value with ttl not found", err)
+	}
+
+	//fmt.Print("ExpireAt=", res.GetExpiresAt(), "\n")
+
+	if res.GetExpiresAt() == 0 {
+		t.Fatal("expected non zero for expiration time", err)
+	}
+
+	//
+	//  Test Get With TTL
+	//
+
+	op = bbclient.Get(set, []byte("ttl"))
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o get entry ", err)
+	}
+
+	if !res.Exists() {
+		t.Fatal("value with ttl not found", err)
+	}
+
+	if res.GetExpiresAt() == 0 {
+		t.Fatal("expected non zero for expiration time", err)
+	}
+
+	if string(res.GetValue()) != "value" {
+		t.Fatal("wrong value with ttl", err)
+	}
 
 }
