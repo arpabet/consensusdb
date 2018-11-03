@@ -33,8 +33,9 @@ func main() {
 
 	httpAddress := cfg.Section("server").Key("httpAddress").String()
 	grpcAddress := cfg.Section("server").Key("grpcAddress").String()
+	dataDir := cfg.Section("database").Key("dataDir").String()
 
-	server, err := bbserver.NewServer(cfg)
+	server, err := bbserver.NewServer(dataDir)
 	defer server.Close()
 
 	if err != nil {
@@ -118,7 +119,7 @@ func testClient(grpcAddress string) error {
 
 	*/
 
-	client, err := bbclient.NewClient(grpcAddress, "ahahahahaha")
+	client, err := bbclient.NewClient(grpcAddress)
 	defer client.Close()
 
 	if err != nil {

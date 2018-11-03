@@ -88,10 +88,8 @@ func (this *BigBaggerClient) GetDataset(pattern string) (result []*bbproto.Datas
 
 	result = make([]*bbproto.Dataset, 0, 10)
 
-	for dataset, err := response.Recv(); err != nil; dataset, err = response.Recv() {
-
+	for dataset, e := response.Recv(); e == nil; dataset, e = response.Recv() {
 		result = append(result, dataset)
-
 	}
 
 	return result, err
@@ -150,7 +148,7 @@ func (this *BigBaggerClient) ExecuteTransaction(ops []IOperation) (res []IResult
 
 }
 
-func NewClient(grpcAddress, token string) (*BigBaggerClient, error) {
+func NewClient(grpcAddress string) (*BigBaggerClient, error) {
 
 	conn, err := grpc.Dial(grpcAddress, grpc.WithInsecure())
 	if err != nil {
