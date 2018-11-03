@@ -60,23 +60,23 @@ service DatasetService {
 }
 
 enum DataDistribution {
-    DD_LOCAL = 0;
-    DD_REPLICATION = 1;
-    DD_PARTITION = 2;
+    DD_LOCAL        = 0;
+    DD_REPLICATION  = 1;
+    DD_PARTITION    = 2;
 }
 
 message Partition {
-    int32 total = 1;
-    int32 replicationFactor = 2;
+    uint32 total             = 1;
+    uint32 replicationFactor = 2;
 }
 
 enum PointInTime {
-    PIT_NO = 0;
-    PIT_LAST_ONE = 1;
-    PIT_LAST_FIVE = 5;
-    PIT_LAST_TEN = 10;
+    PIT_NO                 = 0;
+    PIT_LAST_ONE           = 1;
+    PIT_LAST_FIVE          = 5;
+    PIT_LAST_TEN           = 10;
     PIT_FIRST_TEN_LAST_TEN = 20;
-    PIT_ALL = 100;
+    PIT_ALL                = 100;
 }
 
 enum EncryptionAlgorithm {
@@ -101,18 +101,13 @@ message Encryption {
     string               topoIv    = 4;
 }
 
-enum DataCompression {
+enum Compression {
     DC_NO      = 0;
     DC_FLATE   = 1;
     DC_GZIP    = 2;
     DC_LZW     = 3;
     DC_ZLIB    = 4;
     DC_BZIP2   = 5;
-}
-
-message Compression {
-    DataCompression  comp       = 1;
-    int32            threshold  = 2;    // threshold in bytes when compression will be enabled, 0 - no threshold
 }
 
 message Dataset {
@@ -123,7 +118,7 @@ message Dataset {
     Compression      compression  = 5;     // can not be changed
     Encryption       encryption   = 6;     // can not be changed
     PointInTime      pit          = 7;     // can not be changed
-    int32            ttlSeconds   = 8;     // can be changed, for 0 = NO-TTL
+    uint32           ttlSeconds   = 8;     // can be changed, for 0 = NO-TTL
 }
 
 message String {
@@ -143,16 +138,16 @@ service TransactionService {
 
 message Key {
 
-    string   setName       = 1;
-    bytes    partitionKey  = 2;
-    bytes    recordKey     = 3;
-    fixed64  timestamp     = 4;   // requests before or equal to this timestamp, if not 0
+    string    setName       = 1;
+    bytes     partitionKey  = 2;
+    bytes     recordKey     = 3;
+    fixed64   timestamp     = 4;   // requests before or equal to this timestamp, if not 0
 
 }
 
 message RecordOperation {
 
-  Key key = 1;
+  Key  key = 1;
 
   oneof operation {
     HeadOperation   head   = 10;
@@ -173,7 +168,7 @@ message GetOperation {
 message TouchOperation {
 
     bool     overrideTtl   = 1;
-    int32    ttlSeconds    = 2;   // overrides dataset TTL
+    uint32   ttlSeconds    = 2;   // overrides dataset TTL
 
 }
 
@@ -182,10 +177,10 @@ message PutOperation {
     bytes    value         = 1;
 
     bool     overrideTtl   = 2;
-    int32    ttlSeconds    = 3;   // overrides dataset TTL
+    uint32   ttlSeconds    = 3;   // overrides dataset TTL
 
     bool     compareAndSet = 4;
-    fixed64  version       = 5;   // committedAt
+    uint64   version       = 5;   // if 0 then putIfAbsent
 
 }
 
@@ -234,7 +229,7 @@ message RecordResult {
 
 message HeadResult {
 
-   fixed64    version    = 1;  // committedAt, if 0 then not exists
+   uint64     version    = 1;  // if 0 then not exists
    fixed64    expiresAt  = 2;
    fixed64    timestamp  = 3;
 
@@ -244,7 +239,7 @@ message GetResult {
 
    bytes      value      = 1;
 
-   fixed64    version    = 2;  // committedAt, if 0 then not exists
+   uint64     version    = 2;  // if 0 then not exists
    fixed64    expiresAt  = 3;
    fixed64    timestamp  = 4;
 
@@ -261,13 +256,13 @@ message RemoveResult {
 
 message Transaction {
 
-    repeated RecordOperation operations = 1;
+   repeated RecordOperation operations = 1;
 
 }
 
 message TransactionContext {
 
-    repeated RecordResult results = 1;
+   repeated RecordResult results = 1;
 
 }
 

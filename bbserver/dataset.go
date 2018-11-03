@@ -9,6 +9,7 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"bigbagger/bbcommon"
 	"fmt"
+	"time"
 )
 
 const (
@@ -148,7 +149,18 @@ func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbp
 
 	}
 
-	err := txn.Set(key.RecordKey, operation.Value)
+	ttlSeconds := this.dataset.TtlSeconds
+	if operation.OverrideTtl {
+		ttlSeconds = operation.TtlSeconds
+	}
+
+	var err error
+
+	if ttlSeconds > 0 {
+		err = txn.SetWithTTL(key.RecordKey, operation.Value,  time.Duration(ttlSeconds) * time.Second)
+	} else {
+		err = txn.Set(key.RecordKey, operation.Value)
+	}
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("put failed: ", err))

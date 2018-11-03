@@ -153,18 +153,6 @@
   },
   "definitions": {
     "bbCompression": {
-      "type": "object",
-      "properties": {
-        "comp": {
-          "$ref": "#/definitions/bbDataCompression"
-        },
-        "threshold": {
-          "type": "integer",
-          "format": "int32"
-        }
-      }
-    },
-    "bbDataCompression": {
       "type": "string",
       "enum": [
         "DC_NO",
@@ -211,7 +199,7 @@
         },
         "ttlSeconds": {
           "type": "integer",
-          "format": "int32"
+          "format": "int64"
         }
       }
     },
@@ -322,11 +310,11 @@
       "properties": {
         "total": {
           "type": "integer",
-          "format": "int32"
+          "format": "int64"
         },
         "replicationFactor": {
           "type": "integer",
-          "format": "int32"
+          "format": "int64"
         }
       }
     },
@@ -355,7 +343,7 @@
         },
         "ttlSeconds": {
           "type": "integer",
-          "format": "int32"
+          "format": "int64"
         },
         "compareAndSet": {
           "type": "boolean",
@@ -459,7 +447,7 @@
         },
         "ttlSeconds": {
           "type": "integer",
-          "format": "int32"
+          "format": "int64"
         }
       }
     },

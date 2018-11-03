@@ -211,8 +211,6 @@ func (this *BigBaggerServer) Execute(context context.Context, tnx *bbproto.Trans
 	response = new(bbproto.TransactionContext)
 	response.Results = make([]*bbproto.RecordResult, 0, len(tnx.Operations))
 
-	log.Printf("Execute record dataset\n")
-
 	if len(tnx.Operations) == 0 {
 		return response, nil
 	}
