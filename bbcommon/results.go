@@ -33,7 +33,7 @@ func SuccessPutResult() *bbproto.RecordResult {
 
 	result := new(bbproto.RecordResult)
 	result.Status = bbproto.StatusCode_SUCCESS
-	result.Result =  &bbproto.RecordResult_Put{}
+	result.Result =  &bbproto.RecordResult_Put{ &bbproto.PutResult{} }
 
 	return result
 }
@@ -42,7 +42,7 @@ func SuccessRemoveResult() *bbproto.RecordResult {
 
 	result := new(bbproto.RecordResult)
 	result.Status = bbproto.StatusCode_SUCCESS
-	result.Result =  &bbproto.RecordResult_Remove{}
+	result.Result =  &bbproto.RecordResult_Remove{&bbproto.RemoveResult{}}
 
 	return result
 }

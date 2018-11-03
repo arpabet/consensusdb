@@ -15,10 +15,6 @@ import (
 	"bigbagger/proto/bbproto"
 	"bigbagger/bbserver"
 	"os/signal"
-	"bigbagger/bbclient"
-	"io/ioutil"
-	"github.com/golang/protobuf/jsonpb"
-	"time"
 )
 
 func main() {
@@ -68,81 +64,13 @@ func main() {
 		}
 	}()
 
-	// Do some client stuff
-
-	err = testClient(grpcAddress)
-	if err != nil {
-		log.Fatal("Test client failed: ", err)
-	}
-
-
 	err = httpServer.ListenAndServe()
 	if err != nil {
 		log.Fatal("Exit: ", err)
 	}
 
-
-	/*
-		bbclient, err := bbclient.NewClient(grpcAddress)
-
-		if err != nil {
-			fmt.Println("error connecting: ", err)
-		}
-
-		err = bbclient.CreateDataset("test")
-
-		if err != nil {
-			fmt.Println("error copy: ", err)
-		}
-
-		bbclient.Close()
-		bbserver.Stop()
-	*/
-
 }
 
-func testClient(grpcAddress string) error {
-
-	time.Sleep(time.Second)
-
-	/*
-
-	ds := bbproto.Dataset{}
-	ds.Name = "TEST"
-	ds.Distr = bbproto.DataDistribution_DD_REPLICATION
-	ds.Compression = bbproto.Compression_DC_ZLIB
-	ds.Pit = bbproto.PointInTime_PIT_ALL
-	ds.TtlSeconds = 86356
-
-	str, err := new(jsonpb.Marshaler).MarshalToString(&ds)
-	ioutil.WriteFile("example.json", []byte(str), 0755)
-
-	*/
-
-	client, err := bbclient.NewClient(grpcAddress)
-	defer client.Close()
-
-	if err != nil {
-		return err
-	}
-
-	data, err := ioutil.ReadFile("example.json")
-	if err != nil {
-		return err
-	}
-
-	dataset := new(bbproto.Dataset)
-	err = jsonpb.UnmarshalString(string(data), dataset)
-
-	if err != nil {
-		return err
-	}
-
-	err = client.CreateDataset(dataset)
-
-	return err
-
-}
 
 var welcomeTpl = template.Must(template.ParseFiles("templates/welcome.tmpl"))
 

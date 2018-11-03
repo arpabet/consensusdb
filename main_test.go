@@ -100,20 +100,113 @@ func TestSuit(t *testing.T) {
 
 }
 
-func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, dataset string) {
+func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
-	op := new(bbclient.Put)
-	op.Key.SetSetName(dataset).SetRecordKeyString("key")
-	op.Put.Value = []byte("value")
+	//
+	//  Test Not Exists
+	//
+
+	op := bbclient.Exists(set, []byte("key"))
 
 	res, err := client.Execute(op)
 
 	if err != nil {
-		t.Fatal("fail to put entry ", err)
+		t.Fatal("i/o exists entry ", err)
+	}
+
+	if res.Exists() {
+		t.Fatal("this is a new test, entry must not exists", err)
+	}
+
+	//
+	//  Test Put
+	//
+
+	op = bbclient.Put(set, []byte("key"), []byte("value"))
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o put entry ", err)
 	}
 
 	if res.IsError() {
 		t.Fatal("remove fail to put entry ", res.GetError())
 	}
+
+	//
+	//  Test Exists
+	//
+
+	op = bbclient.Exists(set, []byte("key"))
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o exists entry ", err)
+	}
+
+	if !res.Exists() {
+		t.Fatal("entry must exists", err)
+	}
+
+	//
+	//  Test Get
+	//
+
+	op = bbclient.Get(set, []byte("key"))
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o get entry ", err)
+	}
+
+	if res.IsError() {
+		t.Fatal("remove fail to get entry ", res.GetError())
+	}
+
+	data := res.GetValue()
+
+	if data == nil {
+		t.Fatal("entry not found")
+	}
+
+	if string(data) != "value" {
+		t.Fatal("wrong data found")
+	}
+
+	//
+	//  Test Remove
+	//
+
+	op = bbclient.Remove(set, []byte("key"))
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o remove entry ", err)
+	}
+
+	if res.IsError() {
+		t.Fatal("remove fail to remove entry ", res.GetError())
+	}
+
+	//
+	//  Test Not Exists
+	//
+
+	op = bbclient.Exists(set, []byte("key"))
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o exists entry ", err)
+	}
+
+	if res.Exists() {
+		t.Fatal("entry nust be removed", err)
+	}
+
 
 }
