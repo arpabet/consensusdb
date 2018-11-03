@@ -27,9 +27,11 @@ type IResult interface {
 
 	Exists() bool
 
-	GetVersion() uint64
-
 	GetValue() []byte
+
+	GetVersion() uint64     // committedAt
+
+	GetExpiresAt() uint64
 
 	GetTimestamp() uint64
 
@@ -37,27 +39,15 @@ type IResult interface {
 
 	GetError() error
 
-	GetErrorMessage() string
+	GetMessage() string
 
 }
 
-type IKey interface {
 
-	SetSetName(setName string) IKey
+type HeadOp struct {
 
-	SetPartitionKey(patKey []byte) IKey
-
-	SetRecordKey(recordKey []byte) IKey
-
-	SetRecordKeyString(recordKey string) IKey
-
-	SetTimestamp(timestamp uint64) IKey
-
-}
-
-type ExistsOp struct {
-
-	Key    bbproto.Key
+	Key     bbproto.Key
+	Head    bbproto.HeadOperation
 
 }
 
@@ -65,32 +55,34 @@ type ExistsOp struct {
 type GetOp struct {
 
 	Key    bbproto.Key
+	Get    bbproto.GetOperation
 
 }
 
 type TouchOp struct {
 
-	Key    bbproto.Key
-	Touch  bbproto.TouchOperation
+	Key     bbproto.Key
+	Touch   bbproto.TouchOperation
 
 }
 
 type PutOp struct {
 
-	Key    bbproto.Key
-	Put    bbproto.PutOperation
+	Key     bbproto.Key
+	Put     bbproto.PutOperation
 
 }
 
 type RemoveOp struct {
 
-	Key    bbproto.Key
+	Key     bbproto.Key
+	Remove  bbproto.RemoveOperation
 
 }
 
-func Exists(setName string, key []byte) IOperation {
+func Head(setName string, key []byte) IOperation {
 
-	op := new(ExistsOp)
+	op := new(HeadOp)
 
 	op.Key.SetName = setName
 	op.Key.RecordKey = key
@@ -144,7 +136,7 @@ func Remove(setName string, key []byte) IOperation {
 //  WithPartitionKey
 //
 
-func (this *ExistsOp) WithPartitionKey(key []byte) IOperation {
+func (this *HeadOp) WithPartitionKey(key []byte) IOperation {
 	this.Key.PartitionKey = key
 	return this
 }
@@ -173,7 +165,7 @@ func (this *RemoveOp) WithPartitionKey(key []byte) IOperation {
 //  WithTimestamp
 //
 
-func (this *ExistsOp) WithTimestamp(timestamp uint64) IOperation {
+func (this *HeadOp) WithTimestamp(timestamp uint64) IOperation {
 	this.Key.Timestamp = timestamp
 	return this
 }
@@ -202,7 +194,7 @@ func (this *RemoveOp) WithTimestamp(timestamp uint64) IOperation {
 //  WithTtl
 //
 
-func (this *ExistsOp) WithTtl(ttlSeconds int32) IOperation {
+func (this *HeadOp) WithTtl(ttlSeconds int32) IOperation {
 	return this
 }
 
@@ -211,11 +203,13 @@ func (this *GetOp) WithTtl(ttlSeconds int32) IOperation {
 }
 
 func (this *TouchOp) WithTtl(ttlSeconds int32) IOperation {
+	this.Touch.OverrideTtl = true
 	this.Touch.TtlSeconds = ttlSeconds
 	return this
 }
 
 func (this *PutOp) WithTtl(ttlSeconds int32) IOperation {
+	this.Put.OverrideTtl = true
 	this.Put.TtlSeconds = ttlSeconds
 	return this
 }
@@ -228,7 +222,7 @@ func (this *RemoveOp) WithTtl(ttlSeconds int32) IOperation {
 //  CompareAndSet
 //
 
-func (this *ExistsOp) CompareAndSet(version uint64) IOperation {
+func (this *HeadOp) CompareAndSet(version uint64) IOperation {
 	return this
 }
 
@@ -255,11 +249,11 @@ func (this *RemoveOp) CompareAndSet(version uint64) IOperation {
 //
 
 
-func (this* ExistsOp) toProto() *bbproto.RecordOperation {
+func (this* HeadOp) toProto() *bbproto.RecordOperation {
 
 	op := new(bbproto.RecordOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.RecordOperation_Exists{&bbproto.ExistsOperation{}}
+	op.Operation = &bbproto.RecordOperation_Head{&this.Head}
 
 	return op
 
@@ -269,7 +263,7 @@ func (this* GetOp) toProto() *bbproto.RecordOperation {
 
 	op := new(bbproto.RecordOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.RecordOperation_Get{&bbproto.GetOperation{}}
+	op.Operation = &bbproto.RecordOperation_Get{&this.Get}
 
 	return op
 
@@ -279,7 +273,7 @@ func (this* TouchOp) toProto() *bbproto.RecordOperation {
 
 	op := new(bbproto.RecordOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.RecordOperation_Touch{&bbproto.TouchOperation{}}
+	op.Operation = &bbproto.RecordOperation_Touch{&this.Touch}
 
 	return op
 
@@ -299,7 +293,7 @@ func (this* RemoveOp) toProto() *bbproto.RecordOperation {
 
 	op := new(bbproto.RecordOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.RecordOperation_Remove{ &bbproto.RemoveOperation{} }
+	op.Operation = &bbproto.RecordOperation_Remove{ &this.Remove}
 
 	return op
 
@@ -313,25 +307,27 @@ func (this* RemoveOp) toProto() *bbproto.RecordOperation {
 //
 
 
-type ExistsResult struct {
-	Result     bool
-	Timestamp  uint64
+type HeadResult struct {
+	Version     uint64    // committedAt, exists if > 0
+	ExpiresAt   uint64
+	Timestamp   uint64    // key part of timestamp for PIT
 }
 
 type UpdatedResult struct {
-	Status     bbproto.StatusCode
-	Result     bool
+	Status      bbproto.StatusCode
+	Result      bool
 }
 
 type ValueResult struct {
-	Version    uint64
-	Value      []byte
-	Timestamp  uint64
+	Value       []byte
+	Version     uint64    // committedAt, exists if > 0
+	ExpiresAt   uint64
+	Timestamp   uint64    // key part of timestamp for PIT
 }
 
 type ErrorResult struct {
-	Status       bbproto.StatusCode
-	ErrorMessage string
+	Status      bbproto.StatusCode
+	Message     string
 }
 
 func ParseResult(result *bbproto.RecordResult) IResult {
@@ -350,16 +346,16 @@ func ParseSuccessResult(result *bbproto.RecordResult) IResult {
 
 	switch result.Result.(type) {
 
-	case *bbproto.RecordResult_Exists:
+	case *bbproto.RecordResult_Head:
 		{
-			exists := result.GetExists()
-			return &ExistsResult{exists.Exists, exists.Timestamp}
+			head := result.GetHead()
+			return &HeadResult{head.Version, head.ExpiresAt, head.Timestamp}
 		}
 
 	case *bbproto.RecordResult_Get:
 		{
 			get := result.GetGet()
-			return &ValueResult{get.Version, get.Value, get.Timestamp}
+			return &ValueResult{get.Value, get.Version, get.ExpiresAt, get.Timestamp}
 		}
 
 	case *bbproto.RecordResult_Touch:
@@ -376,42 +372,46 @@ func ParseSuccessResult(result *bbproto.RecordResult) IResult {
 }
 
 //
-// ExistsResult implements IResult
+// HeadResult implements IResult
 //
 
-func (this *ExistsResult) GetStatus() int32 {
+func (this *HeadResult) GetStatus() int32 {
 	return int32(bbproto.StatusCode_SUCCESS)
 }
 
-func (this *ExistsResult) Updated() bool {
+func (this *HeadResult) Updated() bool {
 	return false
 }
 
-func (this *ExistsResult) Exists() bool {
-	return this.Result
+func (this *HeadResult) Exists() bool {
+	return this.Version > 0
 }
 
-func (this *ExistsResult) GetVersion() uint64 {
-	return 0
+func (this *HeadResult) GetVersion() uint64 {
+	return this.Version
 }
 
-func (this *ExistsResult) GetValue() []byte {
+func (this *HeadResult) GetValue() []byte {
 	return nil
 }
 
-func (this *ExistsResult) GetTimestamp() uint64 {
+func (this *HeadResult) GetExpiresAt() uint64 {
+	return this.ExpiresAt
+}
+
+func (this *HeadResult) GetTimestamp() uint64 {
 	return this.Timestamp
 }
 
-func (this *ExistsResult) IsError() bool {
+func (this *HeadResult) IsError() bool {
 	return false
 }
 
-func (this *ExistsResult) GetError() error {
+func (this *HeadResult) GetError() error {
 	return nil
 }
 
-func (this *ExistsResult) GetErrorMessage() string {
+func (this *HeadResult) GetMessage() string {
 	return ""
 }
 
@@ -439,6 +439,10 @@ func (this *UpdatedResult) GetValue() []byte {
 	return nil
 }
 
+func (this *UpdatedResult) GetExpiresAt() uint64 {
+	return 0
+}
+
 func (this *UpdatedResult) GetTimestamp() uint64 {
 	return 0
 }
@@ -451,7 +455,7 @@ func (this *UpdatedResult) GetError() error {
 	return nil
 }
 
-func (this *UpdatedResult) GetErrorMessage() string {
+func (this *UpdatedResult) GetMessage() string {
 	return ""
 }
 
@@ -469,7 +473,7 @@ func (this *ValueResult) Updated() bool {
 }
 
 func (this *ValueResult) Exists() bool {
-	return this.Value != nil
+	return this.Version > 0
 }
 
 func (this *ValueResult) GetVersion() uint64 {
@@ -478,6 +482,10 @@ func (this *ValueResult) GetVersion() uint64 {
 
 func (this *ValueResult) GetValue() []byte {
 	return this.Value
+}
+
+func (this *ValueResult) GetExpiresAt() uint64 {
+	return this.ExpiresAt
 }
 
 func (this *ValueResult) GetTimestamp() uint64 {
@@ -492,7 +500,7 @@ func (this *ValueResult) GetError() error {
 	return nil
 }
 
-func (this *ValueResult) GetErrorMessage() string {
+func (this *ValueResult) GetMessage() string {
 	return ""
 }
 
@@ -520,6 +528,10 @@ func (this *ErrorResult) GetValue() []byte {
 	return nil
 }
 
+func (this *ErrorResult) GetExpiresAt() uint64 {
+	return 0
+}
+
 func (this *ErrorResult) GetTimestamp() uint64 {
 	return 0
 }
@@ -529,9 +541,9 @@ func (this *ErrorResult) IsError() bool {
 }
 
 func (this *ErrorResult) GetError() error {
-	return errors.New(this.Status.String() + ": " + this.GetErrorMessage())
+	return errors.New(this.Status.String())
 }
 
-func (this *ErrorResult) GetErrorMessage() string {
-	return this.ErrorMessage
+func (this *ErrorResult) GetMessage() string {
+	return this.Message
 }
