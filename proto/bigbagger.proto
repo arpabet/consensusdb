@@ -176,11 +176,11 @@ message PutOperation {
 
     bytes    value         = 1;
 
-    bool     overrideTtl   = 2;
-    uint32   ttlSeconds    = 3;   // overrides dataset TTL
+    bool     overrideTtl   = 5;
+    uint32   ttlSeconds    = 6;   // overrides dataset TTL
 
-    bool     compareAndSet = 4;
-    uint64   version       = 5;   // if 0 then putIfAbsent
+    bool     compareAndSet = 7;
+    uint64   version       = 8;   // if 0 then putIfAbsent
 
 }
 
@@ -229,9 +229,9 @@ message RecordResult {
 
 message HeadResult {
 
-   uint64     version    = 1;  // if 0 then not exists
-   fixed64    expiresAt  = 2;
-   fixed64    timestamp  = 3;
+   uint64     version    = 5;  // if 0 then not exists
+   fixed64    expiresAt  = 6;
+   fixed64    timestamp  = 7;
 
 }
 
@@ -239,9 +239,9 @@ message GetResult {
 
    bytes      value      = 1;
 
-   uint64     version    = 2;  // if 0 then not exists
-   fixed64    expiresAt  = 3;
-   fixed64    timestamp  = 4;
+   uint64     version    = 5;  // if 0 then not exists
+   fixed64    expiresAt  = 6;
+   fixed64    timestamp  = 7;
 
 }
 
