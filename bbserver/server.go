@@ -3,7 +3,6 @@ package bbserver
 import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"gopkg.in/ini.v1"
 	"log"
 	"net"
 	"bigbagger/proto/bbproto"
@@ -40,14 +39,11 @@ func (this *BigBaggerServer) Close() {
 
 }
 
-func NewServer(cfg *ini.File) (server *BigBaggerServer, err error) {
+func NewServer(dataDir string) (server *BigBaggerServer, err error) {
 
 	server = new(BigBaggerServer)
 	server.sets = NewDatasetMap()
-
-	section := cfg.Section("database")
-
-	server.dataDir = section.Key("dataDir").String()
+	server.dataDir = dataDir
 
 	log.Printf("init dataDir=%s\n", server.dataDir)
 
