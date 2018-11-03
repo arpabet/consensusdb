@@ -35,11 +35,13 @@ type IResult interface {
 
 type IKey interface {
 
-	SetDataset(dataset string) IKey
+	SetSetName(setName string) IKey
 
-	SetPatKey(patKey []byte) IKey
+	SetPartitionKey(patKey []byte) IKey
 
 	SetRecordKey(recordKey []byte) IKey
+
+	SetRecordKeyString(recordKey string) IKey
 
 	SetTimestamp(timestamp uint64) IKey
 
@@ -47,30 +49,32 @@ type IKey interface {
 
 type Key struct {
 
-	Dataset              string
-	PatKey               []byte
-	RecordKey            []byte
-	Timestamp            uint64
+	Key  bbproto.Key
 
 }
 
-func (this* Key) SetDataset(dataset string) IKey {
-	this.Dataset = dataset
+func (this* Key) SetSetName(setName string) IKey {
+	this.Key.SetName = setName
 	return this
 }
 
-func (this* Key) SetPatKey(patKey []byte) IKey {
-	this.PatKey = patKey
+func (this* Key) SetPartitionKey(patKey []byte) IKey {
+	this.Key.PartitionKey = patKey
 	return this
 }
 
 func (this* Key) SetRecordKey(recordKey []byte) IKey {
-	this.RecordKey = recordKey
+	this.Key.RecordKey = recordKey
+	return this
+}
+
+func (this* Key) SetRecordKeyString(recordKey string) IKey {
+	this.Key.RecordKey = []byte(recordKey)
 	return this
 }
 
 func (this* Key) SetTimestamp(timestamp uint64) IKey {
-	this.Timestamp = timestamp
+	this.Key.Timestamp = timestamp
 	return this
 }
 
@@ -120,17 +124,15 @@ func (this* Touch) toProto() *bbproto.RecordOperation {
 type Put struct {
 
 	Key Key
-
-	CompareAndSet bool
-	Version       uint64
-	Value         []byte
-	TtlSeconds    int32
+	Put bbproto.PutOperation
 
 }
 
 func (this* Put) toProto() *bbproto.RecordOperation {
 
 	op := new(bbproto.RecordOperation)
+	op.Key = &this.Key.Key
+	op.Operation = &bbproto.RecordOperation_Put{&this.Put}
 
 	return op
 

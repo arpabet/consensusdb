@@ -217,8 +217,8 @@ func (this *BigBaggerServer) Execute(context context.Context, tnx *bbproto.Trans
 		return response, nil
 	}
 
-	for i, op := range tnx.Operations {
-		response.Results[i] = this.ExecuteOperation(op)
+	for _, op := range tnx.Operations {
+		response.Results = append(response.Results, this.ExecuteOperation(op))
 	}
 
 	return response, nil
