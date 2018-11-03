@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gobwas/glob"
+	"bigbagger/bbcommon"
 )
 
 type BigBaggerServer struct {
@@ -183,11 +184,46 @@ func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto
 //
 //
 
-func (this *BigBaggerServer) Execute(context context.Context, request *bbproto.Transaction) (response *bbproto.TransactionContext, err error) {
+func (this *BigBaggerServer) ExecuteOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
+
+	if operation.Key == nil {
+		return bbcommon.ErrorBadRequest("empty Key")
+	}
+
+	key := operation.Key
+
+	if len(key.SetName) == 0 {
+		return bbcommon.ErrorBadRequest("empty Key.SetName")
+	}
+
+	if len(key.RecordKey) == 0 {
+		return bbcommon.ErrorBadRequest("empty Key.RecordKey")
+	}
+
+	set, ok := this.sets.Get(key.SetName)
+
+	if !ok {
+		return bbcommon.ErrorDatasetNotFound(key.SetName)
+	}
+
+	return set.ProcessOperation(operation)
+
+}
+
+func (this *BigBaggerServer) Execute(context context.Context, tnx *bbproto.Transaction) (response *bbproto.TransactionContext, err error) {
+
+	response = new(bbproto.TransactionContext)
+	response.Results = make([]*bbproto.RecordResult, 0, len(tnx.Operations))
 
 	log.Printf("Execute record dataset\n")
 
-	response = new(bbproto.TransactionContext)
+	if len(tnx.Operations) == 0 {
+		return response, nil
+	}
+
+	for i, op := range tnx.Operations {
+		response.Results[i] = this.ExecuteOperation(op)
+	}
 
 	return response, nil
 

@@ -152,8 +152,8 @@ message Key {
 
 message Record {
 
-    int64   version     = 1;
-    bytes   value       = 2;
+    uint64   version     = 1;
+    bytes    value       = 2;
 
     // optional
     Compression  compression  = 5;
@@ -186,10 +186,10 @@ message TouchOperation {
 
 message PutOperation {
 
-    bool    compareAndSet = 1;
-    int64   version       = 2;
-    bytes   value         = 3;
-    int32   ttlSeconds    = 4;
+    bool     compareAndSet = 1;
+    uint64   version       = 2;
+    bytes    value         = 3;
+    int32    ttlSeconds    = 4;
 
 }
 
@@ -244,7 +244,7 @@ message ExistsResult {
 
 message GetResult {
 
-   int64    version   = 1;
+   uint64   version   = 1;
    bytes    value     = 2;
    fixed64  timestamp = 3;
 
