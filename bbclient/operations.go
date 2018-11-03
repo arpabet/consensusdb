@@ -7,6 +7,14 @@ import (
 
 type IOperation interface {
 
+	WithPartitionKey(key []byte) IOperation
+
+	WithTimestamp(timestamp uint64) IOperation
+
+	WithTtl(ttlSeconds int32) IOperation
+
+	CompareAndSet(version uint64) IOperation
+
 	toProto() *bbproto.RecordOperation
 
 }
@@ -47,110 +55,263 @@ type IKey interface {
 
 }
 
-type Key struct {
+type ExistsOp struct {
 
-	Key  bbproto.Key
+	Key    bbproto.Key
 
 }
 
-func (this* Key) SetSetName(setName string) IKey {
-	this.Key.SetName = setName
+
+type GetOp struct {
+
+	Key    bbproto.Key
+
+}
+
+type TouchOp struct {
+
+	Key    bbproto.Key
+	Touch  bbproto.TouchOperation
+
+}
+
+type PutOp struct {
+
+	Key    bbproto.Key
+	Put    bbproto.PutOperation
+
+}
+
+type RemoveOp struct {
+
+	Key    bbproto.Key
+
+}
+
+func Exists(setName string, key []byte) IOperation {
+
+	op := new(ExistsOp)
+
+	op.Key.SetName = setName
+	op.Key.RecordKey = key
+
+	return op
+}
+
+func Get(setName string, key []byte) IOperation {
+
+	op := new(GetOp)
+
+	op.Key.SetName = setName
+	op.Key.RecordKey = key
+
+	return op
+}
+
+func Touch(setName string, key []byte) IOperation {
+
+	op := new(TouchOp)
+
+	op.Key.SetName = setName
+	op.Key.RecordKey = key
+
+	return op
+}
+
+func Put(setName string, key, value []byte) IOperation {
+
+	op := new(PutOp)
+
+	op.Key.SetName = setName
+	op.Key.RecordKey = key
+
+	op.Put.Value = value
+
+	return op
+}
+
+func Remove(setName string, key []byte) IOperation {
+
+	op := new(RemoveOp)
+
+	op.Key.SetName = setName
+	op.Key.RecordKey = key
+
+	return op
+}
+
+//
+//  WithPartitionKey
+//
+
+func (this *ExistsOp) WithPartitionKey(key []byte) IOperation {
+	this.Key.PartitionKey = key
 	return this
 }
 
-func (this* Key) SetPartitionKey(patKey []byte) IKey {
-	this.Key.PartitionKey = patKey
+func (this *GetOp) WithPartitionKey(key []byte) IOperation {
+	this.Key.PartitionKey = key
 	return this
 }
 
-func (this* Key) SetRecordKey(recordKey []byte) IKey {
-	this.Key.RecordKey = recordKey
+func (this *TouchOp) WithPartitionKey(key []byte) IOperation {
+	this.Key.PartitionKey = key
 	return this
 }
 
-func (this* Key) SetRecordKeyString(recordKey string) IKey {
-	this.Key.RecordKey = []byte(recordKey)
+func (this *PutOp) WithPartitionKey(key []byte) IOperation {
+	this.Key.PartitionKey = key
 	return this
 }
 
-func (this* Key) SetTimestamp(timestamp uint64) IKey {
+func (this *RemoveOp) WithPartitionKey(key []byte) IOperation {
+	this.Key.PartitionKey = key
+	return this
+}
+
+//
+//  WithTimestamp
+//
+
+func (this *ExistsOp) WithTimestamp(timestamp uint64) IOperation {
 	this.Key.Timestamp = timestamp
 	return this
 }
 
-
-type Get struct {
-
-	Key Key
-
+func (this *GetOp) WithTimestamp(timestamp uint64) IOperation {
+	this.Key.Timestamp = timestamp
+	return this
 }
 
-func (this* Get) toProto() *bbproto.RecordOperation {
+func (this *TouchOp) WithTimestamp(timestamp uint64) IOperation {
+	this.Key.Timestamp = timestamp
+	return this
+}
+
+func (this *PutOp) WithTimestamp(timestamp uint64) IOperation {
+	this.Key.Timestamp = timestamp
+	return this
+}
+
+func (this *RemoveOp) WithTimestamp(timestamp uint64) IOperation {
+	this.Key.Timestamp = timestamp
+	return this
+}
+
+//
+//  WithTtl
+//
+
+func (this *ExistsOp) WithTtl(ttlSeconds int32) IOperation {
+	return this
+}
+
+func (this *GetOp) WithTtl(ttlSeconds int32) IOperation {
+	return this
+}
+
+func (this *TouchOp) WithTtl(ttlSeconds int32) IOperation {
+	this.Touch.TtlSeconds = ttlSeconds
+	return this
+}
+
+func (this *PutOp) WithTtl(ttlSeconds int32) IOperation {
+	this.Put.TtlSeconds = ttlSeconds
+	return this
+}
+
+func (this *RemoveOp) WithTtl(ttlSeconds int32) IOperation {
+	return this
+}
+
+//
+//  CompareAndSet
+//
+
+func (this *ExistsOp) CompareAndSet(version uint64) IOperation {
+	return this
+}
+
+func (this *GetOp) CompareAndSet(version uint64) IOperation {
+	return this
+}
+
+func (this *TouchOp) CompareAndSet(version uint64) IOperation {
+	return this
+}
+
+func (this *PutOp) CompareAndSet(version uint64) IOperation {
+	this.Put.CompareAndSet = true
+	this.Put.Version = version
+	return this
+}
+
+func (this *RemoveOp) CompareAndSet(version uint64) IOperation {
+	return this
+}
+
+//
+//  ToProto
+//
+
+
+func (this* ExistsOp) toProto() *bbproto.RecordOperation {
 
 	op := new(bbproto.RecordOperation)
+	op.Key = &this.Key
+	op.Operation = &bbproto.RecordOperation_Exists{&bbproto.ExistsOperation{}}
 
 	return op
 
 }
 
-type Exists struct {
-
-	Key Key
-
-}
-
-func (this* Exists) toProto() *bbproto.RecordOperation {
+func (this* GetOp) toProto() *bbproto.RecordOperation {
 
 	op := new(bbproto.RecordOperation)
+	op.Key = &this.Key
+	op.Operation = &bbproto.RecordOperation_Get{&bbproto.GetOperation{}}
 
 	return op
 
 }
 
-type Touch struct {
-
-	Key Key
-
-}
-
-func (this* Touch) toProto() *bbproto.RecordOperation {
+func (this* TouchOp) toProto() *bbproto.RecordOperation {
 
 	op := new(bbproto.RecordOperation)
+	op.Key = &this.Key
+	op.Operation = &bbproto.RecordOperation_Touch{&bbproto.TouchOperation{}}
 
 	return op
 
 }
 
-type Put struct {
-
-	Key Key
-	Put bbproto.PutOperation
-
-}
-
-func (this* Put) toProto() *bbproto.RecordOperation {
+func (this* PutOp) toProto() *bbproto.RecordOperation {
 
 	op := new(bbproto.RecordOperation)
-	op.Key = &this.Key.Key
+	op.Key = &this.Key
 	op.Operation = &bbproto.RecordOperation_Put{&this.Put}
 
 	return op
 
 }
 
-type Remove struct {
-
-	Key Key
-
-}
-
-func (this* Remove) toProto() *bbproto.RecordOperation {
+func (this* RemoveOp) toProto() *bbproto.RecordOperation {
 
 	op := new(bbproto.RecordOperation)
+	op.Key = &this.Key
+	op.Operation = &bbproto.RecordOperation_Remove{ &bbproto.RemoveOperation{} }
 
 	return op
 
 }
+
+
+//
+//
+//  Results
+//
+//
+
 
 type ExistsResult struct {
 	Result     bool

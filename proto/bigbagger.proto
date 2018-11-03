@@ -182,6 +182,7 @@ message GetOperation {
 }
 
 message TouchOperation {
+    int32    ttlSeconds    = 1;
 }
 
 message PutOperation {

@@ -439,7 +439,13 @@
       "default": "SUCCESS"
     },
     "bbTouchOperation": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "ttlSeconds": {
+          "type": "integer",
+          "format": "int32"
+        }
+      }
     },
     "bbTouchResult": {
       "type": "object"
