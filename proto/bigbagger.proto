@@ -6,8 +6,8 @@ import "google/protobuf/empty.proto";
 option go_package = "proto/bbproto";
 option java_multiple_files = true;
 option java_package = "io.github.bigbagger";
-option java_outer_classname = "BbProtos";
-option objc_class_prefix = "Bb";
+option java_outer_classname = "BBProtos";
+option objc_class_prefix = "BB";
 
 import "protoc-gen-swagger/options/annotations.proto";
 
@@ -111,19 +111,19 @@ enum DataCompression {
 }
 
 message Compression {
-    DataCompression  comp      = 1;
-    int32            threshold = 2;    // threshold in bytes when compression will be enabled, 0 - no threshold
+    DataCompression  comp       = 1;
+    int32            threshold  = 2;    // threshold in bytes when compression will be enabled, 0 - no threshold
 }
 
 message Dataset {
-    string       version      = 1;     // version of the data structure, 1.0 - the first one
-    string       name         = 2;     // can not be changed
-    DataDistribution distr    = 3;     // can not be changed
-    Partition    partition    = 4;     // can not be changed
-    Compression  compression  = 5;
-    Encryption   encryption   = 6;
-    PointInTime  pit          = 7;     // can not be changed
-    int32        ttlSeconds   = 8;     // for 0 NO-TTL
+    string           version      = 1;     // version of the data structure, 1.0 - the first one
+    string           name         = 2;     // can not be changed
+    DataDistribution distr        = 3;     // can not be changed
+    Partition        partition    = 4;     // can not be changed
+    Compression      compression  = 5;     // can not be changed
+    Encryption       encryption   = 6;     // can not be changed
+    PointInTime      pit          = 7;     // can not be changed
+    int32            ttlSeconds   = 8;     // can be changed, for 0 = NO-TTL
 }
 
 message String {
@@ -150,23 +150,12 @@ message Key {
 
 }
 
-message Record {
-
-    uint64   version     = 1;
-    bytes    value       = 2;
-
-    // optional
-    Compression  compression  = 5;
-    Encryption   encryption   = 6;
-
-}
-
 message RecordOperation {
 
   Key key = 1;
 
   oneof operation {
-    ExistsOperation exists = 10;
+    HeadOperation   head   = 10;
     GetOperation    get    = 11;
     TouchOperation  touch  = 12;
     PutOperation    put    = 13;
@@ -175,22 +164,28 @@ message RecordOperation {
 
 }
 
-message ExistsOperation {
+message HeadOperation {
 }
 
 message GetOperation {
 }
 
 message TouchOperation {
-    int32    ttlSeconds    = 1;
+
+    bool     overrideTtl   = 1;
+    int32    ttlSeconds    = 2;   // overrides dataset TTL
+
 }
 
 message PutOperation {
 
-    bool     compareAndSet = 1;
-    uint64   version       = 2;
-    bytes    value         = 3;
-    int32    ttlSeconds    = 4;
+    bytes    value         = 1;
+
+    bool     overrideTtl   = 2;
+    int32    ttlSeconds    = 3;   // overrides dataset TTL
+
+    bool     compareAndSet = 4;
+    fixed64  version       = 5;   // committedAt
 
 }
 
@@ -224,30 +219,34 @@ enum StatusCode {
 
 message RecordResult {
 
-  StatusCode    status  = 1;
-  string        message = 2;   // for error it is error message, for success additional information about execution
+  StatusCode    status   = 1;
+  string        message  = 2;   // for error it is error message, for success additional information about execution
 
   oneof result {
-    ExistsResult    exists = 10;
-    GetResult       get    = 11;
-    TouchResult     touch  = 12;
-    PutResult       put    = 13;
-    RemoveResult    remove = 14;
+    HeadResult      head    = 10;
+    GetResult       get     = 11;
+    TouchResult     touch   = 12;
+    PutResult       put     = 13;
+    RemoveResult    remove  = 14;
   }
 
 }
 
-message ExistsResult {
+message HeadResult {
 
-   bool       exists    = 1;
-   fixed64    timestamp = 2;
+   fixed64    version    = 1;  // committedAt, if 0 then not exists
+   fixed64    expiresAt  = 2;
+   fixed64    timestamp  = 3;
+
 }
 
 message GetResult {
 
-   uint64   version   = 1;
-   bytes    value     = 2;
-   fixed64  timestamp = 3;
+   bytes      value      = 1;
+
+   fixed64    version    = 2;  // committedAt, if 0 then not exists
+   fixed64    expiresAt  = 3;
+   fixed64    timestamp  = 4;
 
 }
 

@@ -8,6 +8,7 @@ import (
 	"bigbagger/bbclient"
 	"bigbagger/proto/bbproto"
 	"os"
+	"fmt"
 )
 
 const (
@@ -90,6 +91,7 @@ func TestSuit(t *testing.T) {
 	err = client.DeleteDataset("TEST")
 
 	RunCRUIDTests(t, client, "TEST_SECOND")
+	RunCompareAndSetTests(t, client, "TEST_SECOND")
 
 	if err != nil {
 		t.Fatal("fail to remove dataset ", err)
@@ -106,7 +108,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Not Exists
 	//
 
-	op := bbclient.Exists(set, []byte("key"))
+	op := bbclient.Head(set, []byte("key"))
 
 	res, err := client.Execute(op)
 
@@ -138,7 +140,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Exists
 	//
 
-	op = bbclient.Exists(set, []byte("key"))
+	op = bbclient.Head(set, []byte("key"))
 
 	res, err = client.Execute(op)
 
@@ -196,7 +198,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Not Exists
 	//
 
-	op = bbclient.Exists(set, []byte("key"))
+	op = bbclient.Head(set, []byte("key"))
 
 	res, err = client.Execute(op)
 
@@ -206,6 +208,134 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	if res.Exists() {
 		t.Fatal("entry nust be removed", err)
+	}
+
+
+}
+
+
+func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string) {
+
+	//
+	//  Test Not Exists
+	//
+
+	op := bbclient.Head(set, []byte("cas"))
+
+	res, err := client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o exists entry ", err)
+	}
+
+	if res.Exists() {
+		t.Fatal("this is a new test, entry must not exists", err)
+	}
+
+	//
+	//  Test Put If Absent
+	//
+
+	op = bbclient.Put(set, []byte("cas"), []byte("first"))
+	op.CompareAndSet(0)
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o putIfAbsent entry ", err)
+	}
+
+	if !res.Updated() {
+		t.Fatal("for empty entries version is always 0", err)
+	}
+
+	//
+	//  Test Get First
+	//
+
+	op = bbclient.Get(set, []byte("cas"))
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o get entry ", err)
+	}
+
+	if res.GetValue() == nil {
+		t.Fatal("entry not found", err)
+	}
+
+	if string(res.GetValue()) != "first" {
+		t.Fatal("wrong value of the first entry", err)
+	}
+
+	firstVersion := res.GetVersion()
+
+	if firstVersion <= 0 {
+		t.Fatal("wrong value of the first version", err)
+	}
+
+	fmt.Print("firstVersion=", firstVersion, "\n")
+
+	//
+	//  Test Replace
+	//
+
+	op = bbclient.Put(set, []byte("cas"), []byte("second"))
+	op.CompareAndSet(firstVersion)
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o replace entry ", err)
+	}
+
+	if !res.Updated() {
+		t.Fatal("compareAndSet not triggered", err)
+	}
+
+	//
+	//  Test Get Second
+	//
+
+	op = bbclient.Get(set, []byte("cas"))
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o get entry ", err)
+	}
+
+	if res.GetValue() == nil {
+		t.Fatal("entry not found", err)
+	}
+
+	if string(res.GetValue()) != "second" {
+		t.Fatal("wrong value of the second entry", err)
+	}
+
+	secondVersion := res.GetVersion()
+
+	if secondVersion <= firstVersion {
+		t.Fatal("wrong value of the second version", err)
+	}
+
+	fmt.Print("secondVersion=", secondVersion, "\n")
+
+	//
+	//  Test Remove
+	//
+
+	op = bbclient.Remove(set, []byte("cas"))
+
+	res, err = client.Execute(op)
+
+	if err != nil {
+		t.Fatal("i/o remove entry ", err)
+	}
+
+	if res.IsError() {
+		t.Fatal("remove fail to remove entry ", res.GetError())
 	}
 
 

@@ -90,17 +90,17 @@ func LoadDataset(dbDir string) (context *DatasetContext, err error) {
 
 }
 
-func (this *DatasetContext) ProcessExistsOperation(key *bbproto.Key, operation *bbproto.ExistsOperation) *bbproto.RecordResult {
+func (this *DatasetContext) ProcessHeadOperation(key *bbproto.Key, operation *bbproto.HeadOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
 
 	item, err := txn.Get(key.RecordKey)
 	if err != nil {
-		return bbcommon.SuccessExistsResult(0)
+		return SuccessHeadNotFoundResult()
 	}
 
-	return bbcommon.SuccessExistsResult(item.Version())
+	return SuccessHeadResult(key.Timestamp, item)
 
 }
 
@@ -111,55 +111,77 @@ func (this *DatasetContext) ProcessGetOperation(key *bbproto.Key, operation *bbp
 
 	item, err := txn.Get(key.RecordKey)
 	if err != nil {
-		return bbcommon.ErrorDriver(fmt.Sprint("get failed: ", err))
+		return SuccessGetNotFoundResult()
 	}
 
 	data, err := item.Value()
 	if err != nil {
-		return bbcommon.ErrorDriver(fmt.Sprint("get fetch failed: ", err))
+		return bbcommon.ErrorDriver(fmt.Sprint("get failed: ", err))
 	}
 
-	return bbcommon.SuccessGetResult(data, item.Version())
+	return SuccessGetResult(key.Timestamp, data, item)
 
 }
 
 func (this *DatasetContext) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.RecordResult {
 
-	return nil
+	return SuccessTouchResult()
 
 }
 
 func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
+    defer txn.Discard()
+
+	if operation.CompareAndSet {
+
+		item, err := txn.Get(key.RecordKey)
+
+		if err != nil {
+			if operation.Version != 0 {
+				return SuccessPutNotUpdatedResult()
+			}
+		} else if operation.Version != item.Version() {
+			return SuccessPutNotUpdatedResult()
+		}
+
+	}
 
 	err := txn.Set(key.RecordKey, operation.Value)
 
 	if err != nil {
-		txn.Discard()
-		return bbcommon.ErrorDriver(fmt.Sprint("set failed: ", err))
+		return bbcommon.ErrorDriver(fmt.Sprint("put failed: ", err))
 	}
 
 	err = txn.Commit(nil)
 
-	return bbcommon.SuccessPutResult()
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("put commit failed: ", err))
+	}
+
+	return SuccessPutResult()
 
 }
 
 func (this *DatasetContext) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
+    defer txn.Discard()
 
 	err := txn.Delete(key.RecordKey)
 
 	if err != nil {
-		txn.Discard()
 		return bbcommon.ErrorDriver(fmt.Sprint("remove failed: ", err))
 	}
 
 	err = txn.Commit(nil)
 
-	return bbcommon.SuccessRemoveResult()
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("remove commit failed: ", err))
+	}
+
+	return SuccessRemoveResult()
 
 }
 
@@ -168,8 +190,8 @@ func (this *DatasetContext) ProcessOperation(operation *bbproto.RecordOperation)
 
 	switch operation.Operation.(type) {
 
-		case *bbproto.RecordOperation_Exists:
-			return this.ProcessExistsOperation(operation.Key, operation.GetExists())
+		case *bbproto.RecordOperation_Head:
+			return this.ProcessHeadOperation(operation.Key, operation.GetHead())
 
 		case *bbproto.RecordOperation_Get:
 			return this.ProcessGetOperation(operation.Key, operation.GetGet())
