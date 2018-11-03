@@ -153,6 +153,18 @@
   },
   "definitions": {
     "bbCompression": {
+      "type": "object",
+      "properties": {
+        "comp": {
+          "$ref": "#/definitions/bbDataCompression"
+        },
+        "threshold": {
+          "type": "integer",
+          "format": "int64"
+        }
+      }
+    },
+    "bbDataCompression": {
       "type": "string",
       "enum": [
         "DC_NO",
