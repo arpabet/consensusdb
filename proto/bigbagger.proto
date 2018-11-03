@@ -101,13 +101,18 @@ message Encryption {
     string               topoIv    = 4;
 }
 
-enum Compression {
+enum DataCompression {
     DC_NO      = 0;
     DC_FLATE   = 1;
     DC_GZIP    = 2;
     DC_LZW     = 3;
     DC_ZLIB    = 4;
     DC_BZIP2   = 5;
+}
+
+message Compression {
+    DataCompression  comp       = 1;
+    uint32           threshold  = 2;    // threshold in bytes when compression will be enabled, 0 - no threshold
 }
 
 message Dataset {
