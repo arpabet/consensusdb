@@ -124,14 +124,14 @@
         ]
       }
     },
-    "/v1/record": {
+    "/v1/transaction": {
       "put": {
-        "operationId": "execute",
+        "operationId": "Execute",
         "responses": {
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/bbRecordResponse"
+              "$ref": "#/definitions/bbTransactionContext"
             }
           }
         },
@@ -141,12 +141,12 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bbRecordRequest"
+              "$ref": "#/definitions/bbTransaction"
             }
           }
         ],
         "tags": [
-          "RecordService"
+          "TransactionService"
         ]
       }
     }
@@ -381,35 +381,13 @@
         }
       }
     },
-    "bbRecordRequest": {
-      "type": "object",
-      "properties": {
-        "list": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/bbRecordOperation"
-          }
-        }
-      }
-    },
-    "bbRecordResponse": {
-      "type": "object",
-      "properties": {
-        "list": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/bbRecordResult"
-          }
-        }
-      }
-    },
     "bbRecordResult": {
       "type": "object",
       "properties": {
         "status": {
           "$ref": "#/definitions/bbStatusCode"
         },
-        "errorMessage": {
+        "message": {
           "type": "string"
         },
         "exists": {
@@ -465,6 +443,28 @@
     },
     "bbTouchResult": {
       "type": "object"
+    },
+    "bbTransaction": {
+      "type": "object",
+      "properties": {
+        "operations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bbRecordOperation"
+          }
+        }
+      }
+    },
+    "bbTransactionContext": {
+      "type": "object",
+      "properties": {
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bbRecordResult"
+          }
+        }
+      }
     },
     "protobufEmpty": {
       "type": "object",

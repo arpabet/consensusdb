@@ -134,8 +134,8 @@ func request_DatasetService_Get_0(ctx context.Context, marshaler runtime.Marshal
 
 }
 
-func request_RecordService_Execute_0(ctx context.Context, marshaler runtime.Marshaler, client RecordServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq RecordRequest
+func request_TransactionService_Execute_0(ctx context.Context, marshaler runtime.Marshaler, client TransactionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq Transaction
 	var metadata runtime.ServerMetadata
 
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
@@ -324,9 +324,9 @@ var (
 	forward_DatasetService_Get_0 = runtime.ForwardResponseStream
 )
 
-// RegisterRecordServiceHandlerFromEndpoint is same as RegisterRecordServiceHandler but
+// RegisterTransactionServiceHandlerFromEndpoint is same as RegisterTransactionServiceHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterRecordServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterTransactionServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -346,23 +346,23 @@ func RegisterRecordServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.
 		}()
 	}()
 
-	return RegisterRecordServiceHandler(ctx, mux, conn)
+	return RegisterTransactionServiceHandler(ctx, mux, conn)
 }
 
-// RegisterRecordServiceHandler registers the http handlers for service RecordService to "mux".
+// RegisterTransactionServiceHandler registers the http handlers for service TransactionService to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterRecordServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterRecordServiceHandlerClient(ctx, mux, NewRecordServiceClient(conn))
+func RegisterTransactionServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterTransactionServiceHandlerClient(ctx, mux, NewTransactionServiceClient(conn))
 }
 
-// RegisterRecordServiceHandlerClient registers the http handlers for service RecordService
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "RecordServiceClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "RecordServiceClient"
+// RegisterTransactionServiceHandlerClient registers the http handlers for service TransactionService
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "TransactionServiceClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "TransactionServiceClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "RecordServiceClient" to call the correct interceptors.
-func RegisterRecordServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client RecordServiceClient) error {
+// "TransactionServiceClient" to call the correct interceptors.
+func RegisterTransactionServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client TransactionServiceClient) error {
 
-	mux.Handle("PUT", pattern_RecordService_Execute_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_TransactionService_Execute_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -380,14 +380,14 @@ func RegisterRecordServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_RecordService_Execute_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_TransactionService_Execute_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_RecordService_Execute_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_TransactionService_Execute_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -395,9 +395,9 @@ func RegisterRecordServiceHandlerClient(ctx context.Context, mux *runtime.ServeM
 }
 
 var (
-	pattern_RecordService_Execute_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "record"}, ""))
+	pattern_TransactionService_Execute_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "transaction"}, ""))
 )
 
 var (
-	forward_RecordService_Execute_0 = runtime.ForwardResponseMessage
+	forward_TransactionService_Execute_0 = runtime.ForwardResponseMessage
 )

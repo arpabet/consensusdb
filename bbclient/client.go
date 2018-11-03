@@ -18,13 +18,13 @@ type IBigBagger interface {
 
 	Execute(IOperation) (IResult, error)
 
-	ExecuteList([]IOperation) ([]IResult, error)
+	ExecuteTransaction([]IOperation) ([]IResult, error)
 }
 
 type BigBaggerClient struct {
-	conn            *grpc.ClientConn
-	datasetService  bbproto.DatasetServiceClient
-	recordService   bbproto.RecordServiceClient
+	conn                 *grpc.ClientConn
+	datasetService       bbproto.DatasetServiceClient
+	transactionService   bbproto.TransactionServiceClient
 
 }
 
@@ -100,49 +100,49 @@ func (this *BigBaggerClient) GetDataset(pattern string) (result []*bbproto.Datas
 
 func (this *BigBaggerClient) Execute(op IOperation) (res IResult, err error) {
 
-	request := new(bbproto.RecordRequest)
-	request.List = make([]*bbproto.RecordOperation, 1)
+	request := new(bbproto.Transaction)
+	request.Operations = make([]*bbproto.RecordOperation, 1)
 
-	request.List[0] = op.toProto()
+	request.Operations[0] = op.toProto()
 
-	response, err := this.recordService.Execute(context.Background(), request)
+	response, err := this.transactionService.Execute(context.Background(), request)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if len(response.List) != 1 {
+	if len(response.Results) != 1 {
 		return nil, errors.New("expected response with 1 result")
 	}
 
-	return ParseResult(response.List[0]), nil
+	return ParseResult(response.Results[0]), nil
 
 }
 
-func (this *BigBaggerClient) ExecuteList(ops []IOperation) (res []IResult, err error) {
+func (this *BigBaggerClient) ExecuteTransaction(ops []IOperation) (res []IResult, err error) {
 
 	size := len(ops)
 
-	request := new(bbproto.RecordRequest)
-	request.List = make([]*bbproto.RecordOperation, size)
+	request := new(bbproto.Transaction)
+	request.Operations = make([]*bbproto.RecordOperation, size)
 
 	for i, op := range ops {
-		request.List[i] = op.toProto()
+		request.Operations[i] = op.toProto()
 	}
 
-	response, err := this.recordService.Execute(context.Background(), request)
+	response, err := this.transactionService.Execute(context.Background(), request)
 
 	if err != nil {
 		return nil, err
 	}
 
-	if size != len(response.List) {
+	if size != len(response.Results) {
 		return nil, errors.New("wrong response size")
 	}
 
 	res = make([]IResult, size)
 
-	for i, v := range response.List {
+	for i, v := range response.Results {
 		res[i] = ParseResult(v)
 	}
 
@@ -157,7 +157,9 @@ func NewClient(grpcAddress, token string) (*BigBaggerClient, error) {
 		return nil, err
 	}
 
-	var cli = &BigBaggerClient{conn, bbproto.NewDatasetServiceClient(conn), bbproto.NewRecordServiceClient(conn)}
+	var cli = &BigBaggerClient{conn,
+	bbproto.NewDatasetServiceClient(conn),
+	 bbproto.NewTransactionServiceClient(conn)}
 
 	return cli, nil
 }

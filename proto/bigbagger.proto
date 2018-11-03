@@ -130,11 +130,11 @@ message String {
     string  value  = 1;
 }
 
-service RecordService {
+service TransactionService {
 
-    rpc execute (RecordRequest) returns (RecordResponse) {
+    rpc Execute (Transaction) returns (TransactionContext) {
         option (google.api.http) = {
-            put: "/v1/record"
+            put: "/v1/transaction"
             body: "*"
         };
     }
@@ -146,7 +146,7 @@ message Key {
     string   setName       = 1;
     bytes    partitionKey  = 2;
     bytes    recordKey     = 3;
-    fixed64  timestamp     = 4;   // requests before or equal to this timestamp if not 0
+    fixed64  timestamp     = 4;   // requests before or equal to this timestamp, if not 0
 
 }
 
@@ -223,8 +223,8 @@ enum StatusCode {
 
 message RecordResult {
 
-  StatusCode    status = 1;
-  string        errorMessage = 2;
+  StatusCode    status  = 1;
+  string        message = 2;   // for error it is error message, for success additional information about execution
 
   oneof result {
     ExistsResult    exists = 10;
@@ -259,15 +259,15 @@ message PutResult {
 message RemoveResult {
 }
 
-message RecordRequest {
+message Transaction {
 
-    repeated RecordOperation list = 1;
+    repeated RecordOperation operations = 1;
 
 }
 
-message RecordResponse {
+message TransactionContext {
 
-    repeated RecordResult list = 1;
+    repeated RecordResult results = 1;
 
 }
 

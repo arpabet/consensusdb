@@ -178,7 +178,7 @@ func ParseResult(result *bbproto.RecordResult) IResult {
 	} else if result.Status == bbproto.StatusCode_SUCCESS_NOT_UPDATED {
 		return &UpdatedResult{result.Status, false}
 	} else {
-		return &ErrorResult{result.Status, result.ErrorMessage}
+		return &ErrorResult{result.Status, result.Message}
 	}
 
 }

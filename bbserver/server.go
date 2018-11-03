@@ -183,11 +183,11 @@ func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto
 //
 //
 
-func (this *BigBaggerServer) Execute(context context.Context, request *bbproto.RecordRequest) (response *bbproto.RecordResponse, err error) {
+func (this *BigBaggerServer) Execute(context context.Context, request *bbproto.Transaction) (response *bbproto.TransactionContext, err error) {
 
 	log.Printf("Execute record dataset\n")
 
-	response = new(bbproto.RecordResponse)
+	response = new(bbproto.TransactionContext)
 
 	return response, nil
 
@@ -207,7 +207,7 @@ func (this *BigBaggerServer) StartServer(grpcAddress string) error {
 	this.grpcServer = grpc.NewServer()
 	// Register services
 	bbproto.RegisterDatasetServiceServer(this.grpcServer, this)
-	bbproto.RegisterRecordServiceServer(this.grpcServer, this)
+	bbproto.RegisterTransactionServiceServer(this.grpcServer, this)
 	// Start serving requests
 	return this.grpcServer.Serve(listen)
 
