@@ -89,6 +89,8 @@ func TestSuit(t *testing.T) {
 
 	err = client.DeleteDataset("TEST")
 
+	RunCRUIDTests(t, client, "TEST_SECOND")
+
 	if err != nil {
 		t.Fatal("fail to remove dataset ", err)
 	}
@@ -98,3 +100,20 @@ func TestSuit(t *testing.T) {
 
 }
 
+func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, dataset string) {
+
+	op := new(bbclient.Put)
+	op.Key.SetSetName(dataset).SetRecordKeyString("key")
+	op.Put.Value = []byte("value")
+
+	res, err := client.Execute(op)
+
+	if err != nil {
+		t.Fatal("fail to put entry ", err)
+	}
+
+	if res.IsError() {
+		t.Fatal("remove fail to put entry ", res.GetError())
+	}
+
+}
