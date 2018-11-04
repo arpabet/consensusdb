@@ -19,7 +19,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -33,16 +32,20 @@ import (
 	"bigbagger/proto/bbproto"
 	"bigbagger/bbserver"
 	"os/signal"
+	"flag"
 )
 
-func main() {
+var (
+	iniFile = flag.String("ini", "bigbagger.ini", "ini file for initialization")
+)
 
-	println("BigBagger DataNode")
+func run() error {
 
-	cfg, err := ini.Load("bigbagger.ini")
+	log.Println("BigBagger DataNode started from " + *iniFile)
+
+	cfg, err := ini.Load(*iniFile)
 	if err != nil {
-		fmt.Printf("Fail to read ini file: %v", err)
-		os.Exit(1)
+		return err
 	}
 
 	httpAddress := cfg.Section("server").Key("httpAddress").String()
@@ -53,8 +56,7 @@ func main() {
 	defer server.Close()
 
 	if err != nil {
-		log.Fatal("fail to create a bbserver ", err)
-		os.Exit(1)
+		return err
 	}
 
 	log.Println("Starting gRPC server on " + grpcAddress)
@@ -69,7 +71,7 @@ func main() {
 	defer httpServer.Close()
 
 	if err != nil {
-		log.Fatal("port is busy " + httpAddress, err)
+		return err
 	}
 
 	signalChain := make(chan os.Signal, 1)
@@ -84,11 +86,19 @@ func main() {
 
 	err = httpServer.ListenAndServe()
 	if err != nil {
-		log.Fatal("Exit: ", err)
+		return err
 	}
 
+	return nil
 }
 
+func main() {
+	flag.Parse()
+
+	if err := run(); err != nil {
+		log.Fatal(err)
+	}
+}
 
 var welcomeTpl = template.Must(template.ParseFiles("templates/welcome.tmpl"))
 
@@ -98,10 +108,10 @@ func serveWelcome(w http.ResponseWriter, r *http.Request) {
 
 func serveSwagger(w http.ResponseWriter, r *http.Request) {
 	//swagger := http.FileServer(http.Dir("./3rdparty/swagger-ui"))
-	fmt.Println("request", r.URL.Path)
+	log.Println("request", r.URL.Path)
 	p := strings.TrimPrefix(r.URL.Path, "/swagger/")
 	p = path.Join("3rdparty/swagger-ui/", p)
-	fmt.Println("request map ", p)
+	log.Println("request map ", p)
 	http.ServeFile(w, r, p)
 
 }
@@ -126,7 +136,7 @@ func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string) (*http.
 	mux.HandleFunc("/", serveWelcome)
 
 	curdir, _ := os.Getwd()
-	fmt.Println("cur dir", curdir)
+	log.Println("cur dir", curdir)
 
 	return &http.Server{Addr: httpAddress, Handler: mux}, nil
 

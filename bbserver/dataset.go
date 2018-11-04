@@ -28,6 +28,7 @@ import (
 	"bigbagger/bbcommon"
 	"fmt"
 	"time"
+	"log"
 )
 
 const (
@@ -45,7 +46,7 @@ func (this *DatasetContext) GetName() string {
 
 func (this *DatasetContext) Close() error {
 	if this.db != nil {
-		println("Close dataset: " + this.dataset.Name)
+		log.Println("dataset closing: ", this.dataset.Name)
 		return this.db.Close()
 	}
 	return nil
