@@ -34,13 +34,21 @@ import (
 )
 
 type BigBaggerServer struct {
-	grpcServer   *grpc.Server
-	dataDir      string
-	sets         *DatasetMap
+	grpcServer    *grpc.Server
+	dataDir       string
+	sets          *DatasetMap
+	shuttingDown  bool
 }
 
 func (this *BigBaggerServer) Close() {
-	println("BigBagger Closing")
+
+	if this.shuttingDown {
+		return
+	}
+
+	this.shuttingDown = true
+
+	log.Println("gRPC server shutting down")
 
 	if this.grpcServer != nil {
 		this.grpcServer.Stop()
