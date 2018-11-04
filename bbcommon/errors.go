@@ -18,7 +18,9 @@
 
 package bbcommon
 
-import "bigbagger/proto/bbproto"
+import (
+	"bigbagger/proto/bbproto"
+)
 
 func ErrorDatasetNotFound(name string) *bbproto.RecordResult {
 

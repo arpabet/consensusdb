@@ -116,6 +116,7 @@ func (this *DatasetContext) ProcessHeadOperation(key *bbproto.Key, operation *bb
 	defer txn.Discard()
 
 	item, err := txn.Get(key.RecordKey)
+
 	if err != nil {
 		return SuccessHeadNotFoundResult()
 	}

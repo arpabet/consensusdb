@@ -170,14 +170,14 @@
     "bbCompressionAlgorithm": {
       "type": "string",
       "enum": [
-        "DC_NO",
-        "DC_FLATE",
-        "DC_GZIP",
-        "DC_LZW",
-        "DC_ZLIB",
-        "DC_BZIP2"
+        "COMPRESS_NO",
+        "COMPRESS_FLATE",
+        "COMPRESS_GZIP",
+        "COMPRESS_LZW",
+        "COMPRESS_ZLIB",
+        "COMPRESS_BZIP2"
       ],
-      "default": "DC_NO"
+      "default": "COMPRESS_NO"
     },
     "bbCompressionLevel": {
       "type": "string",
@@ -191,11 +191,11 @@
     "bbDataDistribution": {
       "type": "string",
       "enum": [
-        "DD_LOCAL",
-        "DD_REPLICATION",
-        "DD_PARTITION"
+        "DATA_LOCAL",
+        "DATA_REPLICATION",
+        "DATA_PARTITION"
       ],
-      "default": "DD_LOCAL"
+      "default": "DATA_LOCAL"
     },
     "bbDataset": {
       "type": "object",
@@ -271,28 +271,16 @@
     "bbGetResult": {
       "type": "object",
       "properties": {
+        "head": {
+          "$ref": "#/definitions/bbHead"
+        },
         "value": {
           "type": "string",
           "format": "byte"
-        },
-        "version": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "expiresAt": {
-          "type": "string",
-          "format": "uint64"
-        },
-        "timestamp": {
-          "type": "string",
-          "format": "uint64"
         }
       }
     },
-    "bbHeadOperation": {
-      "type": "object"
-    },
-    "bbHeadResult": {
+    "bbHead": {
       "type": "object",
       "properties": {
         "version": {
@@ -306,6 +294,21 @@
         "timestamp": {
           "type": "string",
           "format": "uint64"
+        },
+        "diskSize": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "bbHeadOperation": {
+      "type": "object"
+    },
+    "bbHeadResult": {
+      "type": "object",
+      "properties": {
+        "head": {
+          "$ref": "#/definitions/bbHead"
         }
       }
     },

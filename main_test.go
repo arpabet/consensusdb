@@ -26,6 +26,7 @@ import (
 	"bigbagger/bbclient"
 	"bigbagger/proto/bbproto"
 	"os"
+	"fmt"
 )
 
 const (
@@ -74,7 +75,12 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create dataset ", err)
 	}
 
-	dataset.Name = "TEST_SECOND"
+	dataset.Name = "TEST_COMPRESS"
+	dataset.Compression = new(bbproto.Compression)
+	dataset.Compression.Alg = bbproto.CompressionAlgorithm_COMPRESS_FLATE
+	dataset.Compression.Level = bbproto.CompressionLevel_BEST_COMPRESSION
+	dataset.Compression.Threshold = 100  // do not compress payloads less than 100 bytes
+
 	err = client.CreateDataset(dataset)
 
 	if err != nil {
@@ -101,15 +107,16 @@ func TestSuit(t *testing.T) {
 		t.Fatal("TEST dataset not found")
 	}
 
-	if _, ok := m["TEST_SECOND"]; !ok {
-		t.Fatal("TEST_SECOND dataset not found")
+	if _, ok := m["TEST_COMPRESS"]; !ok {
+		t.Fatal("TEST_COMPRESS dataset not found")
 	}
 
-	err = client.DeleteDataset("TEST")
+	RunCRUIDTests(t, client, "TEST")
+	RunCompareAndSetTests(t, client, "TEST")
+	RunWithTtlTests(t, client, "TEST")
+	RunCompressionTests(t, client, "TEST_COMPRESS")
 
-	RunCRUIDTests(t, client, "TEST_SECOND")
-	RunCompareAndSetTests(t, client, "TEST_SECOND")
-	RunWithTtlTests(t, client, "TEST_SECOND")
+	err = client.DeleteDataset("TEST")
 
 	if err != nil {
 		t.Fatal("fail to remove dataset ", err)
@@ -126,14 +133,10 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	op := bbclient.Head(set, []byte("key"))
 
-	res, err := client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o exists entry ", err)
-	}
+	res := client.Execute(op)
 
 	if res.Exists() {
-		t.Fatal("this is a new test, entry must not exists", err)
+		t.Fatal("this is a new test, entry must not exists")
 	}
 
 	//
@@ -142,14 +145,10 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	op = bbclient.Put(set, []byte("key"), []byte("value"))
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o put entry ", err)
-	}
+	res = client.Execute(op)
 
 	if res.IsError() {
-		t.Fatal("remove fail to put entry ", res.GetError())
+		t.Fatal("fail to put entry ", res.GetError())
 	}
 
 	//
@@ -158,14 +157,10 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	op = bbclient.Head(set, []byte("key"))
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o exists entry ", err)
-	}
+	res = client.Execute(op)
 
 	if !res.Exists() {
-		t.Fatal("entry must exists", err)
+		t.Fatal("entry must exists")
 	}
 
 	//
@@ -174,14 +169,10 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	op = bbclient.Get(set, []byte("key"))
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o get entry ", err)
-	}
+	res = client.Execute(op)
 
 	if res.IsError() {
-		t.Fatal("remove fail to get entry ", res.GetError())
+		t.Fatal("fail to get entry ", res.GetError())
 	}
 
 	data := res.GetValue()
@@ -200,14 +191,10 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	op = bbclient.Remove(set, []byte("key"))
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o remove entry ", err)
-	}
+	res = client.Execute(op)
 
 	if res.IsError() {
-		t.Fatal("remove fail to remove entry ", res.GetError())
+		t.Fatal("fail to remove entry ", res.GetError())
 	}
 
 	//
@@ -216,14 +203,10 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	op = bbclient.Head(set, []byte("key"))
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o exists entry ", err)
-	}
+	res = client.Execute(op)
 
 	if res.Exists() {
-		t.Fatal("entry nust be removed", err)
+		t.Fatal("entry nust be removed")
 	}
 
 
@@ -238,14 +221,10 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 
 	op := bbclient.Head(set, []byte("cas"))
 
-	res, err := client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o exists entry ", err)
-	}
+	res := client.Execute(op)
 
 	if res.Exists() {
-		t.Fatal("this is a new test, entry must not exists", err)
+		t.Fatal("this is a new test, entry must not exists")
 	}
 
 	//
@@ -255,14 +234,10 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 	op = bbclient.Put(set, []byte("cas"), []byte("first"))
 	op.CompareAndSet(0)
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o putIfAbsent entry ", err)
-	}
+	res = client.Execute(op)
 
 	if !res.Updated() {
-		t.Fatal("for empty entries version is always 0", err)
+		t.Fatal("put if absent failed")
 	}
 
 	//
@@ -271,24 +246,20 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 
 	op = bbclient.Get(set, []byte("cas"))
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o get entry ", err)
-	}
+	res = client.Execute(op)
 
 	if res.GetValue() == nil {
-		t.Fatal("entry not found", err)
+		t.Fatal("entry not found")
 	}
 
 	if string(res.GetValue()) != "first" {
-		t.Fatal("wrong value of the first entry", err)
+		t.Fatal("wrong value of the first entry")
 	}
 
-	firstVersion := res.GetVersion()
+	firstVersion := res.GetHead().GetVersion()
 
 	if firstVersion <= 0 {
-		t.Fatal("wrong value of the first version", err)
+		t.Fatal("wrong value of the first version")
 	}
 
 	//fmt.Print("firstVersion=", firstVersion, "\n")
@@ -300,14 +271,10 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 	op = bbclient.Put(set, []byte("cas"), []byte("second"))
 	op.CompareAndSet(firstVersion)
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o replace entry ", err)
-	}
+	res = client.Execute(op)
 
 	if !res.Updated() {
-		t.Fatal("compareAndSet not triggered", err)
+		t.Fatal("compareAndSet not triggered")
 	}
 
 	//
@@ -316,24 +283,20 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 
 	op = bbclient.Get(set, []byte("cas"))
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o get entry ", err)
-	}
+	res = client.Execute(op)
 
 	if res.GetValue() == nil {
-		t.Fatal("entry not found", err)
+		t.Fatal("entry not found")
 	}
 
 	if string(res.GetValue()) != "second" {
-		t.Fatal("wrong value of the second entry", err)
+		t.Fatal("wrong value of the second entry")
 	}
 
-	secondVersion := res.GetVersion()
+	secondVersion := res.GetHead().GetVersion()
 
 	if secondVersion <= firstVersion {
-		t.Fatal("wrong value of the second version", err)
+		t.Fatal("wrong value of the second version")
 	}
 
 	//fmt.Print("secondVersion=", secondVersion, "\n")
@@ -344,14 +307,10 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 
 	op = bbclient.Remove(set, []byte("cas"))
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o remove entry ", err)
-	}
+	res = client.Execute(op)
 
 	if res.IsError() {
-		t.Fatal("remove fail to remove entry ", res.GetError())
+		t.Fatal("fail to remove entry ", res.GetError())
 	}
 
 
@@ -366,18 +325,14 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	op := bbclient.Head(set, []byte("ttl"))
 
-	res, err := client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o exists entry ", err)
-	}
+	res := client.Execute(op)
 
 	if res.Exists() {
-		t.Fatal("this is a new test, entry must not exists", err)
+		t.Fatal("this is a new test, entry must not exists")
 	}
 
-	if res.GetExpiresAt() > 0 {
-		t.Fatal("expected zero for expiration time", err)
+	if res.GetHead().GetExpiresAt() > 0 {
+		t.Fatal("expected zero for expiration time")
 	}
 
 	//
@@ -386,14 +341,10 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	op = bbclient.Put(set, []byte("ttl"), []byte("value")).WithTtl(100)
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o put entry ", err)
-	}
+	res = client.Execute(op)
 
 	if res.IsError() {
-		t.Fatal("remove fail to put entry ", res.GetError())
+		t.Fatal("fail to put entry ", res.GetError())
 	}
 
 	//
@@ -402,20 +353,16 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	op = bbclient.Head(set, []byte("ttl"))
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o exists entry ", err)
-	}
+	res = client.Execute(op)
 
 	if !res.Exists() {
-		t.Fatal("value with ttl not found", err)
+		t.Fatal("value with ttl not found")
 	}
 
 	//fmt.Print("ExpireAt=", res.GetExpiresAt(), "\n")
 
-	if res.GetExpiresAt() == 0 {
-		t.Fatal("expected non zero for expiration time", err)
+	if res.GetHead().GetExpiresAt() == 0 {
+		t.Fatal("expected non zero for expiration time")
 	}
 
 	//
@@ -424,22 +371,63 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	op = bbclient.Get(set, []byte("ttl"))
 
-	res, err = client.Execute(op)
-
-	if err != nil {
-		t.Fatal("i/o get entry ", err)
-	}
+	res = client.Execute(op)
 
 	if !res.Exists() {
-		t.Fatal("value with ttl not found", err)
+		t.Fatal("value with ttl not found")
 	}
 
-	if res.GetExpiresAt() == 0 {
-		t.Fatal("expected non zero for expiration time", err)
+	if res.GetHead().GetExpiresAt() == 0 {
+		t.Fatal("expected non zero for expiration time")
 	}
 
 	if string(res.GetValue()) != "value" {
-		t.Fatal("wrong value with ttl", err)
+		t.Fatal("wrong value with ttl")
 	}
+
+}
+
+
+func RunCompressionTests(t *testing.T, client bbclient.IBigBagger, set string) {
+
+	//
+	//  Create Payload
+	//
+
+	payload := make([]byte, 1000, 1000)
+
+	for i := 0; i < 1000; i = i+1 {
+		payload[i] = byte(i)
+	}
+
+	//
+	//  Test Put
+	//
+
+	op := bbclient.Put(set, []byte("compress"), payload)
+
+	res := client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to put entry ", res.GetError())
+	}
+
+	//
+	//  Test Size
+	//
+
+	op = bbclient.Head(set, []byte("compress"))
+
+	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to head entry ", res.GetError())
+	}
+
+	if !res.Exists() {
+		t.Fatal("entry not found", res.GetError())
+	}
+
+	fmt.Print("DiskSize=", res.GetHead().GetDiskSize(), "\n")
 
 }

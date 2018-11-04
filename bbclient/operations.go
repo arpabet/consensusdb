@@ -21,6 +21,7 @@ package bbclient
 import (
 	"bigbagger/proto/bbproto"
 	"github.com/pkg/errors"
+	"fmt"
 )
 
 type IOperation interface {
@@ -37,6 +38,18 @@ type IOperation interface {
 
 }
 
+type IHead interface {
+
+	GetVersion() uint64     // committedAt
+
+	GetExpiresAt() uint64
+
+	GetTimestamp() uint64
+
+	GetDiskSize() int64
+
+}
+
 type IResult interface {
 
 	GetStatus() int32
@@ -45,13 +58,9 @@ type IResult interface {
 
 	Exists() bool
 
+	GetHead() IHead
+
 	GetValue() []byte
-
-	GetVersion() uint64     // committedAt
-
-	GetExpiresAt() uint64
-
-	GetTimestamp() uint64
 
 	IsError() bool
 
@@ -61,6 +70,46 @@ type IResult interface {
 
 }
 
+var emptyHead = EmptyHead{}
+
+type EmptyHead struct {
+}
+
+func (this *EmptyHead) GetVersion() uint64 {
+	return 0
+}
+
+func (this *EmptyHead) GetExpiresAt() uint64 {
+	return 0
+}
+
+func (this *EmptyHead) GetTimestamp() uint64 {
+	return 0
+}
+
+func (this *EmptyHead) GetDiskSize() int64 {
+	return 0
+}
+
+type ProtoHead struct {
+	head  *bbproto.Head
+}
+
+func (this *ProtoHead) GetVersion() uint64 {
+	return this.head.Version
+}
+
+func (this *ProtoHead) GetExpiresAt() uint64 {
+	return this.head.ExpiresAt
+}
+
+func (this *ProtoHead) GetTimestamp() uint64 {
+	return this.head.Timestamp
+}
+
+func (this *ProtoHead) GetDiskSize() int64 {
+	return this.head.DiskSize
+}
 
 type HeadOp struct {
 
@@ -326,9 +375,8 @@ func (this* RemoveOp) toProto() *bbproto.RecordOperation {
 
 
 type HeadResult struct {
-	Version     uint64    // committedAt, exists if > 0
-	ExpiresAt   uint64
-	Timestamp   uint64    // key part of timestamp for PIT
+	Exist       bool
+	Head        IHead
 }
 
 type UpdatedResult struct {
@@ -337,10 +385,9 @@ type UpdatedResult struct {
 }
 
 type ValueResult struct {
+	Exist       bool
+	Head        IHead
 	Value       []byte
-	Version     uint64    // committedAt, exists if > 0
-	ExpiresAt   uint64
-	Timestamp   uint64    // key part of timestamp for PIT
 }
 
 type ErrorResult struct {
@@ -366,14 +413,25 @@ func ParseSuccessResult(result *bbproto.RecordResult) IResult {
 
 	case *bbproto.RecordResult_Head:
 		{
-			head := result.GetHead()
-			return &HeadResult{head.Version, head.ExpiresAt, head.Timestamp}
+			head := result.GetHead().GetHead()
+			if head != nil {
+				return &HeadResult{Exist: true, Head: &ProtoHead{head}}
+			} else {
+				return &HeadResult{Exist: false, Head: &emptyHead}
+			}
 		}
 
 	case *bbproto.RecordResult_Get:
 		{
 			get := result.GetGet()
-			return &ValueResult{get.Value, get.Version, get.ExpiresAt, get.Timestamp}
+			head := get.GetHead()
+
+			if head != nil {
+				return &ValueResult{Exist: true, Head: &ProtoHead{head}, Value: get.GetValue()}
+			} else {
+				return &ValueResult{Exist: false, Head: &emptyHead}
+			}
+
 		}
 
 	case *bbproto.RecordResult_Touch:
@@ -402,23 +460,15 @@ func (this *HeadResult) Updated() bool {
 }
 
 func (this *HeadResult) Exists() bool {
-	return this.Version > 0
+	return this.Exist
 }
 
-func (this *HeadResult) GetVersion() uint64 {
-	return this.Version
+func (this *HeadResult) GetHead() IHead {
+	return this.Head
 }
 
 func (this *HeadResult) GetValue() []byte {
 	return nil
-}
-
-func (this *HeadResult) GetExpiresAt() uint64 {
-	return this.ExpiresAt
-}
-
-func (this *HeadResult) GetTimestamp() uint64 {
-	return this.Timestamp
 }
 
 func (this *HeadResult) IsError() bool {
@@ -449,20 +499,12 @@ func (this *UpdatedResult) Exists() bool {
 	return true
 }
 
-func (this *UpdatedResult) GetVersion() uint64 {
-	return 0
+func (this *UpdatedResult) GetHead() IHead {
+	return &emptyHead
 }
 
 func (this *UpdatedResult) GetValue() []byte {
 	return nil
-}
-
-func (this *UpdatedResult) GetExpiresAt() uint64 {
-	return 0
-}
-
-func (this *UpdatedResult) GetTimestamp() uint64 {
-	return 0
 }
 
 func (this *UpdatedResult) IsError() bool {
@@ -491,23 +533,15 @@ func (this *ValueResult) Updated() bool {
 }
 
 func (this *ValueResult) Exists() bool {
-	return this.Version > 0
+	return this.Exist
 }
 
-func (this *ValueResult) GetVersion() uint64 {
-	return this.Version
+func (this *ValueResult) GetHead() IHead {
+	return this.Head
 }
 
 func (this *ValueResult) GetValue() []byte {
 	return this.Value
-}
-
-func (this *ValueResult) GetExpiresAt() uint64 {
-	return this.ExpiresAt
-}
-
-func (this *ValueResult) GetTimestamp() uint64 {
-	return this.Timestamp
 }
 
 func (this *ValueResult) IsError() bool {
@@ -538,20 +572,12 @@ func (this *ErrorResult) Exists() bool {
 	return false
 }
 
-func (this *ErrorResult) GetVersion() uint64 {
-	return 0
+func (this *ErrorResult) GetHead() IHead {
+	return &emptyHead
 }
 
 func (this *ErrorResult) GetValue() []byte {
 	return nil
-}
-
-func (this *ErrorResult) GetExpiresAt() uint64 {
-	return 0
-}
-
-func (this *ErrorResult) GetTimestamp() uint64 {
-	return 0
 }
 
 func (this *ErrorResult) IsError() bool {
@@ -564,4 +590,8 @@ func (this *ErrorResult) GetError() error {
 
 func (this *ErrorResult) GetMessage() string {
 	return this.Message
+}
+
+func NewNetworkError(err error) IResult {
+	return &ErrorResult{bbproto.StatusCode_ERROR_NETWORK, fmt.Sprint("remote error: ", err)}
 }

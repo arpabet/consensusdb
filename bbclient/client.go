@@ -35,7 +35,7 @@ type IBigBagger interface {
 
 	GetDataset(pattern string) ([]*bbproto.Dataset, error)
 
-	Execute(IOperation) (IResult, error)
+	Execute(IOperation) IResult
 
 	ExecuteTransaction([]IOperation) ([]IResult, error)
 }
@@ -115,7 +115,7 @@ func (this *BigBaggerClient) GetDataset(pattern string) (result []*bbproto.Datas
 
 }
 
-func (this *BigBaggerClient) Execute(op IOperation) (res IResult, err error) {
+func (this *BigBaggerClient) Execute(op IOperation) (res IResult) {
 
 	request := new(bbproto.Transaction)
 	request.Operations = make([]*bbproto.RecordOperation, 1)
@@ -125,14 +125,14 @@ func (this *BigBaggerClient) Execute(op IOperation) (res IResult, err error) {
 	response, err := this.transactionService.Execute(context.Background(), request)
 
 	if err != nil {
-		return nil, err
+		return NewNetworkError(err)
 	}
 
 	if len(response.Results) != 1 {
-		return nil, errors.New("expected response with 1 result")
+		return &ErrorResult{bbproto.StatusCode_ERROR_NETWORK, "expected single result"}
 	}
 
-	return ParseResult(response.Results[0]), nil
+	return ParseResult(response.Results[0])
 
 }
 
