@@ -23,6 +23,10 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
+func HeadOf(timestamp uint64, item *badger.Item) *bbproto.Head {
+	return &bbproto.Head{Version: item.Version(), ExpiresAt:item.ExpiresAt(), Timestamp: timestamp, DiskSize: item.EstimatedSize()}
+}
+
 func SuccessHeadNotFoundResult() *bbproto.RecordResult {
 
 	head := new(bbproto.HeadResult)
@@ -37,9 +41,7 @@ func SuccessHeadNotFoundResult() *bbproto.RecordResult {
 func SuccessHeadResult(timestamp uint64, item *badger.Item) *bbproto.RecordResult {
 
 	head := new(bbproto.HeadResult)
-	head.Version = item.Version()
-	head.ExpiresAt = item.ExpiresAt()
-	head.Timestamp = timestamp
+	head.Head = HeadOf(timestamp, item)
 
 	result := new(bbproto.RecordResult)
 	result.Status = bbproto.StatusCode_SUCCESS
@@ -62,10 +64,8 @@ func SuccessGetNotFoundResult() *bbproto.RecordResult {
 func SuccessGetResult(timestamp uint64, data []byte, item *badger.Item) *bbproto.RecordResult {
 
 	get := new(bbproto.GetResult)
+	get.Head = HeadOf(timestamp, item)
 	get.Value = data
-	get.Version = item.Version()
-	get.ExpiresAt = item.ExpiresAt()
-	get.Timestamp = timestamp
 
 	result := new(bbproto.RecordResult)
 	result.Status = bbproto.StatusCode_SUCCESS

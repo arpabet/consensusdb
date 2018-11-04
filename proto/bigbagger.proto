@@ -78,9 +78,9 @@ service DatasetService {
 }
 
 enum DataDistribution {
-    DD_LOCAL        = 0;
-    DD_REPLICATION  = 1;
-    DD_PARTITION    = 2;
+    DATA_LOCAL        = 0;
+    DATA_REPLICATION  = 1;
+    DATA_PARTITION    = 2;
 }
 
 message Partition {
@@ -120,12 +120,12 @@ message Encryption {
 }
 
 enum CompressionAlgorithm {
-    DC_NO      = 0;
-    DC_FLATE   = 1;
-    DC_GZIP    = 2;
-    DC_LZW     = 3;
-    DC_ZLIB    = 4;
-    DC_BZIP2   = 5;
+    COMPRESS_NO      = 0;
+    COMPRESS_FLATE   = 1;
+    COMPRESS_GZIP    = 2;
+    COMPRESS_LZW     = 3;
+    COMPRESS_ZLIB    = 4;
+    COMPRESS_BZIP2   = 5;
 }
 
 enum CompressionLevel {
@@ -257,21 +257,25 @@ message RecordResult {
 
 }
 
+message Head {
+
+   uint64     version    = 1;  // if 0 then not exists
+   fixed64    expiresAt  = 2;
+   fixed64    timestamp  = 3;
+   int64      diskSize   = 4;
+
+}
+
 message HeadResult {
 
-   uint64     version    = 5;  // if 0 then not exists
-   fixed64    expiresAt  = 6;
-   fixed64    timestamp  = 7;
+   Head    head   = 1;
 
 }
 
 message GetResult {
 
-   bytes      value      = 1;
-
-   uint64     version    = 5;  // if 0 then not exists
-   fixed64    expiresAt  = 6;
-   fixed64    timestamp  = 7;
+   Head    head   = 1;
+   bytes   value  = 2;
 
 }
 
