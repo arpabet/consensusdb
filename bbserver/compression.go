@@ -29,7 +29,7 @@ import (
 	"github.com/dsnet/compress/bzip2"
 )
 
-type ICompression interface {
+type ICompressor interface {
 
 	Compress([]byte, bbproto.CompressionLevel) ([]byte, error)
 
@@ -37,7 +37,7 @@ type ICompression interface {
 
 }
 
-var KnownCompressions = map[bbproto.CompressionAlgorithm]ICompression {
+var KnownCompressions = map[bbproto.CompressionAlgorithm]ICompressor {
 	bbproto.CompressionAlgorithm_COMPRESS_NO: &NoCompression{},
 	bbproto.CompressionAlgorithm_COMPRESS_FLATE: &FlateCompression{},
 	bbproto.CompressionAlgorithm_COMPRESS_GZIP: &GZIPCompression{},
