@@ -5,6 +5,8 @@ import (
 	"bigbagger/bbserver"
 	"bigbagger/proto/bbproto"
 	"bytes"
+	"fmt"
+	"reflect"
 )
 
 func TestCompressions(t *testing.T) {
@@ -12,7 +14,7 @@ func TestCompressions(t *testing.T) {
 	input := make([]byte, 1000, 1000)
 
 	for i := 0; i < 1000; i = i+1 {
-		input[i] = 'a'
+		input[i] = byte(i)
 	}
 
 	for _, v := range bbserver.KnownCompressions {
@@ -34,7 +36,7 @@ func CompressionTest(t *testing.T, input []byte, compression bbserver.ICompressi
 		t.Fatal("fail to compress ", err)
 	}
 
-	//fmt.Print("output.len=", len(output), "\n")
+	fmt.Print("output.len=", len(output), " for = ", reflect.TypeOf(compression), " level=", level, "\n")
 
 	actual, err := compression.Decompress(output)
 	if err != nil {
