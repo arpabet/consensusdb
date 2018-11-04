@@ -155,8 +155,11 @@
     "bbCompression": {
       "type": "object",
       "properties": {
-        "comp": {
-          "$ref": "#/definitions/bbDataCompression"
+        "alg": {
+          "$ref": "#/definitions/bbCompressionAlgorithm"
+        },
+        "level": {
+          "$ref": "#/definitions/bbCompressionLevel"
         },
         "threshold": {
           "type": "integer",
@@ -164,7 +167,7 @@
         }
       }
     },
-    "bbDataCompression": {
+    "bbCompressionAlgorithm": {
       "type": "string",
       "enum": [
         "DC_NO",
@@ -175,6 +178,15 @@
         "DC_BZIP2"
       ],
       "default": "DC_NO"
+    },
+    "bbCompressionLevel": {
+      "type": "string",
+      "enum": [
+        "DEFAULT_LEVEL",
+        "BEST_SPEED",
+        "BEST_COMPRESSION"
+      ],
+      "default": "DEFAULT_LEVEL"
     },
     "bbDataDistribution": {
       "type": "string",
@@ -218,7 +230,7 @@
     "bbEncryption": {
       "type": "object",
       "properties": {
-        "algorithm": {
+        "alg": {
           "$ref": "#/definitions/bbEncryptionAlgorithm"
         },
         "mode": {
