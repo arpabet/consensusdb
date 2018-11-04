@@ -4,6 +4,7 @@ import (
 	"testing"
 	"bigbagger/bbserver"
 	"bigbagger/proto/bbproto"
+	"bytes"
 )
 
 func TestCompressions(t *testing.T) {
@@ -40,7 +41,7 @@ func CompressionTest(t *testing.T, input []byte, compression bbserver.ICompressi
 		t.Fatal("fail to decompress ", err)
 	}
 
-	if string(input) != string(actual) {
+	if !bytes.Equal(input, actual) {
 		t.Fatal("actual not the same as input", err)
 	}
 
