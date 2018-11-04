@@ -63,7 +63,7 @@ You have to see that bigbagger is listening 4481 and 4482 ports
 
 	op = bbclient.Put(set, []byte("key"), []byte("value"))
 
-	res, err = client.Execute(op)
+	res = client.Execute(op)
 
     //
     // Get
@@ -71,7 +71,7 @@ You have to see that bigbagger is listening 4481 and 4482 ports
 
 	op = bbclient.Get(set, []byte("key"))
 
-	res, err = client.Execute(op)
+	res = client.Execute(op)
 
 	if res.IsError() {
 		fmt.Print("get error: ", res.GetError())
