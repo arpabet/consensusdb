@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"time"
 	"log"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -36,8 +37,13 @@ const (
 )
 
 type DatasetContext struct {
-	db *badger.DB
-	dataset *bbproto.Dataset
+	db                     *badger.DB
+	dataset                *bbproto.Dataset
+
+	compressionEnabled     bool
+	compressThreshold      int
+	compressor             ICompressor
+	compressionLevel       bbproto.CompressionLevel
 }
 
 func (this *DatasetContext) GetName() string {
@@ -86,6 +92,21 @@ func OpenDataset(dbDir string, dataset *bbproto.Dataset) (context *DatasetContex
 	opts.Dir = dbDir + "/key"
 	opts.ValueDir = dbDir + "/value"
 	context.db, err = badger.Open(opts)
+
+	if dataset.Compression != nil && dataset.Compression.Alg != bbproto.CompressionAlgorithm_COMPRESS_NO {
+
+		compressor, ok := KnownCompressions[dataset.Compression.Alg]
+
+		if !ok {
+			return nil, errors.New("compression algorithm not found: " + dataset.Compression.Alg.String())
+		}
+
+		context.compressionEnabled = true
+		context.compressThreshold = int(dataset.Compression.Threshold)
+		context.compressor = compressor
+		context.compressionLevel = dataset.Compression.Level
+
+	}
 
 	return context, err
 
@@ -140,6 +161,16 @@ func (this *DatasetContext) ProcessGetOperation(key *bbproto.Key, operation *bbp
 		return bbcommon.ErrorDriver(fmt.Sprint("get failed: ", err))
 	}
 
+	if this.compressionEnabled && isCompressionEnabled(item.UserMeta()) {
+
+		value, err := this.compressor.Decompress(data)
+
+		if err == nil {
+			data = value
+		}
+
+	}
+
 	return SuccessGetResult(key.Timestamp, data, item)
 
 }
@@ -174,13 +205,25 @@ func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbp
 		ttlSeconds = operation.TtlSeconds
 	}
 
-	var err error
+	entry := &badger.Entry{ Key: key.RecordKey, Value: operation.Value  }
 
 	if ttlSeconds > 0 {
-		err = txn.SetWithTTL(key.RecordKey, operation.Value,  time.Duration(ttlSeconds) * time.Second)
-	} else {
-		err = txn.Set(key.RecordKey, operation.Value)
+		expire := time.Now().Add(time.Duration(ttlSeconds) * time.Second).Unix()
+		entry.ExpiresAt = uint64(expire)
 	}
+
+	if this.compressionEnabled && len(operation.Value) >= this.compressThreshold {
+
+		compressedValue, err := this.compressor.Compress(operation.Value, this.compressionLevel)
+
+		if err == nil {
+			entry.Value = compressedValue
+			entry.UserMeta = SetCompressionEnabled(entry.UserMeta)
+		}
+
+	}
+
+	err := txn.SetEntry(entry)
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("put failed: ", err))

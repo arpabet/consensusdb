@@ -29,7 +29,7 @@ func TestCompressions(t *testing.T) {
 }
 
 
-func CompressionTest(t *testing.T, input []byte, compression bbserver.ICompression, level bbproto.CompressionLevel) {
+func CompressionTest(t *testing.T, input []byte, compression bbserver.ICompressor, level bbproto.CompressionLevel) {
 
 	output, err := compression.Compress(input, level)
 	if err != nil {

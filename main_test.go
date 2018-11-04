@@ -26,7 +26,7 @@ import (
 	"bigbagger/bbclient"
 	"bigbagger/proto/bbproto"
 	"os"
-	"fmt"
+	"bytes"
 )
 
 const (
@@ -425,9 +425,35 @@ func RunCompressionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	}
 
 	if !res.Exists() {
-		t.Fatal("entry not found", res.GetError())
+		t.Fatal("entry not found")
 	}
 
-	fmt.Print("DiskSize=", res.GetHead().GetDiskSize(), "\n")
+	if res.GetHead().GetDiskSize() > 1000 {
+		t.Fatal("value must be compressed")
+	}
+
+	//
+	//  Test Get
+	//
+
+	op = bbclient.Get(set, []byte("compress"))
+
+	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to get entry ", res.GetError())
+	}
+
+	if !res.Exists() {
+		t.Fatal("entry not found")
+	}
+
+	if res.GetHead().GetDiskSize() > 1000 {
+		t.Fatal("value must be compressed")
+	}
+
+	if !bytes.Equal(payload, res.GetValue()) {
+		t.Fatal("actual value is not the same as payload")
+	}
 
 }
