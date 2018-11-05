@@ -93,3 +93,6 @@ data := res.GetValue()
 
 ```
 
+### Bagger
+
+Bagger - is the touring motorcycle for long trips (for large baggage). BMW K1600B for example.
