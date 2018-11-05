@@ -280,6 +280,9 @@ message GetResult {
 }
 
 message TouchResult {
+
+   Head    head   = 1;
+
 }
 
 message PutResult {

@@ -223,6 +223,10 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 
 	res := client.Execute(op)
 
+	if res.IsError() {
+		t.Fatal("fail to get head", res.GetError())
+	}
+
 	if res.Exists() {
 		t.Fatal("this is a new test, entry must not exists")
 	}
@@ -236,6 +240,10 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 
 	res = client.Execute(op)
 
+	if res.IsError() {
+		t.Fatal("fail to compare and set", res.GetError())
+	}
+
 	if !res.Updated() {
 		t.Fatal("put if absent failed")
 	}
@@ -247,6 +255,10 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 	op = bbclient.Get(set, []byte("cas"))
 
 	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to get", res.GetError())
+	}
 
 	if res.GetValue() == nil {
 		t.Fatal("entry not found")
@@ -273,6 +285,10 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 
 	res = client.Execute(op)
 
+	if res.IsError() {
+		t.Fatal("fail to update", res.GetError())
+	}
+
 	if !res.Updated() {
 		t.Fatal("compareAndSet not triggered")
 	}
@@ -284,6 +300,10 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 	op = bbclient.Get(set, []byte("cas"))
 
 	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to get", res.GetError())
+	}
 
 	if res.GetValue() == nil {
 		t.Fatal("entry not found")
@@ -327,6 +347,10 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	res := client.Execute(op)
 
+	if res.IsError() {
+		t.Fatal("fail to get head", res.GetError())
+	}
+
 	if res.Exists() {
 		t.Fatal("this is a new test, entry must not exists")
 	}
@@ -355,6 +379,10 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	res = client.Execute(op)
 
+	if res.IsError() {
+		t.Fatal("fail to get head", res.GetError())
+	}
+
 	if !res.Exists() {
 		t.Fatal("value with ttl not found")
 	}
@@ -373,6 +401,10 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	res = client.Execute(op)
 
+	if res.IsError() {
+		t.Fatal("fail to get", res.GetError())
+	}
+
 	if !res.Exists() {
 		t.Fatal("value with ttl not found")
 	}
@@ -384,6 +416,29 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	if string(res.GetValue()) != "value" {
 		t.Fatal("wrong value with ttl")
 	}
+
+	firstExpiresAt := res.GetHead().GetExpiresAt()
+
+	//
+	//  Test Touch
+	//
+
+	op = bbclient.Touch(set, []byte("ttl")).WithTtl(1000)
+
+	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to touch", res.GetError())
+	}
+
+	if !res.Updated() {
+		t.Fatal("touch did not update result")
+	}
+
+	if firstExpiresAt >= res.GetHead().GetExpiresAt() {
+		t.Fatal("after touch expire at time must be changed")
+	}
+
 
 }
 

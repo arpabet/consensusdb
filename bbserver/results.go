@@ -74,39 +74,53 @@ func SuccessGetResult(timestamp uint64, data []byte, item *badger.Item) *bbproto
 	return result
 }
 
-func SuccessTouchResult() *bbproto.RecordResult {
+func SuccessTouchNotFoundResult() *bbproto.RecordResult {
 
 	touch := new(bbproto.TouchResult)
 
 	result := new(bbproto.RecordResult)
-	result.Status = bbproto.StatusCode_SUCCESS
+	result.Status = bbproto.StatusCode_SUCCESS_NOT_UPDATED
+
 	result.Result = &bbproto.RecordResult_Touch{ touch }
 
 	return result
 }
 
-func SuccessPutResult() *bbproto.RecordResult {
+func SuccessTouchResult(timestamp uint64, item *badger.Item, expiresAt uint64) *bbproto.RecordResult {
+
+	touch := new(bbproto.TouchResult)
+	touch.Head = HeadOf(timestamp, item)
+	touch.Head.ExpiresAt = expiresAt
 
 	result := new(bbproto.RecordResult)
 	result.Status = bbproto.StatusCode_SUCCESS
+
+	result.Result = &bbproto.RecordResult_Touch{ touch }
+
+	return result
+}
+
+func SuccessPutResult(updated bool) *bbproto.RecordResult {
+
+	result := new(bbproto.RecordResult)
+	if updated {
+		result.Status = bbproto.StatusCode_SUCCESS
+	} else {
+		result.Status = bbproto.StatusCode_SUCCESS_NOT_UPDATED
+	}
 	result.Result =  &bbproto.RecordResult_Put{ &bbproto.PutResult{} }
 
 	return result
 }
 
-func SuccessPutNotUpdatedResult() *bbproto.RecordResult {
+func SuccessRemoveResult(updated bool) *bbproto.RecordResult {
 
 	result := new(bbproto.RecordResult)
-	result.Status = bbproto.StatusCode_SUCCESS_NOT_UPDATED
-	result.Result =  &bbproto.RecordResult_Put{ &bbproto.PutResult{} }
-
-	return result
-}
-
-func SuccessRemoveResult() *bbproto.RecordResult {
-
-	result := new(bbproto.RecordResult)
-	result.Status = bbproto.StatusCode_SUCCESS
+	if updated {
+		result.Status = bbproto.StatusCode_SUCCESS
+	} else {
+		result.Status = bbproto.StatusCode_SUCCESS_NOT_UPDATED
+	}
 	result.Result =  &bbproto.RecordResult_Remove{&bbproto.RemoveResult{}}
 
 	return result

@@ -177,7 +177,45 @@ func (this *DatasetContext) ProcessGetOperation(key *bbproto.Key, operation *bbp
 
 func (this *DatasetContext) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.RecordResult {
 
-	return SuccessTouchResult()
+	txn := this.db.NewTransaction(true)
+	defer txn.Discard()
+
+	item, err := txn.Get(key.RecordKey)
+
+	if err != nil {
+		return SuccessTouchNotFoundResult()
+	}
+
+	data, err := item.Value()
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("touch failed: ", err))
+	}
+
+	ttlSeconds := this.dataset.TtlSeconds
+	if operation.OverrideTtl {
+		ttlSeconds = operation.TtlSeconds
+	}
+
+	entry := &badger.Entry{ Key: key.RecordKey, Value:data, UserMeta: item.UserMeta()  }
+
+	if ttlSeconds > 0 {
+		expire := time.Now().Add(time.Duration(ttlSeconds) * time.Second).Unix()
+		entry.ExpiresAt = uint64(expire)
+	}
+
+	err = txn.SetEntry(entry)
+
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("touch set entry failed: ", err))
+	}
+
+	err = txn.Commit(nil)
+
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("touch commit failed: ", err))
+	}
+
+	return SuccessTouchResult(key.Timestamp, item, entry.ExpiresAt)
 
 }
 
@@ -192,10 +230,10 @@ func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbp
 
 		if err != nil {
 			if operation.Version != 0 {
-				return SuccessPutNotUpdatedResult()
+				return SuccessPutResult(false)
 			}
 		} else if operation.Version != item.Version() {
-			return SuccessPutNotUpdatedResult()
+			return SuccessPutResult(false)
 		}
 
 	}
@@ -235,7 +273,7 @@ func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbp
 		return bbcommon.ErrorDriver(fmt.Sprint("put commit failed: ", err))
 	}
 
-	return SuccessPutResult()
+	return SuccessPutResult(true)
 
 }
 
@@ -256,7 +294,7 @@ func (this *DatasetContext) ProcessRemoveOperation(key *bbproto.Key, operation *
 		return bbcommon.ErrorDriver(fmt.Sprint("remove commit failed: ", err))
 	}
 
-	return SuccessRemoveResult()
+	return SuccessRemoveResult(true)
 
 }
 
