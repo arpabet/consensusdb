@@ -379,15 +379,24 @@ type HeadResult struct {
 	Head        IHead
 }
 
-type UpdatedResult struct {
-	Status      bbproto.StatusCode
-	Result      bool
-}
-
-type ValueResult struct {
+type GetResult struct {
 	Exist       bool
 	Head        IHead
 	Value       []byte
+}
+
+type TouchResult struct {
+	Status      bbproto.StatusCode
+	Exist       bool
+	Head        IHead
+}
+
+type PutResult struct {
+	Status      bbproto.StatusCode
+}
+
+type RemoveResult struct {
+	Status      bbproto.StatusCode
 }
 
 type ErrorResult struct {
@@ -397,12 +406,43 @@ type ErrorResult struct {
 
 func ParseResult(result *bbproto.RecordResult) IResult {
 
-	if result.Status == bbproto.StatusCode_SUCCESS {
+	if result.Status == bbproto.StatusCode_SUCCESS || result.Status == bbproto.StatusCode_SUCCESS_NOT_UPDATED  {
 		return ParseSuccessResult(result)
-	} else if result.Status == bbproto.StatusCode_SUCCESS_NOT_UPDATED {
-		return &UpdatedResult{result.Status, false}
 	} else {
 		return &ErrorResult{result.Status, result.Message}
+	}
+
+}
+
+func ParseHeadResult(result *bbproto.HeadResult) IResult {
+
+	head := result.GetHead()
+	if head != nil {
+		return &HeadResult{Exist: true, Head: &ProtoHead{head}}
+	} else {
+		return &HeadResult{Exist: false, Head: &emptyHead}
+	}
+
+}
+
+func ParseGetResult(result *bbproto.GetResult) IResult {
+
+	head := result.GetHead()
+	if head != nil {
+		return &GetResult{Exist: true, Head: &ProtoHead{head}, Value: result.GetValue()}
+	} else {
+		return &GetResult{Exist: false, Head: &emptyHead}
+	}
+
+}
+
+func ParseTouchResult(status bbproto.StatusCode, result *bbproto.TouchResult) IResult {
+
+	head := result.GetHead()
+	if head != nil {
+		return &TouchResult{Status: status, Exist: true, Head: &ProtoHead{head}}
+	} else {
+		return &TouchResult{Status: status, Exist: false, Head: &emptyHead}
 	}
 
 }
@@ -412,36 +452,19 @@ func ParseSuccessResult(result *bbproto.RecordResult) IResult {
 	switch result.Result.(type) {
 
 	case *bbproto.RecordResult_Head:
-		{
-			head := result.GetHead().GetHead()
-			if head != nil {
-				return &HeadResult{Exist: true, Head: &ProtoHead{head}}
-			} else {
-				return &HeadResult{Exist: false, Head: &emptyHead}
-			}
-		}
+		return ParseHeadResult(result.GetHead())
 
 	case *bbproto.RecordResult_Get:
-		{
-			get := result.GetGet()
-			head := get.GetHead()
-
-			if head != nil {
-				return &ValueResult{Exist: true, Head: &ProtoHead{head}, Value: get.GetValue()}
-			} else {
-				return &ValueResult{Exist: false, Head: &emptyHead}
-			}
-
-		}
+		return ParseGetResult(result.GetGet())
 
 	case *bbproto.RecordResult_Touch:
-		return &UpdatedResult{result.Status, true}
+		return ParseTouchResult(result.GetStatus(), result.GetTouch())
 
 	case *bbproto.RecordResult_Put:
-		return &UpdatedResult{result.Status, true}
+		return &PutResult{result.Status}
 
 	case *bbproto.RecordResult_Remove:
-		return &UpdatedResult{result.Status, true }
+		return &RemoveResult{result.Status}
 	}
 
 	return &ErrorResult{bbproto.StatusCode_ERROR_UNSUPPORTED, "client received wrong result type"}
@@ -484,75 +507,147 @@ func (this *HeadResult) GetMessage() string {
 }
 
 //
-// UpdatedResult implements IResult
+// GetResult implements IResult
 //
 
-func (this *UpdatedResult) GetStatus() int32 {
-	return int32(this.Status)
+func (this *GetResult) GetStatus() int32 {
+	return int32(bbproto.StatusCode_SUCCESS)
 }
 
-func (this *UpdatedResult) Updated() bool {
-	return this.Result
-}
-
-func (this *UpdatedResult) Exists() bool {
-	return true
-}
-
-func (this *UpdatedResult) GetHead() IHead {
-	return &emptyHead
-}
-
-func (this *UpdatedResult) GetValue() []byte {
-	return nil
-}
-
-func (this *UpdatedResult) IsError() bool {
+func (this *GetResult) Updated() bool {
 	return false
 }
 
-func (this *UpdatedResult) GetError() error {
+func (this *GetResult) Exists() bool {
+	return this.Exist
+}
+
+func (this *GetResult) GetHead() IHead {
+	return this.Head
+}
+
+func (this *GetResult) GetValue() []byte {
+	return this.Value
+}
+
+func (this *GetResult) IsError() bool {
+	return false
+}
+
+func (this *GetResult) GetError() error {
 	return nil
 }
 
-func (this *UpdatedResult) GetMessage() string {
+func (this *GetResult) GetMessage() string {
 	return ""
 }
 
 
 //
-// ValueResult implements IResult
+// TouchResult implements IResult
 //
 
-func (this *ValueResult) GetStatus() int32 {
-	return int32(bbproto.StatusCode_SUCCESS)
+func (this *TouchResult) GetStatus() int32 {
+	return int32(this.Status)
 }
 
-func (this *ValueResult) Updated() bool {
-	return false
+func (this *TouchResult) Updated() bool {
+	return this.Status == bbproto.StatusCode_SUCCESS
 }
 
-func (this *ValueResult) Exists() bool {
+func (this *TouchResult) Exists() bool {
 	return this.Exist
 }
 
-func (this *ValueResult) GetHead() IHead {
+func (this *TouchResult) GetHead() IHead {
 	return this.Head
 }
 
-func (this *ValueResult) GetValue() []byte {
-	return this.Value
-}
-
-func (this *ValueResult) IsError() bool {
-	return false
-}
-
-func (this *ValueResult) GetError() error {
+func (this *TouchResult) GetValue() []byte {
 	return nil
 }
 
-func (this *ValueResult) GetMessage() string {
+func (this *TouchResult) IsError() bool {
+	return false
+}
+
+func (this *TouchResult) GetError() error {
+	return nil
+}
+
+func (this *TouchResult) GetMessage() string {
+	return ""
+}
+
+//
+// PutResult implements IResult
+//
+
+func (this *PutResult) GetStatus() int32 {
+	return int32(this.Status)
+}
+
+func (this *PutResult) Updated() bool {
+	return this.Status == bbproto.StatusCode_SUCCESS
+}
+
+func (this *PutResult) Exists() bool {
+	return true
+}
+
+func (this *PutResult) GetHead() IHead {
+	return &emptyHead
+}
+
+func (this *PutResult) GetValue() []byte {
+	return nil
+}
+
+func (this *PutResult) IsError() bool {
+	return false
+}
+
+func (this *PutResult) GetError() error {
+	return nil
+}
+
+func (this *PutResult) GetMessage() string {
+	return ""
+}
+
+//
+// RemoveResult implements IResult
+//
+
+func (this *RemoveResult) GetStatus() int32 {
+	return int32(this.Status)
+}
+
+func (this *RemoveResult) Updated() bool {
+	return this.Status == bbproto.StatusCode_SUCCESS
+}
+
+func (this *RemoveResult) Exists() bool {
+	return false
+}
+
+func (this *RemoveResult) GetHead() IHead {
+	return &emptyHead
+}
+
+func (this *RemoveResult) GetValue() []byte {
+	return nil
+}
+
+func (this *RemoveResult) IsError() bool {
+	return false
+}
+
+func (this *RemoveResult) GetError() error {
+	return nil
+}
+
+func (this *RemoveResult) GetMessage() string {
 	return ""
 }
 

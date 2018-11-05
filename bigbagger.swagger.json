@@ -479,7 +479,12 @@
       }
     },
     "bbTouchResult": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "head": {
+          "$ref": "#/definitions/bbHead"
+        }
+      }
     },
     "bbTransaction": {
       "type": "object",
