@@ -4,6 +4,14 @@ BigBagger Database
 
 This project started on Halloween! Ahahahahahahaha
 
+# Description
+
+* gRPC interface for database clients
+* For now works as single not, in future I will add cluster support through etcd
+* It uses badger key-value engine
+* Supports time-series data
+* Very fast
+
 # Quick start
 
 ### Build
@@ -40,45 +48,45 @@ You have to see that bigbagger is listening 4481 and 4482 ports
 ### Go Client Example
 
 ```
-    //
-    // connect to BigBagger server
-    //
+//
+// connect to BigBagger server
+//
 
-    client, err := bbclient.NewClient(grpcAddress)
-	defer client.Close()
+client, err := bbclient.NewClient(grpcAddress)
+defer client.Close()
 
-    //
-    // create dataset TEST
-    //
+//
+// create dataset TEST
+//
 
-	dataset := new(bbproto.Dataset)
-	dataset.Version = "1.0"
-	dataset.Name = "TEST"
+dataset := new(bbproto.Dataset)
+dataset.Version = "1.0"
+dataset.Name = "TEST"
 
-	err = client.CreateDataset(dataset)
+err = client.CreateDataset(dataset)
 
-    //
-    // Put
-    //
+//
+// Put
+//
 
-	op = bbclient.Put(set, []byte("key"), []byte("value"))
+op = bbclient.Put(set, []byte("key"), []byte("value"))
 
-	res = client.Execute(op)
+res = client.Execute(op)
 
-    //
-    // Get
-    //
+//
+// Get
+//
 
-	op = bbclient.Get(set, []byte("key"))
+op = bbclient.Get(set, []byte("key"))
 
-	res = client.Execute(op)
+res = client.Execute(op)
 
-	if res.IsError() {
-		fmt.Print("get error: ", res.GetError())
-		return
-	}
+if res.IsError() {
+    fmt.Print("get error: ", res.GetError())
+    return
+}
 
-	data := res.GetValue()
+data := res.GetValue()
 
 ```
 
