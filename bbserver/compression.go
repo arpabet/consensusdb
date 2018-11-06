@@ -37,28 +37,12 @@ type ICompressor interface {
 
 }
 
-var KnownCompressions = map[bbproto.CompressionAlgorithm]ICompressor {
-	bbproto.CompressionAlgorithm_COMPRESS_NO: &NoCompression{},
-	bbproto.CompressionAlgorithm_COMPRESS_FLATE: &FlateCompression{},
-	bbproto.CompressionAlgorithm_COMPRESS_GZIP: &GZIPCompression{},
-	bbproto.CompressionAlgorithm_COMPRESS_LZW: &LZWCompression{},
-	bbproto.CompressionAlgorithm_COMPRESS_ZLIB: &ZLIBCompression{},
-	bbproto.CompressionAlgorithm_COMPRESS_BZIP2: &BZIP2Compression{},
-}
-
-//
-//  No Compression
-//
-
-type NoCompression struct {
-}
-
-func (this* NoCompression) Compress(input []byte, level bbproto.CompressionLevel) (output []byte, err error) {
-	return input, nil
-}
-
-func (this* NoCompression) Decompress(input  []byte) (output []byte, err error) {
-	return input, nil
+var KnownCompressors = map[bbproto.Compressor]ICompressor {
+	bbproto.Compressor_COMPRESS_FLATE: &FlateCompression{},
+	bbproto.Compressor_COMPRESS_GZIP: &GZIPCompression{},
+	bbproto.Compressor_COMPRESS_LZW: &LZWCompression{},
+	bbproto.Compressor_COMPRESS_ZLIB: &ZLIBCompression{},
+	bbproto.Compressor_COMPRESS_BZIP2: &BZIP2Compression{},
 }
 
 func FlateCompressionLevel(level bbproto.CompressionLevel) int {

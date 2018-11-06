@@ -97,29 +97,32 @@ enum PointInTime {
     PIT_ALL                = 100;
 }
 
-enum EncryptionAlgorithm {
-    ALG_NO     = 0;
-    ALG_AES256 = 1;
+enum Cipher {
+    CIPHER_NO   = 0;
+    CIPHER_AES  = 1;
 }
 
-enum EncryptionMode {
+enum BlockSize {
+    BLOCK_NO    = 0;
+    BLOCK_128   = 16;
+    BLOCK_192   = 24;
+    BLOCK_256   = 32;
+}
+
+enum BlockMode {
     MODE_NO   = 0;
-    MODE_ECB  = 1;
-    MODE_CBC  = 2;
-    MODE_OFB  = 3;
-    MODE_CFB  = 4;
-    MODE_CTR  = 5;
-    MODE_XTS  = 6;
+    MODE_GCM  = 1;
+    MODE_CFB  = 2;
 }
 
 message Encryption {
-    EncryptionAlgorithm  alg       = 1;
-    EncryptionMode       mode      = 2;
-    string               topoKey   = 3;
-    string               topoIv    = 4;
+    Cipher               cipher    = 1;
+    BlockSize            size      = 2;
+    BlockMode            mode      = 3;
+    string               topo      = 4;
 }
 
-enum CompressionAlgorithm {
+enum Compressor {
     COMPRESS_NO      = 0;
     COMPRESS_FLATE   = 1;
     COMPRESS_GZIP    = 2;
@@ -129,15 +132,16 @@ enum CompressionAlgorithm {
 }
 
 enum CompressionLevel {
-    DEFAULT_LEVEL = 0;
-    BEST_SPEED = 1;
-    BEST_COMPRESSION = 2;
+    NO_COMPRESSION       = 0;
+    BEST_SPEED           = 1;
+    DEFAULT_COMPRESSION  = 6;   // or -1 for some algorithms
+    BEST_COMPRESSION     = 9;
 }
 
 message Compression {
-    CompressionAlgorithm  alg   = 1;
-    CompressionLevel      level = 2;
-    uint32            threshold = 3;    // threshold in bytes when compression will be enabled, 0 - no threshold all data will be compressed
+    Compressor        compressor   = 1;
+    CompressionLevel  level        = 2;
+    uint32            threshold    = 3;    // threshold in bytes when compression will be enabled, 0 - no threshold all data will be compressed
 }
 
 message Dataset {
