@@ -152,11 +152,38 @@
     }
   },
   "definitions": {
+    "bbBlockMode": {
+      "type": "string",
+      "enum": [
+        "MODE_NO",
+        "MODE_GCM",
+        "MODE_CFB"
+      ],
+      "default": "MODE_NO"
+    },
+    "bbBlockSize": {
+      "type": "string",
+      "enum": [
+        "BLOCK_NO",
+        "BLOCK_128",
+        "BLOCK_192",
+        "BLOCK_256"
+      ],
+      "default": "BLOCK_NO"
+    },
+    "bbCipher": {
+      "type": "string",
+      "enum": [
+        "CIPHER_NO",
+        "CIPHER_AES"
+      ],
+      "default": "CIPHER_NO"
+    },
     "bbCompression": {
       "type": "object",
       "properties": {
-        "alg": {
-          "$ref": "#/definitions/bbCompressionAlgorithm"
+        "compressor": {
+          "$ref": "#/definitions/bbCompressor"
         },
         "level": {
           "$ref": "#/definitions/bbCompressionLevel"
@@ -167,7 +194,17 @@
         }
       }
     },
-    "bbCompressionAlgorithm": {
+    "bbCompressionLevel": {
+      "type": "string",
+      "enum": [
+        "NO_COMPRESSION",
+        "BEST_SPEED",
+        "DEFAULT_COMPRESSION",
+        "BEST_COMPRESSION"
+      ],
+      "default": "NO_COMPRESSION"
+    },
+    "bbCompressor": {
       "type": "string",
       "enum": [
         "COMPRESS_NO",
@@ -178,15 +215,6 @@
         "COMPRESS_BZIP2"
       ],
       "default": "COMPRESS_NO"
-    },
-    "bbCompressionLevel": {
-      "type": "string",
-      "enum": [
-        "DEFAULT_LEVEL",
-        "BEST_SPEED",
-        "BEST_COMPRESSION"
-      ],
-      "default": "DEFAULT_LEVEL"
     },
     "bbDataDistribution": {
       "type": "string",
@@ -230,40 +258,19 @@
     "bbEncryption": {
       "type": "object",
       "properties": {
-        "alg": {
-          "$ref": "#/definitions/bbEncryptionAlgorithm"
+        "cipher": {
+          "$ref": "#/definitions/bbCipher"
+        },
+        "size": {
+          "$ref": "#/definitions/bbBlockSize"
         },
         "mode": {
-          "$ref": "#/definitions/bbEncryptionMode"
+          "$ref": "#/definitions/bbBlockMode"
         },
-        "topoKey": {
-          "type": "string"
-        },
-        "topoIv": {
+        "topo": {
           "type": "string"
         }
       }
-    },
-    "bbEncryptionAlgorithm": {
-      "type": "string",
-      "enum": [
-        "ALG_NO",
-        "ALG_AES256"
-      ],
-      "default": "ALG_NO"
-    },
-    "bbEncryptionMode": {
-      "type": "string",
-      "enum": [
-        "MODE_NO",
-        "MODE_ECB",
-        "MODE_CBC",
-        "MODE_OFB",
-        "MODE_CFB",
-        "MODE_CTR",
-        "MODE_XTS"
-      ],
-      "default": "MODE_NO"
     },
     "bbGetOperation": {
       "type": "object"

@@ -93,12 +93,12 @@ func OpenDataset(dbDir string, dataset *bbproto.Dataset) (context *DatasetContex
 	opts.ValueDir = dbDir + "/value"
 	context.db, err = badger.Open(opts)
 
-	if dataset.Compression != nil && dataset.Compression.Alg != bbproto.CompressionAlgorithm_COMPRESS_NO {
+	if dataset.Compression != nil && dataset.Compression.Compressor != bbproto.Compressor_COMPRESS_NO {
 
-		compressor, ok := KnownCompressions[dataset.Compression.Alg]
+		compressor, ok := KnownCompressors[dataset.Compression.Compressor]
 
 		if !ok {
-			return nil, errors.New("compression algorithm not found: " + dataset.Compression.Alg.String())
+			return nil, errors.New("compression algorithm not found: " + dataset.Compression.Compressor.String())
 		}
 
 		context.compressionEnabled = true
