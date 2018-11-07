@@ -59,7 +59,7 @@ func (this *DatasetContext) GetName() string {
 }
 
 func (this *DatasetContext) Close() error {
-	if this.db != nil {
+	if this != nil && this.db != nil {
 		log.Println("dataset closing: ", this.dataset.Name)
 		return this.db.Close()
 	}
