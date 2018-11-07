@@ -43,7 +43,7 @@ type BigBaggerServer struct {
 
 func (this *BigBaggerServer) Close() {
 
-	if this.shuttingDown {
+	if this == nil || this.shuttingDown {
 		return
 	}
 

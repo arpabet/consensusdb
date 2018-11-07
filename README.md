@@ -36,6 +36,7 @@ open http://localhost:4481/
 
 ### Run
 ```
+mkdir /tmp/bigbagger
 ./bigbagger
 curl -d "@create.json" -H "Content-Type: application/json" -X POST http://localhost:4481/v1/dataset
 ```
