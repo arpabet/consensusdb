@@ -18,6 +18,8 @@
 
 package bbserver
 
+import "github.com/pkg/errors"
+
 type ISecurity interface {
 
 	GetEncryptionKey(topo string, timestamp uint64, len int) ([]byte, error)
@@ -26,21 +28,34 @@ type ISecurity interface {
 
 type SimpleSecurityContext struct {
 
-	passwordHash   []byte
+	hashMap   map[string][]byte
 
 }
 
-func NewSimpleSecurityContext(password string) (context *SimpleSecurityContext, err error) {
+func NewSimpleSecurityContext(passwordMap map[string]string) (context *SimpleSecurityContext, err error) {
 
-	context = new(SimpleSecurityContext)
+	context = &SimpleSecurityContext{hashMap: make(map[string][]byte)}
 
-	context.passwordHash, err = GetPasswordHash(password)
+	for topo, password := range passwordMap {
 
-	return context, err
+		context.hashMap[topo], err = GetPasswordHash(password)
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return context, nil
 }
 
 func (this* SimpleSecurityContext) GetEncryptionKey(topo string, timestamp uint64, len int) ([]byte, error) {
 
-	return this.passwordHash[:len], nil
+	hash, ok := this.hashMap[topo]
+
+	if !ok {
+		return nil, errors.New("topo not found: " + topo)
+	}
+
+	return hash[:len], nil
 
 }
