@@ -45,7 +45,11 @@ func TestSuit(t *testing.T) {
 
 	defer os.RemoveAll(dataDir)
 
-	security, err := bbserver.NewSimpleSecurityContext("TEST")
+	passwordMap := map[string]string {
+		"key1" : "TEST",
+	}
+
+	security, err := bbserver.NewSimpleSecurityContext(passwordMap)
 	if err != nil {
 		t.Fatal("fail to create security", err)
 	}
@@ -84,6 +88,12 @@ func TestSuit(t *testing.T) {
 	dataset.Compression.Compressor = bbproto.Compressor_COMPRESS_FLATE
 	dataset.Compression.Level = bbproto.CompressionLevel_BEST_COMPRESSION
 	dataset.Compression.Threshold = 100  // do not compress payloads less than 100 bytes
+
+	dataset.Encryption = new(bbproto.Encryption)
+	dataset.Encryption.Cipher = bbproto.Cipher_CIPHER_AES
+	dataset.Encryption.Mode = bbproto.BlockMode_MODE_CFB
+	dataset.Encryption.Size = bbproto.BlockSize_BLOCK_256
+	dataset.Encryption.Topo = "key1"
 
 	err = client.CreateDataset(dataset)
 

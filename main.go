@@ -52,8 +52,7 @@ func run() error {
 	grpcAddress := cfg.Section("server").Key("grpcAddress").String()
 	dataDir := cfg.Section("database").Key("dataDir").String()
 
-	password := cfg.Section("security").Key("password").String()
-	security, err := bbserver.NewSimpleSecurityContext(password)
+	security, err := bbserver.NewSimpleSecurityContext(cfg.Section("security").KeysHash())
 
 	if err != nil {
 		return err
