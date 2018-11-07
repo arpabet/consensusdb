@@ -41,12 +41,16 @@ func TestSuit(t *testing.T) {
 
 	if err != nil {
 		t.Fatal("fail to create tmp dir ", err)
-		return
 	}
 
 	defer os.RemoveAll(dataDir)
 
-	server, err := bbserver.NewServer(dataDir)
+	security, err := bbserver.NewSimpleSecurityContext("TEST")
+	if err != nil {
+		t.Fatal("fail to create security", err)
+	}
+
+	server, err := bbserver.NewServer(dataDir, security)
 	defer server.Close()
 
 	if err != nil {
@@ -77,7 +81,7 @@ func TestSuit(t *testing.T) {
 
 	dataset.Name = "TEST_COMPRESS"
 	dataset.Compression = new(bbproto.Compression)
-	dataset.Compression.Alg = bbproto.CompressionAlgorithm_COMPRESS_FLATE
+	dataset.Compression.Compressor = bbproto.Compressor_COMPRESS_FLATE
 	dataset.Compression.Level = bbproto.CompressionLevel_BEST_COMPRESSION
 	dataset.Compression.Threshold = 100  // do not compress payloads less than 100 bytes
 

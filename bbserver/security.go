@@ -16,22 +16,31 @@
  *
  */
 
- package bbserver
+package bbserver
 
+type ISecurity interface {
 
-func isCompressionEnabled(userMeta byte) bool {
-	return userMeta & 1 > 0
+	GetEncryptionKey(topo string, timestamp uint64, len int) ([]byte, error)
+
 }
 
-func SetCompressionEnabled(userMeta byte) byte {
-	return userMeta | 1
+type SimpleSecurityContext struct {
+
+	passwordHash   []byte
+
 }
 
-func isEncryptionEnabled(userMeta byte) bool {
-	return userMeta & 2 > 0
+func NewSimpleSecurityContext(password string) (context *SimpleSecurityContext, err error) {
+
+	context = new(SimpleSecurityContext)
+
+	context.passwordHash, err = GetPasswordHash(password)
+
+	return context, err
 }
 
-func SetEncryptionEnabled(userMeta byte) byte {
-	return userMeta | 2
-}
+func (this* SimpleSecurityContext) GetEncryptionKey(topo string, timestamp uint64, len int) ([]byte, error) {
 
+	return this.passwordHash[:len], nil
+
+}
