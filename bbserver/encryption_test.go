@@ -24,11 +24,10 @@ import (
 	"bigbagger/proto/bbproto"
 	"bytes"
 	"reflect"
+	"crypto/cipher"
 )
 
 func TestEncryptions(t *testing.T) {
-
-	plaintext := []byte("alexshvid")
 
 	hash, err := bbserver.GetPasswordHash("test")
 	if err != nil {
@@ -48,33 +47,37 @@ func TestEncryptions(t *testing.T) {
 					t.Fatal("fail to create cipher", err)
 				}
 
-				for _, m := range bbserver.KnownBlockModes {
+				for _, mode := range bbserver.KnownBlockModes {
 
-					ciphertext, err := m.Encrypt(block, plaintext)
-
-					if err != nil {
-						t.Fatal("fail to encrypt", err, " for ", reflect.TypeOf(m))
-					}
-
-					actual, err := m.Decrypt(block, ciphertext)
-
-					if err != nil {
-						t.Fatal("fail to decrypt", err, " for ", reflect.TypeOf(m))
-					}
-
-					if !bytes.Equal(plaintext, actual) {
-						t.Fatal("actual not the same as input", err, " for ", reflect.TypeOf(m))
-					}
+					RunCipherTest(t, mode, block)
 
 				}
 
-
 			}
-
 
 		}
 
 	}
 
+}
+
+func RunCipherTest(t *testing.T, mode bbserver.IBlockMode, block cipher.Block) {
+
+	plaintext := []byte("alexshvid")
+	ciphertext, err := mode.Encrypt(block, plaintext)
+
+	if err != nil {
+		t.Fatal("fail to encrypt", err, " for ", reflect.TypeOf(mode))
+	}
+
+	actual, err := mode.Decrypt(block, ciphertext)
+
+	if err != nil {
+		t.Fatal("fail to decrypt", err, " for ", reflect.TypeOf(mode))
+	}
+
+	if !bytes.Equal(plaintext, actual) {
+		t.Fatal("actual not the same as input", err, " for ", reflect.TypeOf(mode))
+	}
 }
 

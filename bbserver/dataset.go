@@ -39,11 +39,19 @@ const (
 type DatasetContext struct {
 	db                     *badger.DB
 	dataset                *bbproto.Dataset
+	security               ISecurity
 
 	compressionEnabled     bool
 	compressThreshold      int
 	compressor             ICompressor
 	compressionLevel       bbproto.CompressionLevel
+
+	encryptionEnabled      bool
+	encryptionCipher       ICipher
+	encryptionMode         IBlockMode
+	encryptionTopo         string
+	encryptionBlockSize    int
+
 }
 
 func (this *DatasetContext) GetName() string {
@@ -58,7 +66,7 @@ func (this *DatasetContext) Close() error {
 	return nil
 }
 
-func NewDataset(dbDir string, dataset *bbproto.Dataset) (context *DatasetContext, err error) {
+func NewDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (context *DatasetContext, err error) {
 
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
 		err = os.Mkdir(dbDir, 0755)
@@ -79,14 +87,15 @@ func NewDataset(dbDir string, dataset *bbproto.Dataset) (context *DatasetContext
 
 	}
 
-	return OpenDataset(dbDir, dataset)
+	return OpenDataset(dbDir, dataset, security)
 
 }
 
-func OpenDataset(dbDir string, dataset *bbproto.Dataset) (context *DatasetContext, err error) {
+func OpenDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (context *DatasetContext, err error) {
 
 	context = new(DatasetContext)
 	context.dataset = dataset
+	context.security = security
 
 	opts := badger.DefaultOptions
 	opts.Dir = dbDir + "/key"
@@ -108,11 +117,42 @@ func OpenDataset(dbDir string, dataset *bbproto.Dataset) (context *DatasetContex
 
 	}
 
+	if dataset.Encryption != nil && dataset.Encryption.Cipher != bbproto.Cipher_CIPHER_NO {
+
+		if dataset.Encryption.Mode == bbproto.BlockMode_MODE_NO {
+			return nil, errors.New("empty block mode")
+		}
+
+		if dataset.Encryption.Size == bbproto.BlockSize_BLOCK_NO {
+			return nil, errors.New("empty block size")
+		}
+
+		cipher, ok := KnownCiphers[dataset.Encryption.Cipher]
+
+		if !ok {
+			return nil, errors.New("cipher not found " + dataset.Encryption.Cipher.String())
+		}
+
+		mode, ok := KnownBlockModes[dataset.Encryption.Mode]
+
+		if !ok {
+			return nil, errors.New("block mode not found " + dataset.Encryption.Mode.String())
+		}
+
+		context.encryptionEnabled = true
+		context.encryptionCipher = cipher
+		context.encryptionMode = mode
+		context.encryptionTopo = dataset.Encryption.Topo
+		context.encryptionBlockSize = int(dataset.Encryption.Size)
+
+
+	}
+
 	return context, err
 
 }
 
-func LoadDataset(dbDir string) (context *DatasetContext, err error) {
+func LoadDataset(dbDir string, security ISecurity) (context *DatasetContext, err error) {
 
 	data, err := ioutil.ReadFile(filepath.Join(dbDir, DATASET_JSON))
 
@@ -127,7 +167,7 @@ func LoadDataset(dbDir string) (context *DatasetContext, err error) {
 		return nil, err
 	}
 
-	return OpenDataset(dbDir, dataset)
+	return OpenDataset(dbDir, dataset, security)
 
 }
 
@@ -161,12 +201,22 @@ func (this *DatasetContext) ProcessGetOperation(key *bbproto.Key, operation *bbp
 		return bbcommon.ErrorDriver(fmt.Sprint("get failed: ", err))
 	}
 
+	if this.encryptionEnabled && isEncryptionEnabled(item.UserMeta()) {
+
+		if decrypted, err := this.Decrypt(data); err == nil {
+			data = decrypted
+		} else {
+			return bbcommon.ErrorDriver(fmt.Sprint("decryption failed: ", err))
+		}
+
+	}
+
 	if this.compressionEnabled && isCompressionEnabled(item.UserMeta()) {
 
-		value, err := this.compressor.Decompress(data)
-
-		if err == nil {
-			data = value
+		if decompressed, err := this.compressor.Decompress(data); err == nil {
+			data = decompressed
+		} else {
+			return bbcommon.ErrorDriver(fmt.Sprint("decompress failed: ", err))
 		}
 
 	}
@@ -252,11 +302,22 @@ func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbp
 
 	if this.compressionEnabled && len(operation.Value) >= this.compressThreshold {
 
-		compressedValue, err := this.compressor.Compress(operation.Value, this.compressionLevel)
-
-		if err == nil {
+		if compressedValue, err := this.compressor.Compress(entry.Value, this.compressionLevel); err == nil {
 			entry.Value = compressedValue
 			entry.UserMeta = SetCompressionEnabled(entry.UserMeta)
+		} else {
+			return bbcommon.ErrorDriver(fmt.Sprint("compression failed: ", err))
+		}
+
+	}
+
+	if this.encryptionEnabled {
+
+		if encryptedValue, err := this.Encrypt(entry.Value); err == nil {
+			entry.Value = encryptedValue
+			entry.UserMeta = SetEncryptionEnabled(entry.UserMeta)
+		} else {
+			return bbcommon.ErrorDriver(fmt.Sprint("encryption failed: ", err))
 		}
 
 	}
@@ -321,4 +382,40 @@ func (this *DatasetContext) ProcessOperation(operation *bbproto.RecordOperation)
 	}
 
 	return bbcommon.ErrorUnsupported("unknown operation type")
+}
+
+func (this* DatasetContext) Encrypt(plaintext []byte) ([]byte, error) {
+
+	key, err := this.security.GetEncryptionKey(this.encryptionTopo, 0, this.encryptionBlockSize)
+
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := this.encryptionCipher.Create(key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return this.encryptionMode.Encrypt(block, plaintext)
+
+}
+
+func (this* DatasetContext) Decrypt(ciphertext []byte) ([]byte, error) {
+
+	key, err := this.security.GetEncryptionKey(this.encryptionTopo, 0, this.encryptionBlockSize)
+
+	if err != nil {
+		return nil, err
+	}
+
+	block, err := this.encryptionCipher.Create(key)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return this.encryptionMode.Decrypt(block, ciphertext)
+
 }

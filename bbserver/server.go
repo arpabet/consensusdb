@@ -35,6 +35,7 @@ import (
 
 type BigBaggerServer struct {
 	grpcServer    *grpc.Server
+	security      ISecurity
 	dataDir       string
 	sets          *DatasetMap
 	shuttingDown  bool
@@ -65,11 +66,12 @@ func (this *BigBaggerServer) Close() {
 
 }
 
-func NewServer(dataDir string) (server *BigBaggerServer, err error) {
+func NewServer(dataDir string, security ISecurity) (server *BigBaggerServer, err error) {
 
 	server = new(BigBaggerServer)
 	server.sets = NewDatasetMap()
 	server.dataDir = dataDir
+	server.security = security
 
 	log.Printf("init dataDir=%s\n", server.dataDir)
 
@@ -89,7 +91,7 @@ func NewServer(dataDir string) (server *BigBaggerServer, err error) {
 
 			log.Printf("load dbDir=%s\n", dbDir.Name())
 
-			dataset, err := LoadDataset(filepath.Join(server.dataDir, dbDir.Name()))
+			dataset, err := LoadDataset(filepath.Join(server.dataDir, dbDir.Name()), security)
 			if err != nil {
 				return nil, err
 			}
@@ -126,7 +128,7 @@ func (this *BigBaggerServer) Create(context context.Context, dataset *bbproto.Da
 		return new(empty.Empty), nil
 	}
 
-	set, err = NewDataset(filepath.Join(this.dataDir, name), dataset)
+	set, err = NewDataset(filepath.Join(this.dataDir, name), dataset, this.security)
 
 	if err != nil {
 		return nil, err
