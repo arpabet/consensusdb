@@ -47,32 +47,15 @@ var KnownCompressors = map[bbproto.Compressor]ICompressor {
 
 func FlateCompressionLevel(level bbproto.CompressionLevel) int {
 
-	switch level {
-
-	case bbproto.CompressionLevel_BEST_SPEED:
-		return 1
-
-	case bbproto.CompressionLevel_BEST_COMPRESSION:
-		return 9
-
+	if level == bbproto.CompressionLevel_DEFAULT_COMPRESSION {
+		return -1
 	}
 
-	return -1;
+	return int(level)
 }
 
 func BZIP2CompressionLevel(level bbproto.CompressionLevel) int {
-
-	switch level {
-
-	case bbproto.CompressionLevel_BEST_SPEED:
-		return 1
-
-	case bbproto.CompressionLevel_BEST_COMPRESSION:
-		return 9
-
-	}
-
-	return 6;
+	return int(level)
 }
 
 //
