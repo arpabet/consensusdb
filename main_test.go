@@ -80,7 +80,7 @@ func TestSuit(t *testing.T) {
 	err = client.CreateDataset(dataset)
 
 	if err != nil {
-		t.Fatal("fail to create dataset ", err)
+		t.Fatal("fail to TEST dataset ", err)
 	}
 
 	dataset.Name = "TEST_COMPRESS"
@@ -89,6 +89,14 @@ func TestSuit(t *testing.T) {
 	dataset.Compression.Level = bbproto.CompressionLevel_BEST_COMPRESSION
 	dataset.Compression.Threshold = 100  // do not compress payloads less than 100 bytes
 
+	err = client.CreateDataset(dataset)
+
+	if err != nil {
+		t.Fatal("fail to create TEST_COMPRESS dataset ", err)
+	}
+
+	dataset.Name = "TEST_ENCRYPT"
+	dataset.Compression = nil
 	dataset.Encryption = new(bbproto.Encryption)
 	dataset.Encryption.Cipher = bbproto.Cipher_CIPHER_AES
 	dataset.Encryption.Mode = bbproto.BlockMode_MODE_CFB
@@ -98,7 +106,7 @@ func TestSuit(t *testing.T) {
 	err = client.CreateDataset(dataset)
 
 	if err != nil {
-		t.Fatal("fail to create second dataset ", err)
+		t.Fatal("fail to create TEST_ENCRYPT dataset ", err)
 	}
 
 	list, err := client.GetDataset("*")
@@ -107,8 +115,8 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to get dataset ", err)
 	}
 
-	if len(list) != 2 {
-		t.Fatal("expected 2 results in dataset list, but was: ", len(list))
+	if len(list) != 3 {
+		t.Fatal("expected 3 results in dataset list, but was: ", len(list))
 	}
 
 	m := make(map[string]*bbproto.Dataset)
@@ -123,6 +131,10 @@ func TestSuit(t *testing.T) {
 
 	if _, ok := m["TEST_COMPRESS"]; !ok {
 		t.Fatal("TEST_COMPRESS dataset not found")
+	}
+
+	if _, ok := m["TEST_ENCRYPT"]; !ok {
+		t.Fatal("TEST_ENCRYPT dataset not found")
 	}
 
 	RunCRUIDTests(t, client, "TEST")
