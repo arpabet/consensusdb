@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2018-present Alexander Shvid and other authors
+ * Copyright 2018-present Alexander Shvid and Contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -109,14 +109,20 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create TEST_ENCRYPT dataset ", err)
 	}
 
-	list, err := client.GetDataset("*")
+	dataset.Name = "TEST_PIT_ONE"
+	dataset.Encryption = nil
+	dataset.Pit = bbproto.PointInTime_PIT_LAST_ONE
+
+	err = client.CreateDataset(dataset)
+
+	list, err := client.GetDataset("TEST*")
 
 	if err != nil {
 		t.Fatal("fail to get dataset ", err)
 	}
 
-	if len(list) != 3 {
-		t.Fatal("expected 3 results in dataset list, but was: ", len(list))
+	if len(list) != 4 {
+		t.Fatal("expected 4 results in dataset list, but was: ", len(list))
 	}
 
 	m := make(map[string]*bbproto.Dataset)
@@ -137,11 +143,16 @@ func TestSuit(t *testing.T) {
 		t.Fatal("TEST_ENCRYPT dataset not found")
 	}
 
+	if _, ok := m["TEST_PIT_ONE"]; !ok {
+		t.Fatal("TEST_PIT_ONE dataset not found")
+	}
+
 	RunCRUIDTests(t, client, "TEST")
 	RunCompareAndSetTests(t, client, "TEST")
 	RunWithTtlTests(t, client, "TEST")
 	RunCompressionTests(t, client, "TEST_COMPRESS")
 	RunEncryptionTests(t, client, "TEST_ENCRYPT")
+	RunPitOneTests(t, client, "TEST_PIT_ONE")
 
 	err = client.DeleteDataset("TEST")
 
@@ -595,5 +606,40 @@ func RunEncryptionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	if string(res.GetValue()) != "a" {
 		t.Fatal("actual value is wrong")
 	}
+
+}
+
+func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
+
+
+	//
+	//  Test Put
+	//
+
+	op := bbclient.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(1514764800)
+
+	res := client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to put entry ", res.GetError())
+	}
+
+
+	//
+	//  Exact Lookup Head
+	//
+
+	op = bbclient.Head(set, []byte("pit1")).WithTimestamp(1514764800)
+
+	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to head entry ", res.GetError())
+	}
+
+	if !res.Exists() {
+		t.Fatal("entry not found")
+	}
+
 
 }

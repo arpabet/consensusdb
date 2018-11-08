@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2018-present Alexander Shvid and other authors
+ * Copyright 2018-present Alexander Shvid and Contributors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -69,6 +69,15 @@ type IResult interface {
 	GetMessage() string
 
 }
+
+type EmptyError struct {
+}
+
+func (this* EmptyError) Error() string {
+	return ""
+}
+
+var emptyError = EmptyError{}
 
 var emptyValue = []byte{}
 
@@ -501,7 +510,7 @@ func (this *HeadResult) IsError() bool {
 }
 
 func (this *HeadResult) GetError() error {
-	return nil
+	return &emptyError
 }
 
 func (this *HeadResult) GetMessage() string {
@@ -537,7 +546,7 @@ func (this *GetResult) IsError() bool {
 }
 
 func (this *GetResult) GetError() error {
-	return nil
+	return &emptyError
 }
 
 func (this *GetResult) GetMessage() string {
@@ -574,7 +583,7 @@ func (this *TouchResult) IsError() bool {
 }
 
 func (this *TouchResult) GetError() error {
-	return nil
+	return &emptyError
 }
 
 func (this *TouchResult) GetMessage() string {
@@ -610,7 +619,7 @@ func (this *PutResult) IsError() bool {
 }
 
 func (this *PutResult) GetError() error {
-	return nil
+	return &emptyError
 }
 
 func (this *PutResult) GetMessage() string {
@@ -646,7 +655,7 @@ func (this *RemoveResult) IsError() bool {
 }
 
 func (this *RemoveResult) GetError() error {
-	return nil
+	return &emptyError
 }
 
 func (this *RemoveResult) GetMessage() string {
