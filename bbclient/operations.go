@@ -70,6 +70,8 @@ type IResult interface {
 
 }
 
+var emptyValue = []byte{}
+
 var emptyHead = EmptyHead{}
 
 type EmptyHead struct {
@@ -491,7 +493,7 @@ func (this *HeadResult) GetHead() IHead {
 }
 
 func (this *HeadResult) GetValue() []byte {
-	return nil
+	return emptyValue
 }
 
 func (this *HeadResult) IsError() bool {
@@ -564,7 +566,7 @@ func (this *TouchResult) GetHead() IHead {
 }
 
 func (this *TouchResult) GetValue() []byte {
-	return nil
+	return emptyValue
 }
 
 func (this *TouchResult) IsError() bool {
@@ -600,7 +602,7 @@ func (this *PutResult) GetHead() IHead {
 }
 
 func (this *PutResult) GetValue() []byte {
-	return nil
+	return emptyValue
 }
 
 func (this *PutResult) IsError() bool {
@@ -636,7 +638,7 @@ func (this *RemoveResult) GetHead() IHead {
 }
 
 func (this *RemoveResult) GetValue() []byte {
-	return nil
+	return emptyValue
 }
 
 func (this *RemoveResult) IsError() bool {
@@ -672,7 +674,7 @@ func (this *ErrorResult) GetHead() IHead {
 }
 
 func (this *ErrorResult) GetValue() []byte {
-	return nil
+	return emptyValue
 }
 
 func (this *ErrorResult) IsError() bool {

@@ -141,6 +141,7 @@ func TestSuit(t *testing.T) {
 	RunCompareAndSetTests(t, client, "TEST")
 	RunWithTtlTests(t, client, "TEST")
 	RunCompressionTests(t, client, "TEST_COMPRESS")
+	RunEncryptionTests(t, client, "TEST_ENCRYPT")
 
 	err = client.DeleteDataset("TEST")
 
@@ -534,6 +535,65 @@ func RunCompressionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	if !bytes.Equal(payload, res.GetValue()) {
 		t.Fatal("actual value is not the same as payload")
+	}
+
+}
+
+
+func RunEncryptionTests(t *testing.T, client bbclient.IBigBagger, set string) {
+
+	//
+	//  One letter with no padding is very good test
+	//
+
+	payload := []byte("a")
+
+	//
+	//  Test Put
+	//
+
+	op := bbclient.Put(set, []byte("enc"), payload)
+
+	res := client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to put entry ", res.GetError())
+	}
+
+	//
+	//  Test Size
+	//
+
+	op = bbclient.Head(set, []byte("enc"))
+
+	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to head entry ", res.GetError())
+	}
+
+	if !res.Exists() {
+		t.Fatal("entry not found")
+	}
+
+	//
+	//  Test Get
+	//
+
+	op = bbclient.Get(set, []byte("enc"))
+
+	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to get entry ", res.GetError())
+	}
+
+	if !res.Exists() {
+		t.Fatal("entry not found")
+	}
+
+	if string(res.GetValue()) != "a" {
+		t.Fatal("actual value is wrong")
 	}
 
 }
