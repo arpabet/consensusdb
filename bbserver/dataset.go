@@ -201,10 +201,13 @@ func (this *DatasetContext) ProcessGetOperation(key *bbproto.Key, operation *bbp
 		return bbcommon.ErrorDriver(fmt.Sprint("get failed: ", err))
 	}
 
+	dataCopied := false
+
 	if this.encryptionEnabled && isEncryptionEnabled(item.UserMeta()) {
 
 		if decrypted, err := this.Decrypt(data); err == nil {
 			data = decrypted
+			dataCopied = true
 		} else {
 			return bbcommon.ErrorDriver(fmt.Sprint("decryption failed: ", err))
 		}
@@ -215,10 +218,16 @@ func (this *DatasetContext) ProcessGetOperation(key *bbproto.Key, operation *bbp
 
 		if decompressed, err := this.compressor.Decompress(data); err == nil {
 			data = decompressed
+			dataCopied = true
 		} else {
 			return bbcommon.ErrorDriver(fmt.Sprint("decompress failed: ", err))
 		}
 
+	}
+
+	// copy data because outside of the transaction they will be destroyed
+	if !dataCopied {
+		data = bbcommon.CopyOf(data)
 	}
 
 	return SuccessGetResult(key.Timestamp, data, item)

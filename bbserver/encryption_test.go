@@ -25,6 +25,7 @@ import (
 	"bytes"
 	"reflect"
 	"crypto/cipher"
+	"bigbagger/bbcommon"
 )
 
 func TestEncryptions(t *testing.T) {
@@ -63,14 +64,25 @@ func TestEncryptions(t *testing.T) {
 
 func RunCipherTest(t *testing.T, mode bbserver.IBlockMode, block cipher.Block) {
 
-	plaintext := []byte("alexshvid")
+	original := []byte("alexshvid")
+
+	plaintext := bbcommon.CopyOf(original)
 	ciphertext, err := mode.Encrypt(block, plaintext)
+
+	if !bytes.Equal(plaintext, original) {
+		t.Fatal("plaintext must not be modified", err, " for ", reflect.TypeOf(mode))
+	}
 
 	if err != nil {
 		t.Fatal("fail to encrypt", err, " for ", reflect.TypeOf(mode))
 	}
 
+	keepCiphertext := bbcommon.CopyOf(ciphertext)
 	actual, err := mode.Decrypt(block, ciphertext)
+
+	if !bytes.Equal(ciphertext, keepCiphertext) {
+		t.Fatal("ciphertext must not be modified", err, " for ", reflect.TypeOf(mode))
+	}
 
 	if err != nil {
 		t.Fatal("fail to decrypt", err, " for ", reflect.TypeOf(mode))
