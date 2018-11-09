@@ -51,8 +51,11 @@ type BadgerDriver struct {
 	dataset                *bbproto.Dataset
 	security               ISecurity
 
+	ttl                    time.Duration    // 0 - for eternal
+
 	pitEnabled             bool
-	pit                    bbproto.PointInTime
+	pitPrimaryTimestamp    bool
+	pitConflate            bool
 
 	compressionEnabled     bool
 	compressThreshold      int
@@ -180,9 +183,10 @@ func OpenDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (co
 	opts.ValueDir = dbDir + "/value"
 	context.db, err = badger.Open(opts)
 
-	if dataset.Pit != bbproto.PointInTime_PIT_NO {
+	if dataset.Pit != nil {
 		context.pitEnabled = true
-		context.pit = dataset.Pit
+		context.pitPrimaryTimestamp = dataset.Pit.PrimaryTimestamp
+		context.pitConflate = dataset.Pit.Conflation
 	}
 
 	if dataset.Compression != nil && dataset.Compression.Compressor != bbproto.Compressor_COMPRESS_NO {
@@ -228,6 +232,18 @@ func OpenDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (co
 		context.encryptionTopo = dataset.Encryption.Topo
 		context.encryptionBlockSize = int(dataset.Encryption.Size)
 
+
+	}
+
+	if len(dataset.Ttl) == 0 || dataset.Ttl == "eternal" {
+		context.ttl = 0
+	} else {
+
+		context.ttl, err = bbcommon.ParseTtl(dataset.Ttl)
+
+		if err != nil {
+			return nil, err
+		}
 
 	}
 
@@ -386,15 +402,15 @@ func (this *BadgerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbp
 		return bbcommon.ErrorDriver(fmt.Sprint("touch failed: ", err))
 	}
 
-	ttlSeconds := this.dataset.TtlSeconds
+	ttl := this.ttl
 	if operation.OverrideTtl {
-		ttlSeconds = operation.TtlSeconds
+		ttl = time.Duration(operation.TtlSeconds) * time.Second
 	}
 
 	entry := &badger.Entry{ Key: entryKey, Value:data, UserMeta: item.UserMeta()  }
 
-	if ttlSeconds > 0 {
-		expire := time.Now().Add(time.Duration(ttlSeconds) * time.Second).Unix()
+	if ttl > 0 {
+		expire := time.Now().Add(ttl).Unix()
 		entry.ExpiresAt = uint64(expire)
 	}
 
@@ -441,16 +457,15 @@ func (this *BadgerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbpro
 
 	}
 
-	ttlSeconds := this.dataset.TtlSeconds
+	ttl := this.ttl
 	if operation.OverrideTtl {
-		ttlSeconds = operation.TtlSeconds
+		ttl = time.Duration(operation.TtlSeconds) * time.Second
 	}
-
 
 	entry := &badger.Entry{ Key: entryKey, Value: operation.Value  }
 
-	if ttlSeconds > 0 {
-		expire := time.Now().Add(time.Duration(ttlSeconds) * time.Second).Unix()
+	if ttl > 0 {
+		expire := time.Now().Add(ttl).Unix()
 		entry.ExpiresAt = uint64(expire)
 	}
 

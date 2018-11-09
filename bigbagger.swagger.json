@@ -216,14 +216,23 @@
       ],
       "default": "COMPRESS_NO"
     },
-    "bbDataDistribution": {
+    "bbDataPolicy": {
       "type": "string",
       "enum": [
-        "DATA_LOCAL",
-        "DATA_REPLICATION",
-        "DATA_PARTITION"
+        "POL_LOCAL",
+        "POL_REPLICATION",
+        "POL_PARTITION"
       ],
-      "default": "DATA_LOCAL"
+      "default": "POL_LOCAL"
+    },
+    "bbDataScope": {
+      "type": "string",
+      "enum": [
+        "LOCAL_NO_ACK",
+        "DISTRIBUTED_ACK",
+        "DISTRIBUTED_NO_ACK"
+      ],
+      "default": "LOCAL_NO_ACK"
     },
     "bbDataset": {
       "type": "object",
@@ -234,8 +243,11 @@
         "name": {
           "type": "string"
         },
-        "distr": {
-          "$ref": "#/definitions/bbDataDistribution"
+        "policy": {
+          "$ref": "#/definitions/bbDataPolicy"
+        },
+        "scope": {
+          "$ref": "#/definitions/bbDataScope"
         },
         "partition": {
           "$ref": "#/definitions/bbPartition"
@@ -249,9 +261,8 @@
         "pit": {
           "$ref": "#/definitions/bbPointInTime"
         },
-        "ttlSeconds": {
-          "type": "integer",
-          "format": "int64"
+        "ttl": {
+          "type": "string"
         }
       }
     },
@@ -353,16 +364,17 @@
       }
     },
     "bbPointInTime": {
-      "type": "string",
-      "enum": [
-        "PIT_NO",
-        "PIT_LAST_ONE",
-        "PIT_LAST_FIVE",
-        "PIT_LAST_TEN",
-        "PIT_FIRST_TEN_LAST_TEN",
-        "PIT_ALL"
-      ],
-      "default": "PIT_NO"
+      "type": "object",
+      "properties": {
+        "primaryTimestamp": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "conflation": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
     },
     "bbPutOperation": {
       "type": "object",
