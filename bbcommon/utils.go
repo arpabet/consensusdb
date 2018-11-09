@@ -18,8 +18,62 @@
 
 package bbcommon
 
+import (
+	"time"
+	"strconv"
+	"github.com/pkg/errors"
+)
+
+const (
+	Day                  = time.Hour * 24
+	Month                = Day * 31
+	Year                 = Day * 365
+)
+
 func CopyOf(src []byte) []byte {
 	dst := make([]byte, len(src))
 	copy(dst, src)
 	return dst
+}
+
+func ParseTtl(ttlExpr string) (ttl time.Duration, err error) {
+
+	len := len(ttlExpr)
+
+	if len == 0 {
+		return 0, nil
+	}
+
+	num, err := strconv.ParseInt(ttlExpr[:len-1], 10, 64)
+
+	if err != nil {
+		return 0, err
+	}
+
+	term := ttlExpr[len-1]
+
+	switch term {
+
+	case 'Y':
+		return time.Duration(num) * Year, nil;
+
+	case 'M':
+		return time.Duration(num) * Month, nil;
+
+	case 'D':
+		return time.Duration(num) * Day, nil;
+
+	case 'h':
+		return time.Duration(num) * time.Hour, nil;
+
+	case 'm':
+		return time.Duration(num) * time.Minute, nil;
+
+	case 's':
+		return time.Duration(num) * time.Second, nil;
+
+	}
+
+	return 0, errors.New("unknown term: " + ttlExpr)
+
 }

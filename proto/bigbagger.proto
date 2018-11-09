@@ -77,10 +77,16 @@ service DatasetService {
 
 }
 
-enum DataDistribution {
-    DATA_LOCAL        = 0;
-    DATA_REPLICATION  = 1;
-    DATA_PARTITION    = 2;
+enum DataPolicy {
+    POL_LOCAL        = 0;
+    POL_REPLICATION  = 1;
+    POL_PARTITION    = 2;
+}
+
+enum DataScope {
+    LOCAL_NO_ACK        = 0;   // local does not send data
+    DISTRIBUTED_ACK     = 1;   // sent and wait response (success or error)
+    DISTRIBUTED_NO_ACK  = 2;   // sent and forgot
 }
 
 message Partition {
@@ -88,13 +94,9 @@ message Partition {
     uint32 replicationFactor = 2;
 }
 
-enum PointInTime {
-    PIT_NO                 = 0;
-    PIT_LAST_ONE           = 1;
-    PIT_LAST_FIVE          = 5;
-    PIT_LAST_TEN           = 10;
-    PIT_FIRST_TEN_LAST_TEN = 20;
-    PIT_ALL                = 100;
+message PointInTime {
+    bool  primaryTimestamp     = 1;    // use PIT timestamp to calculate ExpiresAt by adding TTL
+    bool  conflation           = 2;    // do not store values if previous one is the same
 }
 
 enum Cipher {
@@ -147,12 +149,13 @@ message Compression {
 message Dataset {
     string           version      = 1;     // version of the data structure, 1.0 - the first one
     string           name         = 2;     // can not be changed
-    DataDistribution distr        = 3;     // can not be changed
-    Partition        partition    = 4;     // can not be changed
-    Compression      compression  = 5;     // can not be changed
-    Encryption       encryption   = 6;     // can not be changed
-    PointInTime      pit          = 7;     // can not be changed
-    uint32           ttlSeconds   = 8;     // can be changed, for 0 = NO-TTL
+    DataPolicy       policy       = 3;     // can be changed from LOCAL to any other only
+    DataScope        scope        = 4;     // can be changed
+    Partition        partition    = 5;     // can be changed from LOCAL to PARTITIONED
+    Compression      compression  = 6;     // can be changed only to enable
+    Encryption       encryption   = 7;     // can be changed only to enable
+    PointInTime      pit          = 8;     // can not be changed (another key schema is used)
+    string           ttl          = 9;     // "" or "eternal" for no TTL and supported formats: "1Y", "1M", "1D", "1h", "1m", "1s"
 }
 
 message String {

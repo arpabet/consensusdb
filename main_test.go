@@ -77,6 +77,7 @@ func TestSuit(t *testing.T) {
 	dataset := new(bbproto.Dataset)
 	dataset.Version = "1.0"
 	dataset.Name = "TEST"
+	dataset.Ttl = "1D"     // one day
 
 	err = client.CreateDataset(dataset)
 
@@ -112,7 +113,7 @@ func TestSuit(t *testing.T) {
 
 	dataset.Name = "TEST_PIT_ONE"
 	dataset.Encryption = nil
-	dataset.Pit = bbproto.PointInTime_PIT_LAST_ONE
+	dataset.Pit = &bbproto.PointInTime{ PrimaryTimestamp: false, Conflation: false }
 
 	err = client.CreateDataset(dataset)
 
