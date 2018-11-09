@@ -37,7 +37,7 @@ type BigBaggerServer struct {
 	grpcServer    *grpc.Server
 	security      ISecurity
 	dataDir       string
-	sets          *DatasetMap
+	sets          *DriverMap
 	shuttingDown  bool
 }
 
@@ -69,7 +69,7 @@ func (this *BigBaggerServer) Close() {
 func NewServer(dataDir string, security ISecurity) (server *BigBaggerServer, err error) {
 
 	server = new(BigBaggerServer)
-	server.sets = NewDatasetMap()
+	server.sets = NewDriverMap()
 	server.dataDir = dataDir
 	server.security = security
 
