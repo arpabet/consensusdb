@@ -27,6 +27,7 @@ import (
 	"bigbagger/proto/bbproto"
 	"os"
 	"bytes"
+	"fmt"
 )
 
 const (
@@ -629,7 +630,7 @@ func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Exact Lookup Head
 	//
 
-	op = bbclient.Head(set, []byte("pit1")).WithTimestamp(1514764800)
+	op = bbclient.Head(set, []byte("pit1"))
 
 	res = client.Execute(op)
 
@@ -639,6 +640,79 @@ func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	if !res.Exists() {
 		t.Fatal("entry not found")
+	}
+
+	fmt.Print("res.GetHead().GetTimestamp()=", res.GetHead().GetTimestamp(), "\n")
+
+	if res.GetHead().GetTimestamp() != 1514764800 {
+		t.Fatal("wrong timestamp")
+	}
+
+	//
+	//  Lower Lookup Head
+	//
+
+	op = bbclient.Head(set, []byte("pit2"))
+
+	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to head entry ", res.GetError())
+	}
+
+	if res.Exists() {
+		t.Fatal("absent entry found")
+	}
+
+	//
+	//  Test Second Put
+	//
+
+	op = bbclient.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(1514764900)
+
+	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to put entry ", res.GetError())
+	}
+
+
+	//
+	//  Exact Lookup Head
+	//
+
+	op = bbclient.Head(set, []byte("pit1"))
+
+	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to head entry ", res.GetError())
+	}
+
+	if !res.Exists() {
+		t.Fatal("entry not found")
+	}
+
+	fmt.Print("res.GetHead().GetTimestamp()=", res.GetHead().GetTimestamp(), "\n")
+
+	if res.GetHead().GetTimestamp() != 1514764900 {
+		t.Fatal("wrong timestamp")
+	}
+
+	//
+	//  Lower Lookup Head
+	//
+
+	op = bbclient.Head(set, []byte("pit2"))
+
+	res = client.Execute(op)
+
+	if res.IsError() {
+		t.Fatal("fail to head entry ", res.GetError())
+	}
+
+	if res.Exists() {
+		t.Fatal("absent entry found")
 	}
 
 

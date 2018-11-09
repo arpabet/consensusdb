@@ -16,26 +16,16 @@
  *
  */
 
- package bbserver
+package bbserver
 
-const (
-	bitCompressed             byte = 1 << 0    // Set if the entry has been compressed.
-	bitEncrypted              byte = 1 << 1    // Set if the entry has been encrypted.
-)
+import "bigbagger/proto/bbproto"
 
-func isCompressionEnabled(userMeta byte) bool {
-	return userMeta & bitCompressed > 0
+type IDriver interface {
+
+	ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult
+
+	Close() error
+
 }
 
-func SetCompressionEnabled(userMeta byte) byte {
-	return userMeta | bitCompressed
-}
-
-func isEncryptionEnabled(userMeta byte) bool {
-	return userMeta & bitEncrypted > 0
-}
-
-func SetEncryptionEnabled(userMeta byte) byte {
-	return userMeta | bitEncrypted
-}
 

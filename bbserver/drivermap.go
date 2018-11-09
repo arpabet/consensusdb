@@ -20,36 +20,36 @@ package bbserver
 
 import "sync"
 
-type DatasetMap struct {
+type DriverMap struct {
 	sync.RWMutex
-	internal map[string]*DatasetContext
+	internal map[string]IDriver
 }
 
-type DatasetEntry struct {
+type DriverEntry struct {
 	Key    string
-	Value  *DatasetContext
+	Value  IDriver
 }
 
-func NewDatasetMap() *DatasetMap {
-	return &DatasetMap{
-		internal: make(map[string]*DatasetContext),
+func NewDriverMap() *DriverMap {
+	return &DriverMap{
+		internal: make(map[string]IDriver),
 	}
 }
 
-func (this *DatasetMap) Get(key string) (result *DatasetContext, ok bool) {
+func (this *DriverMap) Get(key string) (result IDriver, ok bool) {
 	this.RLock()
 	result, ok = this.internal[key]
 	this.RUnlock()
 	return result, ok
 }
 
-func (this *DatasetMap) Put(key string, value *DatasetContext) {
+func (this *DriverMap) Put(key string, value IDriver) {
 	this.Lock()
 	this.internal[key] = value
 	this.Unlock()
 }
 
-func (this *DatasetMap) Remove(key string) (prev *DatasetContext, ok bool) {
+func (this *DriverMap) Remove(key string) (prev IDriver, ok bool) {
 	this.Lock()
 	prev, ok = this.internal[key]
 	delete(this.internal, key)
@@ -57,17 +57,17 @@ func (this *DatasetMap) Remove(key string) (prev *DatasetContext, ok bool) {
 	return prev, ok
 }
 
-func (this *DatasetMap) Clear() {
+func (this *DriverMap) Clear() {
 	this.Lock()
-	this.internal = make(map[string]*DatasetContext)
+	this.internal = make(map[string]IDriver)
 	this.Unlock()
 }
 
-func (this *DatasetMap) List() []DatasetEntry {
-	clone := make([]DatasetEntry, 0, len(this.internal))
+func (this *DriverMap) List() []DriverEntry {
+	clone := make([]DriverEntry, 0, len(this.internal))
 	this.RLock()
 	for k, v := range this.internal {
-		clone = append(clone, DatasetEntry{ k, v })
+		clone = append(clone, DriverEntry{ k, v })
 	}
 	this.RUnlock()
 	return clone

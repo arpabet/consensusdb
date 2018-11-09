@@ -30,16 +30,29 @@ import (
 	"time"
 	"log"
 	"github.com/pkg/errors"
+	"encoding/binary"
+	"math"
 )
 
 const (
 	DATASET_JSON = "dataset.json"
 )
 
-type DatasetContext struct {
+var ReverseIteratorOptions = badger.IteratorOptions{
+	PrefetchValues: true,
+	PrefetchSize:   1,
+	Reverse:        true,
+	AllVersions:    false,
+}
+
+
+type BadgerDriver struct {
 	db                     *badger.DB
 	dataset                *bbproto.Dataset
 	security               ISecurity
+
+	pitEnabled             bool
+	pit                    bbproto.PointInTime
 
 	compressionEnabled     bool
 	compressThreshold      int
@@ -54,11 +67,11 @@ type DatasetContext struct {
 
 }
 
-func (this *DatasetContext) GetName() string {
+func (this *BadgerDriver) GetName() string {
 	return this.dataset.Name
 }
 
-func (this *DatasetContext) Close() error {
+func (this *BadgerDriver) Close() error {
 	if this != nil && this.db != nil {
 		log.Println("dataset closing: ", this.dataset.Name)
 		return this.db.Close()
@@ -66,7 +79,60 @@ func (this *DatasetContext) Close() error {
 	return nil
 }
 
-func NewDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (context *DatasetContext, err error) {
+func (this *BadgerDriver) GetEntryKey(key *bbproto.Key) (fullKey []byte, prefixKey []byte, err error) {
+
+	if this.pitEnabled {
+
+		recordKey := key.RecordKey
+		recordKeyLen := len(recordKey)
+		if recordKeyLen > 255 {
+			return nil, nil, errors.New("recordKey is too long")
+		}
+
+		fullKey = make([]byte, 1+recordKeyLen+8)
+		fullKey[0] = byte(recordKeyLen)
+		copy(fullKey[1:], recordKey)
+		binary.BigEndian.PutUint64(fullKey[recordKeyLen+1:], key.Timestamp)
+		//binary.BigEndian.PutUint64(fullKey[recordKeyLen+1:], math.MaxUint64 - key.Timestamp)
+
+		return fullKey, fullKey[:recordKeyLen+1], nil
+
+	} else {
+		return key.RecordKey, key.RecordKey, nil
+	}
+
+}
+
+func (this *BadgerDriver) GetTimestamp(fullKey []byte) uint64 {
+
+	if len(fullKey) <= 9 {
+		return 0
+	}
+	return binary.BigEndian.Uint64(fullKey[len(fullKey)-8:])
+	//return math.MaxUint64 - binary.BigEndian.Uint64(fullKey[len(fullKey)-8:])
+
+}
+
+func (this *BadgerDriver) GetEntryKeyPrefix(key *bbproto.Key) ([]byte) {
+
+	if this.pitEnabled {
+
+		recordKey := key.RecordKey
+		recordKeyLen := len(recordKey)
+
+		out := make([]byte, recordKeyLen+1)
+		out[0] = byte(recordKeyLen)
+		copy(out[1:], recordKey)
+
+		return out
+
+	} else {
+		return key.RecordKey
+	}
+
+}
+
+func NewDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (context *BadgerDriver, err error) {
 
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
 		err = os.Mkdir(dbDir, 0755)
@@ -91,9 +157,9 @@ func NewDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (con
 
 }
 
-func OpenDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (context *DatasetContext, err error) {
+func OpenDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (context *BadgerDriver, err error) {
 
-	context = new(DatasetContext)
+	context = new(BadgerDriver)
 	context.dataset = dataset
 	context.security = security
 
@@ -101,6 +167,11 @@ func OpenDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (co
 	opts.Dir = dbDir + "/key"
 	opts.ValueDir = dbDir + "/value"
 	context.db, err = badger.Open(opts)
+
+	if dataset.Pit != bbproto.PointInTime_PIT_NO {
+		context.pitEnabled = true
+		context.pit = dataset.Pit
+	}
 
 	if dataset.Compression != nil && dataset.Compression.Compressor != bbproto.Compressor_COMPRESS_NO {
 
@@ -152,7 +223,7 @@ func OpenDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (co
 
 }
 
-func LoadDataset(dbDir string, security ISecurity) (context *DatasetContext, err error) {
+func LoadDataset(dbDir string, security ISecurity) (context *BadgerDriver, err error) {
 
 	data, err := ioutil.ReadFile(filepath.Join(dbDir, DATASET_JSON))
 
@@ -171,27 +242,74 @@ func LoadDataset(dbDir string, security ISecurity) (context *DatasetContext, err
 
 }
 
-func (this *DatasetContext) ProcessHeadOperation(key *bbproto.Key, operation *bbproto.HeadOperation) *bbproto.RecordResult {
+func (this *BadgerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbproto.HeadOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
 
-	item, err := txn.Get(key.RecordKey)
+	if key.Timestamp == 0 {
+		key.Timestamp = math.MaxUint64
+	}
+
+	entryKey, prefixKey, err := this.GetEntryKey(key)
+
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
+	}
+
+	fmt.Print("Head EntryKey=", entryKey, ", PrefixKey=", prefixKey, "\n")
+
+	timestamp := key.Timestamp
+	var item *badger.Item
+
+	if this.pitEnabled {
+
+		iter := txn.NewIterator(ReverseIteratorOptions)
+
+		iter.Seek(entryKey)
+
+		if iter.Valid() && iter.ValidForPrefix(prefixKey) {
+
+			item = iter.Item()
+			timestamp = this.GetTimestamp(item.Key())
+
+		} else {
+			iter.Close()
+			return SuccessHeadNotFoundResult()
+		}
+
+		iter.Close()
+
+	} else {
+		item, err = txn.Get(entryKey)
+
+		if err != nil {
+			return SuccessHeadNotFoundResult()
+		}
+	}
+
+	fmt.Print("item=", item, "\n")
 
 	if err != nil {
 		return SuccessHeadNotFoundResult()
 	}
 
-	return SuccessHeadResult(key.Timestamp, item)
+	return SuccessHeadResult(timestamp, item)
 
 }
 
-func (this *DatasetContext) ProcessGetOperation(key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.RecordResult {
+func (this *BadgerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
 
-	item, err := txn.Get(key.RecordKey)
+	entryKey, _, err := this.GetEntryKey(key)
+
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
+	}
+
+	item, err := txn.Get(entryKey)
 	if err != nil {
 		return SuccessGetNotFoundResult()
 	}
@@ -234,12 +352,18 @@ func (this *DatasetContext) ProcessGetOperation(key *bbproto.Key, operation *bbp
 
 }
 
-func (this *DatasetContext) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.RecordResult {
+func (this *BadgerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
 	defer txn.Discard()
 
-	item, err := txn.Get(key.RecordKey)
+	entryKey, _, err := this.GetEntryKey(key)
+
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
+	}
+
+	item, err := txn.Get(entryKey)
 
 	if err != nil {
 		return SuccessTouchNotFoundResult()
@@ -255,7 +379,7 @@ func (this *DatasetContext) ProcessTouchOperation(key *bbproto.Key, operation *b
 		ttlSeconds = operation.TtlSeconds
 	}
 
-	entry := &badger.Entry{ Key: key.RecordKey, Value:data, UserMeta: item.UserMeta()  }
+	entry := &badger.Entry{ Key: entryKey, Value:data, UserMeta: item.UserMeta()  }
 
 	if ttlSeconds > 0 {
 		expire := time.Now().Add(time.Duration(ttlSeconds) * time.Second).Unix()
@@ -278,14 +402,22 @@ func (this *DatasetContext) ProcessTouchOperation(key *bbproto.Key, operation *b
 
 }
 
-func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.RecordResult {
+func (this *BadgerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
     defer txn.Discard()
 
+	entryKey, _, err := this.GetEntryKey(key)
+
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
+	}
+
+	fmt.Print("Put EntryKey=", entryKey, "\n")
+
 	if operation.CompareAndSet {
 
-		item, err := txn.Get(key.RecordKey)
+		item, err := txn.Get(entryKey)
 
 		if err != nil {
 			if operation.Version != 0 {
@@ -302,7 +434,8 @@ func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbp
 		ttlSeconds = operation.TtlSeconds
 	}
 
-	entry := &badger.Entry{ Key: key.RecordKey, Value: operation.Value  }
+
+	entry := &badger.Entry{ Key: entryKey, Value: operation.Value  }
 
 	if ttlSeconds > 0 {
 		expire := time.Now().Add(time.Duration(ttlSeconds) * time.Second).Unix()
@@ -331,7 +464,7 @@ func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbp
 
 	}
 
-	err := txn.SetEntry(entry)
+	err = txn.SetEntry(entry)
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("put failed: ", err))
@@ -347,12 +480,18 @@ func (this *DatasetContext) ProcessPutOperation(key *bbproto.Key, operation *bbp
 
 }
 
-func (this *DatasetContext) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.RecordResult {
+func (this *BadgerDriver) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
     defer txn.Discard()
 
-	err := txn.Delete(key.RecordKey)
+	entryKey, _, err := this.GetEntryKey(key)
+
+	if err != nil {
+		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
+	}
+
+	err = txn.Delete(entryKey)
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("remove failed: ", err))
@@ -369,7 +508,7 @@ func (this *DatasetContext) ProcessRemoveOperation(key *bbproto.Key, operation *
 }
 
 
-func (this *DatasetContext) ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
+func (this *BadgerDriver) ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
 
 	switch operation.Operation.(type) {
 
@@ -393,7 +532,7 @@ func (this *DatasetContext) ProcessOperation(operation *bbproto.RecordOperation)
 	return bbcommon.ErrorUnsupported("unknown operation type")
 }
 
-func (this* DatasetContext) Encrypt(plaintext []byte) ([]byte, error) {
+func (this* BadgerDriver) Encrypt(plaintext []byte) ([]byte, error) {
 
 	key, err := this.security.GetEncryptionKey(this.encryptionTopo, 0, this.encryptionBlockSize)
 
@@ -411,7 +550,7 @@ func (this* DatasetContext) Encrypt(plaintext []byte) ([]byte, error) {
 
 }
 
-func (this* DatasetContext) Decrypt(ciphertext []byte) ([]byte, error) {
+func (this* BadgerDriver) Decrypt(ciphertext []byte) ([]byte, error) {
 
 	key, err := this.security.GetEncryptionKey(this.encryptionTopo, 0, this.encryptionBlockSize)
 
