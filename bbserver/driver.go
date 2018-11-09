@@ -22,6 +22,8 @@ import "bigbagger/proto/bbproto"
 
 type IDriver interface {
 
+	GetDataset() *bbproto.Dataset
+
 	ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult
 
 	Close() error

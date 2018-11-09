@@ -192,7 +192,7 @@ func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto
 
 		if matcher.Match(e.Key) {
 
-			responseServer.Send(e.Value.dataset)
+			responseServer.Send(e.Value.GetDataset())
 
 		}
 
