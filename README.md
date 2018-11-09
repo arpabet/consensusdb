@@ -9,8 +9,8 @@ This project started on Halloween!
 * gRPC interface for database clients
 * HTTP REST JSON interface for any clients
 * For now works as a single data node, but in future I will add cluster support through etcd
-* Engine - badger (similar to rocksdb but faster)
-* Supports time-series data
+* Engine - badger (similar to rocksdb, but faster)
+* Supports point-in-time data
 * Supports compression
 * Supports encryption
 * Very fast
