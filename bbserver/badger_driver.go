@@ -71,6 +71,18 @@ func (this *BadgerDriver) GetName() string {
 	return this.dataset.Name
 }
 
+//
+// IDriver
+//
+
+func (this *BadgerDriver) GetDataset() *bbproto.Dataset {
+	return this.dataset
+}
+
+//
+// IDriver
+//
+
 func (this *BadgerDriver) Close() error {
 	if this != nil && this.db != nil {
 		log.Println("dataset closing: ", this.dataset.Name)
@@ -506,6 +518,10 @@ func (this *BadgerDriver) ProcessRemoveOperation(key *bbproto.Key, operation *bb
 	return SuccessRemoveResult(true)
 
 }
+
+//
+// IDriver
+//
 
 
 func (this *BadgerDriver) ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
