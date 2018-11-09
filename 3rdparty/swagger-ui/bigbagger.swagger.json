@@ -20,7 +20,7 @@
     "application/json"
   ],
   "paths": {
-    "/v1/dataset": {
+    "/v1/table": {
       "post": {
         "operationId": "Create",
         "responses": {
@@ -37,18 +37,18 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bbDataset"
+              "$ref": "#/definitions/bbTable"
             }
           }
         ],
         "tags": [
-          "DatasetService"
+          "TableService"
         ]
       }
     },
-    "/v1/dataset/{name}": {
+    "/v1/table/{name}": {
       "put": {
-        "operationId": "Update",
+        "operationId": "Alter",
         "responses": {
           "200": {
             "description": "",
@@ -69,23 +69,23 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bbDataset"
+              "$ref": "#/definitions/bbTable"
             }
           }
         ],
         "tags": [
-          "DatasetService"
+          "TableService"
         ]
       }
     },
-    "/v1/dataset/{value}": {
+    "/v1/table/{value}": {
       "get": {
-        "operationId": "Get",
+        "operationId": "Describe",
         "responses": {
           "200": {
             "description": "(streaming responses)",
             "schema": {
-              "$ref": "#/definitions/bbDataset"
+              "$ref": "#/definitions/bbTable"
             }
           }
         },
@@ -98,11 +98,11 @@
           }
         ],
         "tags": [
-          "DatasetService"
+          "TableService"
         ]
       },
       "delete": {
-        "operationId": "Delete",
+        "operationId": "Drop",
         "responses": {
           "200": {
             "description": "",
@@ -120,7 +120,7 @@
           }
         ],
         "tags": [
-          "DatasetService"
+          "TableService"
         ]
       }
     },
@@ -164,12 +164,12 @@
     "bbBlockSize": {
       "type": "string",
       "enum": [
-        "BLOCK_NO",
-        "BLOCK_128",
-        "BLOCK_192",
-        "BLOCK_256"
+        "BIT_NO",
+        "BIT_128",
+        "BIT_192",
+        "BIT_256"
       ],
-      "default": "BLOCK_NO"
+      "default": "BIT_NO"
     },
     "bbCipher": {
       "type": "string",
@@ -219,11 +219,11 @@
     "bbDataPolicy": {
       "type": "string",
       "enum": [
-        "POL_LOCAL",
-        "POL_REPLICATION",
-        "POL_PARTITION"
+        "LOCAL_ONLY",
+        "REPLICATED",
+        "PARTITIONED"
       ],
-      "default": "POL_LOCAL"
+      "default": "LOCAL_ONLY"
     },
     "bbDataScope": {
       "type": "string",
@@ -233,38 +233,6 @@
         "DISTRIBUTED_NO_ACK"
       ],
       "default": "LOCAL_NO_ACK"
-    },
-    "bbDataset": {
-      "type": "object",
-      "properties": {
-        "version": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "policy": {
-          "$ref": "#/definitions/bbDataPolicy"
-        },
-        "scope": {
-          "$ref": "#/definitions/bbDataScope"
-        },
-        "partition": {
-          "$ref": "#/definitions/bbPartition"
-        },
-        "compression": {
-          "$ref": "#/definitions/bbCompression"
-        },
-        "encryption": {
-          "$ref": "#/definitions/bbEncryption"
-        },
-        "pit": {
-          "$ref": "#/definitions/bbPointInTime"
-        },
-        "ttl": {
-          "type": "string"
-        }
-      }
     },
     "bbEncryption": {
       "type": "object",
@@ -464,7 +432,7 @@
       "enum": [
         "SUCCESS",
         "SUCCESS_NOT_UPDATED",
-        "ERROR_NO_DATASET",
+        "ERROR_NO_TABLE",
         "ERROR_BAD_REQUEST",
         "ERROR_POLICY",
         "ERROR_MIGRATION",
@@ -483,6 +451,38 @@
         "ERROR_INTERNAL"
       ],
       "default": "SUCCESS"
+    },
+    "bbTable": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "policy": {
+          "$ref": "#/definitions/bbDataPolicy"
+        },
+        "scope": {
+          "$ref": "#/definitions/bbDataScope"
+        },
+        "partition": {
+          "$ref": "#/definitions/bbPartition"
+        },
+        "compression": {
+          "$ref": "#/definitions/bbCompression"
+        },
+        "encryption": {
+          "$ref": "#/definitions/bbEncryption"
+        },
+        "pit": {
+          "$ref": "#/definitions/bbPointInTime"
+        },
+        "ttl": {
+          "type": "string"
+        }
+      }
     },
     "bbTouchOperation": {
       "type": "object",

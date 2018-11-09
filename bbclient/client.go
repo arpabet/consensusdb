@@ -27,13 +27,13 @@ import (
 )
 
 type IBigBagger interface {
-	CreateDataset(dataset *bbproto.Dataset) error
+	CreateTable(table *bbproto.Table) error
 
-	UpdateDataset(dataset *bbproto.Dataset) error
+	AlterTable(table *bbproto.Table) error
 
-	DeleteDataset(name string) error
+	DropTable(name string) error
 
-	GetDataset(pattern string) ([]*bbproto.Dataset, error)
+	DescribeTables(pattern string) ([]*bbproto.Table, error)
 
 	Execute(IOperation) IResult
 
@@ -42,7 +42,7 @@ type IBigBagger interface {
 
 type BigBaggerClient struct {
 	conn                 *grpc.ClientConn
-	datasetService       bbproto.DatasetServiceClient
+	tableService         bbproto.TableServiceClient
 	transactionService   bbproto.TransactionServiceClient
 
 }
@@ -55,21 +55,9 @@ func (cli *BigBaggerClient) Close() error {
 	return nil
 }
 
-func (this *BigBaggerClient) CreateDataset(dataset *bbproto.Dataset) (err error) {
+func (this *BigBaggerClient) CreateTable(table *bbproto.Table) (err error) {
 
-	_, err = this.datasetService.Create(context.Background(), dataset)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-func (this *BigBaggerClient) UpdateDataset(dataset *bbproto.Dataset) (err error) {
-
-	_, err = this.datasetService.Update(context.Background(), dataset)
+	_, err = this.tableService.Create(context.Background(), table)
 
 	if err != nil {
 		return err
@@ -79,12 +67,24 @@ func (this *BigBaggerClient) UpdateDataset(dataset *bbproto.Dataset) (err error)
 
 }
 
-func (this *BigBaggerClient) DeleteDataset(name string) error {
+func (this *BigBaggerClient) AlterTable(table *bbproto.Table) (err error) {
+
+	_, err = this.tableService.Alter(context.Background(), table)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (this *BigBaggerClient) DropTable(name string) error {
 
 	request := new(bbproto.String)
 	request.Value = name
 
-	_, err := this.datasetService.Delete(context.Background(), request)
+	_, err := this.tableService.Drop(context.Background(), request)
 
 	if err != nil {
 		return err
@@ -94,18 +94,18 @@ func (this *BigBaggerClient) DeleteDataset(name string) error {
 
 }
 
-func (this *BigBaggerClient) GetDataset(pattern string) (result []*bbproto.Dataset, err error) {
+func (this *BigBaggerClient) DescribeTables(pattern string) (result []*bbproto.Table, err error) {
 
 	request := new(bbproto.String)
 	request.Value = pattern
 
-	response, err := this.datasetService.Get(context.Background(), request)
+	response, err := this.tableService.Describe(context.Background(), request)
 
 	if err != nil {
 		return nil, err
 	}
 
-	result = make([]*bbproto.Dataset, 0, 10)
+	result = make([]*bbproto.Table, 0, 10)
 
 	for dataset, e := response.Recv(); e == nil; dataset, e = response.Recv() {
 		result = append(result, dataset)
@@ -175,7 +175,7 @@ func NewClient(grpcAddress string) (*BigBaggerClient, error) {
 	}
 
 	var cli = &BigBaggerClient{conn,
-	bbproto.NewDatasetServiceClient(conn),
+	bbproto.NewTableServiceClient(conn),
 	 bbproto.NewTransactionServiceClient(conn)}
 
 	return cli, nil

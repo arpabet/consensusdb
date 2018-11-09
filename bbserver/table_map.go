@@ -20,36 +20,36 @@ package bbserver
 
 import "sync"
 
-type DriverMap struct {
+type TableDriverMap struct {
 	sync.RWMutex
-	internal map[string]IDriver
+	internal map[string]ITableDriver
 }
 
-type DriverEntry struct {
-	Key    string
-	Value  IDriver
+type TableDriverEntry struct {
+	Name    string
+	Value   ITableDriver
 }
 
-func NewDriverMap() *DriverMap {
-	return &DriverMap{
-		internal: make(map[string]IDriver),
+func NewTableDriverMap() *TableDriverMap {
+	return &TableDriverMap{
+		internal: make(map[string]ITableDriver),
 	}
 }
 
-func (this *DriverMap) Get(key string) (result IDriver, ok bool) {
+func (this *TableDriverMap) Get(key string) (result ITableDriver, ok bool) {
 	this.RLock()
 	result, ok = this.internal[key]
 	this.RUnlock()
 	return result, ok
 }
 
-func (this *DriverMap) Put(key string, value IDriver) {
+func (this *TableDriverMap) Put(key string, value ITableDriver) {
 	this.Lock()
 	this.internal[key] = value
 	this.Unlock()
 }
 
-func (this *DriverMap) Remove(key string) (prev IDriver, ok bool) {
+func (this *TableDriverMap) Remove(key string) (prev ITableDriver, ok bool) {
 	this.Lock()
 	prev, ok = this.internal[key]
 	delete(this.internal, key)
@@ -57,17 +57,17 @@ func (this *DriverMap) Remove(key string) (prev IDriver, ok bool) {
 	return prev, ok
 }
 
-func (this *DriverMap) Clear() {
+func (this *TableDriverMap) Clear() {
 	this.Lock()
-	this.internal = make(map[string]IDriver)
+	this.internal = make(map[string]ITableDriver)
 	this.Unlock()
 }
 
-func (this *DriverMap) List() []DriverEntry {
-	clone := make([]DriverEntry, 0, len(this.internal))
+func (this *TableDriverMap) List() []TableDriverEntry {
+	clone := make([]TableDriverEntry, 0, len(this.internal))
 	this.RLock()
 	for k, v := range this.internal {
-		clone = append(clone, DriverEntry{ k, v })
+		clone = append(clone, TableDriverEntry{ k, v })
 	}
 	this.RUnlock()
 	return clone

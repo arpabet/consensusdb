@@ -34,10 +34,6 @@ import (
 	"math"
 )
 
-const (
-	DATASET_JSON = "dataset.json"
-)
-
 var ReverseIteratorOptions = badger.IteratorOptions{
 	PrefetchValues: true,
 	PrefetchSize:   1,
@@ -48,7 +44,7 @@ var ReverseIteratorOptions = badger.IteratorOptions{
 
 type BadgerDriver struct {
 	db                     *badger.DB
-	dataset                *bbproto.Dataset
+	table                  *bbproto.Table
 	security               ISecurity
 
 	ttl                    time.Duration    // 0 - for eternal
@@ -70,16 +66,12 @@ type BadgerDriver struct {
 
 }
 
-func (this *BadgerDriver) GetName() string {
-	return this.dataset.Name
-}
-
 //
 // IDriver
 //
 
-func (this *BadgerDriver) GetDataset() *bbproto.Dataset {
-	return this.dataset
+func (this *BadgerDriver) GetTable() *bbproto.Table {
+	return this.table
 }
 
 //
@@ -88,7 +80,7 @@ func (this *BadgerDriver) GetDataset() *bbproto.Dataset {
 
 func (this *BadgerDriver) Close() error {
 	if this != nil && this.db != nil {
-		log.Println("dataset closing: ", this.dataset.Name)
+		log.Println("table closing: ", this.table.Name)
 		return this.db.Close()
 	}
 	return nil
@@ -147,7 +139,7 @@ func (this *BadgerDriver) GetEntryKeyPrefix(key *bbproto.Key) ([]byte) {
 
 }
 
-func NewDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (context *BadgerDriver, err error) {
+func NewBadgerDriver(dbDir string, table *bbproto.Table, security ISecurity) (context *BadgerDriver, err error) {
 
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
 		err = os.Mkdir(dbDir, 0755)
@@ -155,12 +147,12 @@ func NewDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (con
 			return nil, err
 		}
 
-		str, err := new(jsonpb.Marshaler).MarshalToString(dataset)
+		str, err := new(jsonpb.Marshaler).MarshalToString(table)
 		if err != nil {
 			return nil, err
 		}
 
-		err = ioutil.WriteFile(filepath.Join(dbDir, DATASET_JSON), []byte(str), 0755)
+		err = ioutil.WriteFile(filepath.Join(dbDir, TABLE_JSON), []byte(str), 0755)
 
 		if err != nil {
 			return nil, err
@@ -168,14 +160,14 @@ func NewDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (con
 
 	}
 
-	return OpenDataset(dbDir, dataset, security)
+	return OpenBadgerDriver(dbDir, table, security)
 
 }
 
-func OpenDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (context *BadgerDriver, err error) {
+func OpenBadgerDriver(dbDir string, table *bbproto.Table, security ISecurity) (context *BadgerDriver, err error) {
 
 	context = new(BadgerDriver)
-	context.dataset = dataset
+	context.table = table
 	context.security = security
 
 	opts := badger.DefaultOptions
@@ -183,63 +175,63 @@ func OpenDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (co
 	opts.ValueDir = dbDir + "/value"
 	context.db, err = badger.Open(opts)
 
-	if dataset.Pit != nil {
+	if table.Pit != nil {
 		context.pitEnabled = true
-		context.pitPrimaryTimestamp = dataset.Pit.PrimaryTimestamp
-		context.pitConflate = dataset.Pit.Conflation
+		context.pitPrimaryTimestamp = table.Pit.PrimaryTimestamp
+		context.pitConflate = table.Pit.Conflation
 	}
 
-	if dataset.Compression != nil && dataset.Compression.Compressor != bbproto.Compressor_COMPRESS_NO {
+	if table.Compression != nil && table.Compression.Compressor != bbproto.Compressor_COMPRESS_NO {
 
-		compressor, ok := KnownCompressors[dataset.Compression.Compressor]
+		compressor, ok := KnownCompressors[table.Compression.Compressor]
 
 		if !ok {
-			return nil, errors.New("compression algorithm not found: " + dataset.Compression.Compressor.String())
+			return nil, errors.New("compression algorithm not found: " + table.Compression.Compressor.String())
 		}
 
 		context.compressionEnabled = true
-		context.compressThreshold = int(dataset.Compression.Threshold)
+		context.compressThreshold = int(table.Compression.Threshold)
 		context.compressor = compressor
-		context.compressionLevel = dataset.Compression.Level
+		context.compressionLevel = table.Compression.Level
 
 	}
 
-	if dataset.Encryption != nil && dataset.Encryption.Cipher != bbproto.Cipher_CIPHER_NO {
+	if table.Encryption != nil && table.Encryption.Cipher != bbproto.Cipher_CIPHER_NO {
 
-		if dataset.Encryption.Mode == bbproto.BlockMode_MODE_NO {
+		if table.Encryption.Mode == bbproto.BlockMode_MODE_NO {
 			return nil, errors.New("empty block mode")
 		}
 
-		if dataset.Encryption.Size == bbproto.BlockSize_BLOCK_NO {
+		if table.Encryption.Size == bbproto.BlockSize_BIT_NO {
 			return nil, errors.New("empty block size")
 		}
 
-		cipher, ok := KnownCiphers[dataset.Encryption.Cipher]
+		cipher, ok := KnownCiphers[table.Encryption.Cipher]
 
 		if !ok {
-			return nil, errors.New("cipher not found " + dataset.Encryption.Cipher.String())
+			return nil, errors.New("cipher not found " + table.Encryption.Cipher.String())
 		}
 
-		mode, ok := KnownBlockModes[dataset.Encryption.Mode]
+		mode, ok := KnownBlockModes[table.Encryption.Mode]
 
 		if !ok {
-			return nil, errors.New("block mode not found " + dataset.Encryption.Mode.String())
+			return nil, errors.New("block mode not found " + table.Encryption.Mode.String())
 		}
 
 		context.encryptionEnabled = true
 		context.encryptionCipher = cipher
 		context.encryptionMode = mode
-		context.encryptionTopo = dataset.Encryption.Topo
-		context.encryptionBlockSize = int(dataset.Encryption.Size)
+		context.encryptionTopo = table.Encryption.Topo
+		context.encryptionBlockSize = int(table.Encryption.Size)
 
 
 	}
 
-	if len(dataset.Ttl) == 0 || dataset.Ttl == "eternal" {
+	if len(table.Ttl) == 0 || table.Ttl == "eternal" {
 		context.ttl = 0
 	} else {
 
-		context.ttl, err = bbcommon.ParseTtl(dataset.Ttl)
+		context.ttl, err = bbcommon.ParseTtlExpr(table.Ttl)
 
 		if err != nil {
 			return nil, err
@@ -251,22 +243,22 @@ func OpenDataset(dbDir string, dataset *bbproto.Dataset, security ISecurity) (co
 
 }
 
-func LoadDataset(dbDir string, security ISecurity) (context *BadgerDriver, err error) {
+func LoadBadgerDriver(dbDir string, security ISecurity) (context *BadgerDriver, err error) {
 
-	data, err := ioutil.ReadFile(filepath.Join(dbDir, DATASET_JSON))
-
-	if err != nil {
-		return nil, err
-	}
-
-	dataset := new(bbproto.Dataset)
-	err = jsonpb.UnmarshalString(string(data), dataset)
+	data, err := ioutil.ReadFile(filepath.Join(dbDir, TABLE_JSON))
 
 	if err != nil {
 		return nil, err
 	}
 
-	return OpenDataset(dbDir, dataset, security)
+	table := new(bbproto.Table)
+	err = jsonpb.UnmarshalString(string(data), table)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return OpenBadgerDriver(dbDir, table, security)
 
 }
 

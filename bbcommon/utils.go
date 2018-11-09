@@ -36,7 +36,7 @@ func CopyOf(src []byte) []byte {
 	return dst
 }
 
-func ParseTtl(ttlExpr string) (ttl time.Duration, err error) {
+func ParseTtlExpr(ttlExpr string) (ttl time.Duration, err error) {
 
 	len := len(ttlExpr)
 

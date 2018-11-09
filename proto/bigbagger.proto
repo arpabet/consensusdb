@@ -47,40 +47,40 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 
 package bb;
 
-service DatasetService {
+service TableService {
 
-    rpc Create (Dataset) returns (google.protobuf.Empty) {
+    rpc Create (Table) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-            post: "/v1/dataset"
+            post: "/v1/table"
             body: "*"
         };
     }
 
-    rpc Update (Dataset) returns (google.protobuf.Empty) {
+    rpc Alter (Table) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-            put: "/v1/dataset/{name}"
+            put: "/v1/table/{name}"
             body: "*"
         };
     }
 
-    rpc Delete (String) returns (google.protobuf.Empty) {
+    rpc Drop (String) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-            delete: "/v1/dataset/{value}"
+            delete: "/v1/table/{value}"
         };
     }
 
-    rpc Get (String) returns (stream Dataset) {
+    rpc Describe (String) returns (stream Table) {
         option (google.api.http) = {
-            get: "/v1/dataset/{value}"
+            get: "/v1/table/{value}"
         };
     }
 
 }
 
 enum DataPolicy {
-    POL_LOCAL        = 0;
-    POL_REPLICATION  = 1;
-    POL_PARTITION    = 2;
+    LOCAL_ONLY     = 0;
+    REPLICATED     = 1;
+    PARTITIONED    = 2;
 }
 
 enum DataScope {
@@ -105,10 +105,10 @@ enum Cipher {
 }
 
 enum BlockSize {
-    BLOCK_NO    = 0;
-    BLOCK_128   = 16;
-    BLOCK_192   = 24;
-    BLOCK_256   = 32;
+    BIT_NO    = 0;
+    BIT_128   = 16;
+    BIT_192   = 24;
+    BIT_256   = 32;
 }
 
 enum BlockMode {
@@ -146,7 +146,7 @@ message Compression {
     uint32            threshold    = 3;    // threshold in bytes when compression will be enabled, 0 - no threshold all data will be compressed
 }
 
-message Dataset {
+message Table {
     string           version      = 1;     // version of the data structure, 1.0 - the first one
     string           name         = 2;     // can not be changed
     DataPolicy       policy       = 3;     // can be changed from LOCAL to any other only
@@ -229,7 +229,7 @@ enum StatusCode {
      SUCCESS = 0;
      SUCCESS_NOT_UPDATED = 1;  // for compare and put operation that is non-locking algorithm
 
-     ERROR_NO_DATASET = 10;    // not found: database, namespace, store, table, cache, catalog, etc.
+     ERROR_NO_TABLE = 10;      // not found: database, namespace, store, table, cache, catalog, etc.
      ERROR_BAD_REQUEST = 11;   // invalid parameters in request
      ERROR_POLICY = 12;        // exists record for operation that requires record and vise versa
      ERROR_MIGRATION = 13;     // data or connections migration occur during operation

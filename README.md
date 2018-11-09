@@ -2,7 +2,7 @@
 
 BigBagger Database
 
-This project started on Halloween! Ahahahahahahaha
+This project started on Halloween!
 
 # Description
 
@@ -38,7 +38,7 @@ open http://localhost:4481/
 ```
 mkdir /tmp/bigbagger
 ./bigbagger
-curl -d "@create.json" -H "Content-Type: application/json" -X POST http://localhost:4481/v1/dataset
+curl -d "@create.json" -H "Content-Type: application/json" -X POST http://localhost:4481/v1/table
 ```
 
 ### Check
@@ -60,14 +60,14 @@ client, err := bbclient.NewClient(grpcAddress)
 defer client.Close()
 
 //
-// create dataset TEST
+// create table TEST
 //
 
-dataset := new(bbproto.Dataset)
-dataset.Version = "1.0"
-dataset.Name = "TEST"
+table := new(bbproto.Table)
+table.Version = "1.0"
+table.Name = "TEST"
 
-err = client.CreateDataset(dataset)
+err = client.CreateTable(table)
 
 //
 // Put
