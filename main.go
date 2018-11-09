@@ -124,10 +124,10 @@ func serveSwagger(w http.ResponseWriter, r *http.Request) {
 
 func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string) (*http.Server, error) {
 
-	gwDataset := runtime.NewServeMux()
+	gwTable := runtime.NewServeMux()
 	gwTnx := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := bbproto.RegisterDatasetServiceHandlerFromEndpoint(ctx, gwDataset, "localhost"+grpcAddress, opts)
+	err := bbproto.RegisterTableServiceHandlerFromEndpoint(ctx, gwTable, "localhost"+grpcAddress, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +136,7 @@ func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string) (*http.
 		return nil, err
 	}
 	mux := http.NewServeMux()
-	mux.Handle("/v1/dataset", gwDataset)
+	mux.Handle("/v1/table", gwTable)
 	mux.Handle("/v1/transaction", gwTnx)
 	mux.HandleFunc("/swagger/", serveSwagger)
 	mux.HandleFunc("/", serveWelcome)

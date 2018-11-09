@@ -20,9 +20,13 @@ package bbserver
 
 import "bigbagger/proto/bbproto"
 
-type IDriver interface {
+const (
+	TABLE_JSON = "table.json"
+)
 
-	GetDataset() *bbproto.Dataset
+type ITableDriver interface {
+
+	GetTable() *bbproto.Table
 
 	ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult
 

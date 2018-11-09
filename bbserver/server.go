@@ -34,11 +34,11 @@ import (
 )
 
 type BigBaggerServer struct {
-	grpcServer    *grpc.Server
-	security      ISecurity
-	dataDir       string
-	sets          *DriverMap
-	shuttingDown  bool
+	grpcServer       *grpc.Server
+	security         ISecurity
+	dataDir          string
+	tableDriverMap   *TableDriverMap
+	shuttingDown     bool
 }
 
 func (this *BigBaggerServer) Close() {
@@ -56,9 +56,9 @@ func (this *BigBaggerServer) Close() {
 		this.grpcServer = nil
 	}
 
-	list := this.sets.List()
+	list := this.tableDriverMap.List()
 
-	this.sets.Clear()
+	this.tableDriverMap.Clear()
 
 	for _, e := range list {
 		e.Value.Close();
@@ -69,7 +69,7 @@ func (this *BigBaggerServer) Close() {
 func NewServer(dataDir string, security ISecurity) (server *BigBaggerServer, err error) {
 
 	server = new(BigBaggerServer)
-	server.sets = NewDriverMap()
+	server.tableDriverMap = NewTableDriverMap()
 	server.dataDir = dataDir
 	server.security = security
 
@@ -91,12 +91,12 @@ func NewServer(dataDir string, security ISecurity) (server *BigBaggerServer, err
 
 			log.Printf("load dbDir=%s\n", dbDir.Name())
 
-			dataset, err := LoadDataset(filepath.Join(server.dataDir, dbDir.Name()), security)
+			driver, err := LoadBadgerDriver(filepath.Join(server.dataDir, dbDir.Name()), security)
 			if err != nil {
 				return nil, err
 			}
 
-			server.sets.Put(dataset.GetName(), dataset)
+			server.tableDriverMap.Put(driver.GetTable().GetName(), driver)
 
 		}
 
@@ -112,39 +112,39 @@ func NewServer(dataDir string, security ISecurity) (server *BigBaggerServer, err
 //
 
 
-func (this *BigBaggerServer) Create(context context.Context, dataset *bbproto.Dataset) (response *empty.Empty, err error) {
+func (this *BigBaggerServer) Create(context context.Context, table *bbproto.Table) (response *empty.Empty, err error) {
 
-	name := dataset.Name
+	name := table.Name
 
-	log.Printf("Create dataset: %s\n", name)
+	log.Printf("Create table: %s\n", name)
 
 	if name == "" {
 		return nil, errors.New("empty name")
 	}
 
-	set, ok := this.sets.Get(name)
+	driver, ok := this.tableDriverMap.Get(name)
 
 	if ok {
 		return new(empty.Empty), nil
 	}
 
-	set, err = NewDataset(filepath.Join(this.dataDir, name), dataset, this.security)
+	driver, err = NewBadgerDriver(filepath.Join(this.dataDir, name), table, this.security)
 
 	if err != nil {
 		return nil, err
 	}
 
-	this.sets.Put(name, set)
+	this.tableDriverMap.Put(name, driver)
 
 	return new(empty.Empty), nil
 
 }
 
-func (this *BigBaggerServer) Update(context context.Context, dataset *bbproto.Dataset) (response *empty.Empty, err error) {
+func (this *BigBaggerServer) Alter(context context.Context, table *bbproto.Table) (response *empty.Empty, err error) {
 
-	name := dataset.Name
+	name := table.Name
 
-	log.Printf("Update dataset: %s\n", name)
+	log.Printf("Alter table: %s\n", name)
 
 	if name == "" {
 		return nil, errors.New("empty name")
@@ -154,13 +154,13 @@ func (this *BigBaggerServer) Update(context context.Context, dataset *bbproto.Da
 
 }
 
-func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.String) (response *empty.Empty, err error) {
+func (this *BigBaggerServer) Drop(context context.Context, request *bbproto.String) (response *empty.Empty, err error) {
 
 	name := request.Value
 
-	log.Printf("Delete dataset: %s\n", name)
+	log.Printf("Drop table: %s\n", name)
 
-	prev, ok := this.sets.Remove(name)
+	prev, ok := this.tableDriverMap.Remove(name)
 
 	if ok {
 		prev.Close()
@@ -169,7 +169,7 @@ func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.St
 	return new(empty.Empty), nil
 }
 
-func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto.DatasetService_GetServer) error {
+func (this *BigBaggerServer) Describe(request *bbproto.String, responseServer bbproto.TableService_DescribeServer) error {
 
     pattern := request.Value
 
@@ -177,7 +177,7 @@ func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto
     	pattern = "*"
 	}
 
-	log.Printf("Get datasets: %s\n", pattern)
+	log.Printf("Describe tables: %s\n", pattern)
 
     matcher, err := glob.Compile(pattern)
 
@@ -186,13 +186,13 @@ func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto
 	}
 
 
-	list := this.sets.List()
+	list := this.tableDriverMap.List()
 
 	for _, e := range list {
 
-		if matcher.Match(e.Key) {
+		if matcher.Match(e.Name) {
 
-			responseServer.Send(e.Value.GetDataset())
+			responseServer.Send(e.Value.GetTable())
 
 		}
 
@@ -224,13 +224,13 @@ func (this *BigBaggerServer) ExecuteOperation(operation *bbproto.RecordOperation
 		return bbcommon.ErrorBadRequest("empty Key.RecordKey")
 	}
 
-	set, ok := this.sets.Get(key.SetName)
+	driver, ok := this.tableDriverMap.Get(key.SetName)
 
 	if !ok {
-		return bbcommon.ErrorDatasetNotFound(key.SetName)
+		return bbcommon.ErrorTableNotFound(key.SetName)
 	}
 
-	return set.ProcessOperation(operation)
+	return driver.ProcessOperation(operation)
 
 }
 
@@ -264,7 +264,7 @@ func (this *BigBaggerServer) StartServer(grpcAddress string) error {
 	// Create new grpc bbserver
 	this.grpcServer = grpc.NewServer()
 	// Register services
-	bbproto.RegisterDatasetServiceServer(this.grpcServer, this)
+	bbproto.RegisterTableServiceServer(this.grpcServer, this)
 	bbproto.RegisterTransactionServiceServer(this.grpcServer, this)
 	// Start serving requests
 	return this.grpcServer.Serve(listen)

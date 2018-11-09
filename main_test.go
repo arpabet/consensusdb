@@ -74,50 +74,50 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create a bbclient ", err)
 	}
 
-	dataset := new(bbproto.Dataset)
-	dataset.Version = "1.0"
-	dataset.Name = "TEST"
-	dataset.Ttl = "1D"     // one day
+	table := new(bbproto.Table)
+	table.Version = "1.0"
+	table.Name = "TEST"
+	table.Ttl = "1D"     // one day
 
-	err = client.CreateDataset(dataset)
+	err = client.CreateTable(table)
 
 	if err != nil {
 		t.Fatal("fail to TEST dataset ", err)
 	}
 
-	dataset.Name = "TEST_COMPRESS"
-	dataset.Compression = new(bbproto.Compression)
-	dataset.Compression.Compressor = bbproto.Compressor_COMPRESS_FLATE
-	dataset.Compression.Level = bbproto.CompressionLevel_BEST_COMPRESSION
-	dataset.Compression.Threshold = 100  // do not compress payloads less than 100 bytes
+	table.Name = "TEST_COMPRESS"
+	table.Compression = new(bbproto.Compression)
+	table.Compression.Compressor = bbproto.Compressor_COMPRESS_FLATE
+	table.Compression.Level = bbproto.CompressionLevel_BEST_COMPRESSION
+	table.Compression.Threshold = 100  // do not compress payloads less than 100 bytes
 
-	err = client.CreateDataset(dataset)
+	err = client.CreateTable(table)
 
 	if err != nil {
 		t.Fatal("fail to create TEST_COMPRESS dataset ", err)
 	}
 
-	dataset.Name = "TEST_ENCRYPT"
-	dataset.Compression = nil
-	dataset.Encryption = new(bbproto.Encryption)
-	dataset.Encryption.Cipher = bbproto.Cipher_CIPHER_AES
-	dataset.Encryption.Mode = bbproto.BlockMode_MODE_CFB
-	dataset.Encryption.Size = bbproto.BlockSize_BLOCK_256
-	dataset.Encryption.Topo = "key1"
+	table.Name = "TEST_ENCRYPT"
+	table.Compression = nil
+	table.Encryption = new(bbproto.Encryption)
+	table.Encryption.Cipher = bbproto.Cipher_CIPHER_AES
+	table.Encryption.Mode = bbproto.BlockMode_MODE_CFB
+	table.Encryption.Size = bbproto.BlockSize_BIT_256
+	table.Encryption.Topo = "key1"
 
-	err = client.CreateDataset(dataset)
+	err = client.CreateTable(table)
 
 	if err != nil {
 		t.Fatal("fail to create TEST_ENCRYPT dataset ", err)
 	}
 
-	dataset.Name = "TEST_PIT_ONE"
-	dataset.Encryption = nil
-	dataset.Pit = &bbproto.PointInTime{ PrimaryTimestamp: false, Conflation: false }
+	table.Name = "TEST_PIT_ONE"
+	table.Encryption = nil
+	table.Pit = &bbproto.PointInTime{ PrimaryTimestamp: false, Conflation: false }
 
-	err = client.CreateDataset(dataset)
+	err = client.CreateTable(table)
 
-	list, err := client.GetDataset("TEST*")
+	list, err := client.DescribeTables("TEST*")
 
 	if err != nil {
 		t.Fatal("fail to get dataset ", err)
@@ -127,26 +127,26 @@ func TestSuit(t *testing.T) {
 		t.Fatal("expected 4 results in dataset list, but was: ", len(list))
 	}
 
-	m := make(map[string]*bbproto.Dataset)
+	m := make(map[string]*bbproto.Table)
 
 	for _, v := range list {
 		m[v.Name] = v
 	}
 
 	if _, ok := m["TEST"]; !ok {
-		t.Fatal("TEST dataset not found")
+		t.Fatal("TEST table not found")
 	}
 
 	if _, ok := m["TEST_COMPRESS"]; !ok {
-		t.Fatal("TEST_COMPRESS dataset not found")
+		t.Fatal("TEST_COMPRESS table not found")
 	}
 
 	if _, ok := m["TEST_ENCRYPT"]; !ok {
-		t.Fatal("TEST_ENCRYPT dataset not found")
+		t.Fatal("TEST_ENCRYPT table not found")
 	}
 
 	if _, ok := m["TEST_PIT_ONE"]; !ok {
-		t.Fatal("TEST_PIT_ONE dataset not found")
+		t.Fatal("TEST_PIT_ONE table not found")
 	}
 
 	RunCRUIDTests(t, client, "TEST")
@@ -156,7 +156,7 @@ func TestSuit(t *testing.T) {
 	RunEncryptionTests(t, client, "TEST_ENCRYPT")
 	RunPitOneTests(t, client, "TEST_PIT_ONE")
 
-	err = client.DeleteDataset("TEST")
+	err = client.DropTable("TEST")
 
 	if err != nil {
 		t.Fatal("fail to remove dataset ", err)

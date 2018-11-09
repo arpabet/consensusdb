@@ -22,11 +22,11 @@ import (
 	"bigbagger/proto/bbproto"
 )
 
-func ErrorDatasetNotFound(name string) *bbproto.RecordResult {
+func ErrorTableNotFound(name string) *bbproto.RecordResult {
 
 	res := new(bbproto.RecordResult)
-	res.Status = bbproto.StatusCode_ERROR_NO_DATASET
-	res.Message = "dataset not found: " + name
+	res.Status = bbproto.StatusCode_ERROR_NO_TABLE
+	res.Message = "table not found: " + name
 
 	return res
 }
