@@ -20,12 +20,12 @@ package bbserver
 
 import (
 	"github.com/dgraph-io/badger"
-	"bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"os"
 	"io/ioutil"
 	"path/filepath"
 	"github.com/golang/protobuf/jsonpb"
-	"bigbagger/bbcommon"
+	"github.com/bigbagger/bigbagger/bbcommon"
 	"fmt"
 	"time"
 	"log"

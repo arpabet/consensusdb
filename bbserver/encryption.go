@@ -25,7 +25,7 @@ import (
 	"crypto/rand"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
-	"bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 )
 
 type ICipher interface {

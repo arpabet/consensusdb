@@ -19,7 +19,7 @@
 package bbclient
 
 import (
-	"bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"github.com/pkg/errors"
 	"fmt"
 )

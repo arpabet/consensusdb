@@ -21,10 +21,10 @@ package main_test
 import (
 	"testing"
 	"io/ioutil"
-	"bigbagger/bbserver"
+	"github.com/bigbagger/bigbagger/bbserver"
 	"time"
-	"bigbagger/bbclient"
-	"bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/bbclient"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"os"
 	"bytes"
 	"fmt"

@@ -19,7 +19,7 @@
 package bbserver
 
 import (
-	"bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"compress/gzip"
 	"bytes"
 	"io/ioutil"

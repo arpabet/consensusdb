@@ -29,8 +29,8 @@ import (
 	"path"
 	"strings"
 	"text/template"
-	"bigbagger/proto/bbproto"
-	"bigbagger/bbserver"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/bbserver"
 	"os/signal"
 	"flag"
 )

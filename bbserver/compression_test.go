@@ -20,8 +20,8 @@ package bbserver_test
 
 import (
 	"testing"
-	"bigbagger/bbserver"
-	"bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/bbserver"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"bytes"
 	"fmt"
 	"reflect"
