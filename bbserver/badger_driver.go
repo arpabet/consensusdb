@@ -19,7 +19,6 @@
 package bbserver
 
 import (
-	"github.com/dgraph-io/badger"
 	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"os"
 	"io/ioutil"
@@ -32,9 +31,10 @@ import (
 	"github.com/pkg/errors"
 	"encoding/binary"
 	"math"
+	"github.com/bigbagger/bagger"
 )
 
-var ReverseIteratorOptions = badger.IteratorOptions{
+var ReverseIteratorOptions = bagger.IteratorOptions{
 	PrefetchValues: true,
 	PrefetchSize:   1,
 	Reverse:        true,
@@ -43,7 +43,7 @@ var ReverseIteratorOptions = badger.IteratorOptions{
 
 
 type BadgerDriver struct {
-	db                     *badger.DB
+	db                     *bagger.DB
 	table                  *bbproto.Table
 	security               ISecurity
 
@@ -170,10 +170,10 @@ func OpenBadgerDriver(dbDir string, table *bbproto.Table, security ISecurity) (c
 	context.table = table
 	context.security = security
 
-	opts := badger.DefaultOptions
+	opts := bagger.DefaultOptions
 	opts.Dir = dbDir + "/key"
 	opts.ValueDir = dbDir + "/value"
-	context.db, err = badger.Open(opts)
+	context.db, err = bagger.Open(opts)
 
 	if table.Pit != nil {
 		context.pitEnabled = true
@@ -280,7 +280,7 @@ func (this *BadgerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbpr
 	fmt.Print("Head EntryKey=", entryKey, ", PrefixKey=", prefixKey, "\n")
 
 	timestamp := key.Timestamp
-	var item *badger.Item
+	var item *bagger.Item
 
 	if this.pitEnabled {
 
@@ -334,18 +334,18 @@ func (this *BadgerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbpro
 		return SuccessGetNotFoundResult()
 	}
 
-	data, err := item.Value()
+	data, err := item.ValueCopy(nil)
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("get failed: ", err))
 	}
 
-	dataCopied := false
+	//dataCopied := false
 
 	if this.encryptionEnabled && isEncryptionEnabled(item.UserMeta()) {
 
 		if decrypted, err := this.Decrypt(data); err == nil {
 			data = decrypted
-			dataCopied = true
+			//dataCopied = true
 		} else {
 			return bbcommon.ErrorDriver(fmt.Sprint("decryption failed: ", err))
 		}
@@ -356,7 +356,7 @@ func (this *BadgerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbpro
 
 		if decompressed, err := this.compressor.Decompress(data); err == nil {
 			data = decompressed
-			dataCopied = true
+			//dataCopied = true
 		} else {
 			return bbcommon.ErrorDriver(fmt.Sprint("decompress failed: ", err))
 		}
@@ -364,9 +364,9 @@ func (this *BadgerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbpro
 	}
 
 	// copy data because outside of the transaction they will be destroyed
-	if !dataCopied {
-		data = bbcommon.CopyOf(data)
-	}
+	//if !dataCopied {
+	//	data = bbcommon.CopyOf(data)
+	//}
 
 	return SuccessGetResult(key.Timestamp, data, item)
 
@@ -389,7 +389,7 @@ func (this *BadgerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbp
 		return SuccessTouchNotFoundResult()
 	}
 
-	data, err := item.Value()
+	data, err := item.ValueCopy(nil)
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("touch failed: ", err))
 	}
@@ -399,7 +399,7 @@ func (this *BadgerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbp
 		ttl = time.Duration(operation.TtlSeconds) * time.Second
 	}
 
-	entry := &badger.Entry{ Key: entryKey, Value:data, UserMeta: item.UserMeta()  }
+	entry := &bagger.Entry{ Key: entryKey, Value:data, UserMeta: item.UserMeta()  }
 
 	if ttl > 0 {
 		expire := time.Now().Add(ttl).Unix()
@@ -412,7 +412,7 @@ func (this *BadgerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbp
 		return bbcommon.ErrorDriver(fmt.Sprint("touch set entry failed: ", err))
 	}
 
-	err = txn.Commit(nil)
+	err = txn.Commit()
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("touch commit failed: ", err))
@@ -454,7 +454,7 @@ func (this *BadgerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbpro
 		ttl = time.Duration(operation.TtlSeconds) * time.Second
 	}
 
-	entry := &badger.Entry{ Key: entryKey, Value: operation.Value  }
+	entry := &bagger.Entry{ Key: entryKey, Value: operation.Value  }
 
 	if ttl > 0 {
 		expire := time.Now().Add(ttl).Unix()
@@ -489,7 +489,7 @@ func (this *BadgerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbpro
 		return bbcommon.ErrorDriver(fmt.Sprint("put failed: ", err))
 	}
 
-	err = txn.Commit(nil)
+	err = txn.Commit()
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("put commit failed: ", err))
@@ -516,7 +516,7 @@ func (this *BadgerDriver) ProcessRemoveOperation(key *bbproto.Key, operation *bb
 		return bbcommon.ErrorDriver(fmt.Sprint("remove failed: ", err))
 	}
 
-	err = txn.Commit(nil)
+	err = txn.Commit()
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("remove commit failed: ", err))
