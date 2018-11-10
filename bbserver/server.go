@@ -23,14 +23,14 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
-	"bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"os"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"path/filepath"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gobwas/glob"
-	"bigbagger/bbcommon"
+	"github.com/bigbagger/bigbagger/bbcommon"
 )
 
 type BigBaggerServer struct {

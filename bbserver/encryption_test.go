@@ -20,12 +20,12 @@ package bbserver_test
 
 import (
 	"testing"
-	"bigbagger/bbserver"
-	"bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/bbserver"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"bytes"
 	"reflect"
 	"crypto/cipher"
-	"bigbagger/bbcommon"
+	"github.com/bigbagger/bigbagger/bbcommon"
 )
 
 func TestEncryptions(t *testing.T) {

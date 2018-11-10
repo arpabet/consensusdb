@@ -19,7 +19,7 @@
 package bbcommon
 
 import (
-	"bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 )
 
 func ErrorTableNotFound(name string) *bbproto.RecordResult {

@@ -18,7 +18,7 @@
 
 package bbserver
 
-import "bigbagger/proto/bbproto"
+import "github.com/bigbagger/bigbagger/proto/bbproto"
 
 const (
 	TABLE_JSON = "table.json"

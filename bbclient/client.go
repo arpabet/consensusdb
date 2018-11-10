@@ -22,7 +22,7 @@ package bbclient
 import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"bigbagger/proto/bbproto"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"github.com/pkg/errors"
 )
 
