@@ -20,10 +20,10 @@ package bbserver
 
 import (
 	"github.com/bigbagger/bigbagger/proto/bbproto"
-	"github.com/dgraph-io/badger"
+	"github.com/bigbagger/bagger"
 )
 
-func HeadOf(timestamp uint64, item *badger.Item) *bbproto.Head {
+func HeadOf(timestamp uint64, item *bagger.Item) *bbproto.Head {
 	return &bbproto.Head{Version: item.Version(), ExpiresAt:item.ExpiresAt(), Timestamp: timestamp, DiskSize: item.EstimatedSize()}
 }
 
@@ -38,7 +38,7 @@ func SuccessHeadNotFoundResult() *bbproto.RecordResult {
 	return result
 }
 
-func SuccessHeadResult(timestamp uint64, item *badger.Item) *bbproto.RecordResult {
+func SuccessHeadResult(timestamp uint64, item *bagger.Item) *bbproto.RecordResult {
 
 	head := new(bbproto.HeadResult)
 	head.Head = HeadOf(timestamp, item)
@@ -61,7 +61,7 @@ func SuccessGetNotFoundResult() *bbproto.RecordResult {
 	return result
 }
 
-func SuccessGetResult(timestamp uint64, data []byte, item *badger.Item) *bbproto.RecordResult {
+func SuccessGetResult(timestamp uint64, data []byte, item *bagger.Item) *bbproto.RecordResult {
 
 	get := new(bbproto.GetResult)
 	get.Head = HeadOf(timestamp, item)
@@ -86,7 +86,7 @@ func SuccessTouchNotFoundResult() *bbproto.RecordResult {
 	return result
 }
 
-func SuccessTouchResult(timestamp uint64, item *badger.Item, expiresAt uint64) *bbproto.RecordResult {
+func SuccessTouchResult(timestamp uint64, item *bagger.Item, expiresAt uint64) *bbproto.RecordResult {
 
 	touch := new(bbproto.TouchResult)
 	touch.Head = HeadOf(timestamp, item)
