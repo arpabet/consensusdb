@@ -42,7 +42,7 @@ var ReverseIteratorOptions = bagger.IteratorOptions{
 }
 
 
-type BadgerDriver struct {
+type BaggerDriver struct {
 	db                     *bagger.DB
 	table                  *bbproto.Table
 	security               ISecurity
@@ -70,7 +70,7 @@ type BadgerDriver struct {
 // IDriver
 //
 
-func (this *BadgerDriver) GetTable() *bbproto.Table {
+func (this *BaggerDriver) GetTable() *bbproto.Table {
 	return this.table
 }
 
@@ -78,7 +78,7 @@ func (this *BadgerDriver) GetTable() *bbproto.Table {
 // IDriver
 //
 
-func (this *BadgerDriver) Close() error {
+func (this *BaggerDriver) Close() error {
 	if this != nil && this.db != nil {
 		log.Println("table closing: ", this.table.Name)
 		return this.db.Close()
@@ -86,7 +86,7 @@ func (this *BadgerDriver) Close() error {
 	return nil
 }
 
-func (this *BadgerDriver) GetEntryKey(key *bbproto.Key) (fullKey []byte, prefixKey []byte, err error) {
+func (this *BaggerDriver) GetEntryKey(key *bbproto.Key) (fullKey []byte, prefixKey []byte, err error) {
 
 	if this.pitEnabled {
 
@@ -110,7 +110,7 @@ func (this *BadgerDriver) GetEntryKey(key *bbproto.Key) (fullKey []byte, prefixK
 
 }
 
-func (this *BadgerDriver) GetTimestamp(fullKey []byte) uint64 {
+func (this *BaggerDriver) GetTimestamp(fullKey []byte) uint64 {
 
 	if len(fullKey) <= 9 {
 		return 0
@@ -120,7 +120,7 @@ func (this *BadgerDriver) GetTimestamp(fullKey []byte) uint64 {
 
 }
 
-func (this *BadgerDriver) GetEntryKeyPrefix(key *bbproto.Key) ([]byte) {
+func (this *BaggerDriver) GetEntryKeyPrefix(key *bbproto.Key) ([]byte) {
 
 	if this.pitEnabled {
 
@@ -139,7 +139,7 @@ func (this *BadgerDriver) GetEntryKeyPrefix(key *bbproto.Key) ([]byte) {
 
 }
 
-func NewBadgerDriver(dbDir string, table *bbproto.Table, security ISecurity) (context *BadgerDriver, err error) {
+func NewBaggerDriver(dbDir string, table *bbproto.Table, security ISecurity) (context *BaggerDriver, err error) {
 
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
 		err = os.Mkdir(dbDir, 0755)
@@ -160,13 +160,13 @@ func NewBadgerDriver(dbDir string, table *bbproto.Table, security ISecurity) (co
 
 	}
 
-	return OpenBadgerDriver(dbDir, table, security)
+	return OpenBaggerDriver(dbDir, table, security)
 
 }
 
-func OpenBadgerDriver(dbDir string, table *bbproto.Table, security ISecurity) (context *BadgerDriver, err error) {
+func OpenBaggerDriver(dbDir string, table *bbproto.Table, security ISecurity) (context *BaggerDriver, err error) {
 
-	context = new(BadgerDriver)
+	context = new(BaggerDriver)
 	context.table = table
 	context.security = security
 
@@ -243,7 +243,7 @@ func OpenBadgerDriver(dbDir string, table *bbproto.Table, security ISecurity) (c
 
 }
 
-func LoadBadgerDriver(dbDir string, security ISecurity) (context *BadgerDriver, err error) {
+func LoadBaggerDriver(dbDir string, security ISecurity) (context *BaggerDriver, err error) {
 
 	data, err := ioutil.ReadFile(filepath.Join(dbDir, TABLE_JSON))
 
@@ -258,11 +258,11 @@ func LoadBadgerDriver(dbDir string, security ISecurity) (context *BadgerDriver, 
 		return nil, err
 	}
 
-	return OpenBadgerDriver(dbDir, table, security)
+	return OpenBaggerDriver(dbDir, table, security)
 
 }
 
-func (this *BadgerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbproto.HeadOperation) *bbproto.RecordResult {
+func (this *BaggerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbproto.HeadOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
@@ -318,7 +318,7 @@ func (this *BadgerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbpr
 
 }
 
-func (this *BadgerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.RecordResult {
+func (this *BaggerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
@@ -372,7 +372,7 @@ func (this *BadgerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbpro
 
 }
 
-func (this *BadgerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.RecordResult {
+func (this *BaggerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
 	defer txn.Discard()
@@ -422,7 +422,7 @@ func (this *BadgerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbp
 
 }
 
-func (this *BadgerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.RecordResult {
+func (this *BaggerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
     defer txn.Discard()
@@ -499,7 +499,7 @@ func (this *BadgerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbpro
 
 }
 
-func (this *BadgerDriver) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.RecordResult {
+func (this *BaggerDriver) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
     defer txn.Discard()
@@ -531,7 +531,7 @@ func (this *BadgerDriver) ProcessRemoveOperation(key *bbproto.Key, operation *bb
 //
 
 
-func (this *BadgerDriver) ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
+func (this *BaggerDriver) ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
 
 	switch operation.Operation.(type) {
 
@@ -555,7 +555,7 @@ func (this *BadgerDriver) ProcessOperation(operation *bbproto.RecordOperation) *
 	return bbcommon.ErrorUnsupported("unknown operation type")
 }
 
-func (this* BadgerDriver) Encrypt(plaintext []byte) ([]byte, error) {
+func (this* BaggerDriver) Encrypt(plaintext []byte) ([]byte, error) {
 
 	key, err := this.security.GetEncryptionKey(this.encryptionTopo, 0, this.encryptionBlockSize)
 
@@ -573,7 +573,7 @@ func (this* BadgerDriver) Encrypt(plaintext []byte) ([]byte, error) {
 
 }
 
-func (this* BadgerDriver) Decrypt(ciphertext []byte) ([]byte, error) {
+func (this* BaggerDriver) Decrypt(ciphertext []byte) ([]byte, error) {
 
 	key, err := this.security.GetEncryptionKey(this.encryptionTopo, 0, this.encryptionBlockSize)
 
