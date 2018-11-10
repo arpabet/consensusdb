@@ -91,7 +91,7 @@ func NewServer(dataDir string, security ISecurity) (server *BigBaggerServer, err
 
 			log.Printf("load dbDir=%s\n", dbDir.Name())
 
-			driver, err := LoadBadgerDriver(filepath.Join(server.dataDir, dbDir.Name()), security)
+			driver, err := LoadBaggerDriver(filepath.Join(server.dataDir, dbDir.Name()), security)
 			if err != nil {
 				return nil, err
 			}
@@ -128,7 +128,7 @@ func (this *BigBaggerServer) Create(context context.Context, table *bbproto.Tabl
 		return new(empty.Empty), nil
 	}
 
-	driver, err = NewBadgerDriver(filepath.Join(this.dataDir, name), table, this.security)
+	driver, err = NewBaggerDriver(filepath.Join(this.dataDir, name), table, this.security)
 
 	if err != nil {
 		return nil, err
