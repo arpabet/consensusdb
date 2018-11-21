@@ -173,7 +173,7 @@ func (this *BaggerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbpr
 	timestamp := key.Timestamp
 	var item *bagger.Item
 
-	if key.Timestamp == 0 {
+	if timestamp == 0 {
 
 		item, err = txn.Get(entryKey)
 
@@ -215,15 +215,40 @@ func (this *BaggerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbpro
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
 
-	entryKey, _, err := this.GetEntryKey(key)
+	lookupKey, prefixKey, err := this.GetEntryKey(key)
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
 	}
 
-	item, err := txn.Get(entryKey)
-	if err != nil {
-		return SuccessGetNotFoundResult()
+	timestamp := key.Timestamp
+	var item *bagger.Item
+
+	if timestamp == 0 {
+
+		item, err = txn.Get(lookupKey)
+		if err != nil {
+			return SuccessGetNotFoundResult()
+		}
+
+	} else {
+
+		iter := txn.NewIterator(ReverseIteratorOptions)
+
+		iter.Seek(lookupKey)
+
+		if iter.Valid() && iter.ValidForPrefix(prefixKey) {
+
+			item = iter.Item()
+			timestamp = GetKeyTimestamp(item.Key())
+
+		} else {
+			iter.Close()
+			return SuccessHeadNotFoundResult()
+		}
+
+		iter.Close()
+
 	}
 
 	data, err := item.ValueCopy(nil)
@@ -260,7 +285,7 @@ func (this *BaggerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbpro
 	//	data = bbcommon.CopyOf(data)
 	//}
 
-	return SuccessGetResult(key.Timestamp, data, item)
+	return SuccessGetResult(timestamp, data, item)
 
 }
 
@@ -269,16 +294,42 @@ func (this *BaggerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbp
 	txn := this.db.NewTransaction(true)
 	defer txn.Discard()
 
-	entryKey, _, err := this.GetEntryKey(key)
+	lookupKey, prefixKey, err := this.GetEntryKey(key)
+	entryKey := lookupKey
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
 	}
 
-	item, err := txn.Get(entryKey)
+	timestamp := key.Timestamp
+	var item *bagger.Item
 
-	if err != nil {
-		return SuccessTouchNotFoundResult()
+	if timestamp == 0 {
+
+		item, err = txn.Get(lookupKey)
+
+		if err != nil {
+			return SuccessTouchNotFoundResult()
+		}
+	} else {
+
+		iter := txn.NewIterator(ReverseIteratorOptions)
+
+		iter.Seek(lookupKey)
+
+		if iter.Valid() && iter.ValidForPrefix(prefixKey) {
+
+			item = iter.Item()
+			timestamp = GetKeyTimestamp(item.Key())
+			entryKey = item.Key()
+
+		} else {
+			iter.Close()
+			return SuccessHeadNotFoundResult()
+		}
+
+		iter.Close()
+
 	}
 
 	data, err := item.ValueCopy(nil)
@@ -310,7 +361,7 @@ func (this *BaggerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbp
 		return bbcommon.ErrorDriver(fmt.Sprint("touch commit failed: ", err))
 	}
 
-	return SuccessTouchResult(key.Timestamp, item, entry.ExpiresAt)
+	return SuccessTouchResult(timestamp, item, entry.ExpiresAt)
 
 }
 
@@ -325,7 +376,7 @@ func (this *BaggerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbpro
 		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
 	}
 
-	fmt.Print("Put EntryKey=", entryKey, "\n")
+	fmt.Print("Put entryKey=", entryKey, "\n")
 
 	if operation.CompareAndSet {
 
