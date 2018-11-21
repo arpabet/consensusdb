@@ -78,6 +78,7 @@ defer client.Close()
 region := new(bbproto.Region)
 region.Version = "1.0"
 region.Name = "TEST"
+region.Ttl = "1D"     // one day
 
 err = client.CreateRegion(region)
 
@@ -85,7 +86,7 @@ err = client.CreateRegion(region)
 // Put
 //
 
-op = bbclient.Put("TEST", []byte("key"), []byte("value"))
+op = bbclient.Put("TEST", []byte("key"), []byte("value")).OverrideTtl(1000)
 
 res = client.Execute(op)
 
