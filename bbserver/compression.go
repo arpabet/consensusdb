@@ -294,6 +294,7 @@ func (this*LZ4Compressor) Compress(input []byte, level int) (output []byte, err 
 	var b bytes.Buffer
 
 	w := lz4.NewWriter(&b)
+	w.CompressionLevel = level
 
 	if _, err := w.Write(input); err != nil {
 		return nil, err
