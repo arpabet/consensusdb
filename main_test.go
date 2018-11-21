@@ -72,49 +72,37 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create a bbclient ", err)
 	}
 
-	table := new(bbproto.Table)
-	table.Version = "1.0"
-	table.Name = "TEST"
-	table.Ttl = "1D"     // one day
+	region := new(bbproto.Region)
+	region.Version = "1.0"
+	region.Name = "TEST"
+	region.Ttl = "1D"     // one day
 
-	err = client.CreateTable(table)
+	err = client.CreateRegion(region)
 
 	if err != nil {
 		t.Fatal("fail to TEST dataset ", err)
 	}
 
-	table.Name = "TEST_COMPRESS"
+	region.Name = "TEST_NO_TTL"
+	region.Ttl = ""
 
-	err = client.CreateTable(table)
-
-	if err != nil {
-		t.Fatal("fail to create TEST_COMPRESS dataset ", err)
-	}
-
-	table.Name = "TEST_ENCRYPT"
-
-	err = client.CreateTable(table)
+	err = client.CreateRegion(region)
 
 	if err != nil {
-		t.Fatal("fail to create TEST_ENCRYPT dataset ", err)
+		t.Fatal("fail to create TEST_NO_TTL dataset ", err)
 	}
 
-	table.Name = "TEST_PIT_ONE"
-	table.Pit = &bbproto.PointInTime{ PrimaryTimestamp: false, Conflation: false }
-
-	err = client.CreateTable(table)
-
-	list, err := client.DescribeTables("TEST*")
+	list, err := client.GetRegions("TEST*")
 
 	if err != nil {
 		t.Fatal("fail to get dataset ", err)
 	}
 
-	if len(list) != 4 {
-		t.Fatal("expected 4 results in dataset list, but was: ", len(list))
+	if len(list) != 2 {
+		t.Fatal("expected 2 results in dataset list, but was: ", len(list))
 	}
 
-	m := make(map[string]*bbproto.Table)
+	m := make(map[string]*bbproto.Region)
 
 	for _, v := range list {
 		m[v.Name] = v
@@ -124,26 +112,18 @@ func TestSuit(t *testing.T) {
 		t.Fatal("TEST table not found")
 	}
 
-	if _, ok := m["TEST_COMPRESS"]; !ok {
-		t.Fatal("TEST_COMPRESS table not found")
-	}
-
-	if _, ok := m["TEST_ENCRYPT"]; !ok {
-		t.Fatal("TEST_ENCRYPT table not found")
-	}
-
-	if _, ok := m["TEST_PIT_ONE"]; !ok {
-		t.Fatal("TEST_PIT_ONE table not found")
+	if _, ok := m["TEST_NO_TTL"]; !ok {
+		t.Fatal("TEST_NO_TTL table not found")
 	}
 
 	RunCRUIDTests(t, client, "TEST")
 	RunCompareAndSetTests(t, client, "TEST")
 	RunWithTtlTests(t, client, "TEST")
-	RunCompressionTests(t, client, "TEST_COMPRESS")
-	RunEncryptionTests(t, client, "TEST_ENCRYPT")
-	RunPitOneTests(t, client, "TEST_PIT_ONE")
+	RunCompressionTests(t, client, "TEST")
+	RunEncryptionTests(t, client, "TEST")
+	RunPitOneTests(t, client, "TEST")
 
-	err = client.DropTable("TEST")
+	err = client.DeleteRegion("TEST")
 
 	if err != nil {
 		t.Fatal("fail to remove dataset ", err)

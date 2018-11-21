@@ -20,7 +20,7 @@
     "application/json"
   ],
   "paths": {
-    "/v1/table": {
+    "/v1/region": {
       "post": {
         "operationId": "Create",
         "responses": {
@@ -37,18 +37,18 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bbTable"
+              "$ref": "#/definitions/bbRegion"
             }
           }
         ],
         "tags": [
-          "TableService"
+          "RegionService"
         ]
       }
     },
-    "/v1/table/{name}": {
+    "/v1/region/{name}": {
       "put": {
-        "operationId": "Alter",
+        "operationId": "Update",
         "responses": {
           "200": {
             "description": "",
@@ -69,23 +69,23 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bbTable"
+              "$ref": "#/definitions/bbRegion"
             }
           }
         ],
         "tags": [
-          "TableService"
+          "RegionService"
         ]
       }
     },
-    "/v1/table/{value}": {
+    "/v1/region/{value}": {
       "get": {
-        "operationId": "Describe",
+        "operationId": "Get",
         "responses": {
           "200": {
             "description": "(streaming responses)",
             "schema": {
-              "$ref": "#/definitions/bbTable"
+              "$ref": "#/definitions/bbRegion"
             }
           }
         },
@@ -98,11 +98,11 @@
           }
         ],
         "tags": [
-          "TableService"
+          "RegionService"
         ]
       },
       "delete": {
-        "operationId": "Drop",
+        "operationId": "Delete",
         "responses": {
           "200": {
             "description": "",
@@ -120,7 +120,7 @@
           }
         ],
         "tags": [
-          "TableService"
+          "RegionService"
         ]
       }
     },
@@ -152,24 +152,6 @@
     }
   },
   "definitions": {
-    "bbDataPolicy": {
-      "type": "string",
-      "enum": [
-        "LOCAL_ONLY",
-        "REPLICATED",
-        "PARTITIONED"
-      ],
-      "default": "LOCAL_ONLY"
-    },
-    "bbDataScope": {
-      "type": "string",
-      "enum": [
-        "LOCAL_NO_ACK",
-        "DISTRIBUTED_ACK",
-        "DISTRIBUTED_NO_ACK"
-      ],
-      "default": "LOCAL_NO_ACK"
-    },
     "bbGetOperation": {
       "type": "object"
     },
@@ -234,32 +216,6 @@
         "timestamp": {
           "type": "string",
           "format": "uint64"
-        }
-      }
-    },
-    "bbPartition": {
-      "type": "object",
-      "properties": {
-        "total": {
-          "type": "integer",
-          "format": "int64"
-        },
-        "replicationFactor": {
-          "type": "integer",
-          "format": "int64"
-        }
-      }
-    },
-    "bbPointInTime": {
-      "type": "object",
-      "properties": {
-        "primaryTimestamp": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "conflation": {
-          "type": "boolean",
-          "format": "boolean"
         }
       }
     },
@@ -348,6 +304,20 @@
         }
       }
     },
+    "bbRegion": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "ttl": {
+          "type": "string"
+        }
+      }
+    },
     "bbRemoveOperation": {
       "type": "object"
     },
@@ -359,7 +329,7 @@
       "enum": [
         "SUCCESS",
         "SUCCESS_NOT_UPDATED",
-        "ERROR_NO_TABLE",
+        "ERROR_NO_REGION",
         "ERROR_BAD_REQUEST",
         "ERROR_POLICY",
         "ERROR_MIGRATION",
@@ -378,32 +348,6 @@
         "ERROR_INTERNAL"
       ],
       "default": "SUCCESS"
-    },
-    "bbTable": {
-      "type": "object",
-      "properties": {
-        "version": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "policy": {
-          "$ref": "#/definitions/bbDataPolicy"
-        },
-        "scope": {
-          "$ref": "#/definitions/bbDataScope"
-        },
-        "partition": {
-          "$ref": "#/definitions/bbPartition"
-        },
-        "pit": {
-          "$ref": "#/definitions/bbPointInTime"
-        },
-        "ttl": {
-          "type": "string"
-        }
-      }
     },
     "bbTouchOperation": {
       "type": "object",

@@ -41,9 +41,9 @@ var ReverseIteratorOptions = bagger.IteratorOptions{
 }
 
 
-type BaggerDriver struct {
+type BaggerStore struct {
 	db                     *bagger.DB
-	table                  *bbproto.Table
+	region                 *bbproto.Region
 	dbDir                  string
 	conf                   *Configuration
 
@@ -52,26 +52,26 @@ type BaggerDriver struct {
 }
 
 //
-// IDriver
+// IRegionStore
 //
 
-func (this *BaggerDriver) GetTable() *bbproto.Table {
-	return this.table
+func (this *BaggerStore) GetRegion() *bbproto.Region {
+	return this.region
 }
 
 //
-// IDriver
+// IRegionStore
 //
 
-func (this *BaggerDriver) Close() error {
+func (this *BaggerStore) Close() error {
 	if this != nil && this.db != nil {
-		log.Println("table closing: ", this.table.Name)
+		log.Println("region closing: ", this.region.Name)
 		return this.db.Close()
 	}
 	return nil
 }
 
-func (this *BaggerDriver) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefixKey []byte, err error) {
+func (this *BaggerStore) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefixKey []byte, err error) {
 
 	k := &Key{MajorKey: key.MajorKey, MinorKey: key.MinorKey, Timestamp: key.Timestamp}
 
@@ -88,7 +88,7 @@ func (this *BaggerDriver) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefix
 
 }
 
-func NewBaggerDriver(dbDir string, table *bbproto.Table, conf *Configuration) (context *BaggerDriver, err error) {
+func NewBaggerStore(dbDir string, region *bbproto.Region, conf *Configuration) (context *BaggerStore, err error) {
 
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
 		err = os.Mkdir(dbDir, 0755)
@@ -96,12 +96,12 @@ func NewBaggerDriver(dbDir string, table *bbproto.Table, conf *Configuration) (c
 			return nil, err
 		}
 
-		str, err := new(jsonpb.Marshaler).MarshalToString(table)
+		str, err := new(jsonpb.Marshaler).MarshalToString(region)
 		if err != nil {
 			return nil, err
 		}
 
-		err = ioutil.WriteFile(filepath.Join(dbDir, TABLE_JSON), []byte(str), 0755)
+		err = ioutil.WriteFile(filepath.Join(dbDir, REGION_JSON), []byte(str), 0755)
 
 		if err != nil {
 			return nil, err
@@ -109,24 +109,24 @@ func NewBaggerDriver(dbDir string, table *bbproto.Table, conf *Configuration) (c
 
 	}
 
-	return OpenBaggerDriver(dbDir, table, conf)
+	return OpenBaggerStore(dbDir, region, conf)
 
 }
 
-func OpenBaggerDriver(dbDir string, table *bbproto.Table, conf *Configuration) (context *BaggerDriver, err error) {
+func OpenBaggerStore(dbDir string, region *bbproto.Region, conf *Configuration) (context *BaggerStore, err error) {
 
-	context = &BaggerDriver{dbDir: dbDir, table: table, conf: conf}
+	context = &BaggerStore{dbDir: dbDir, region: region, conf: conf}
 
 	opts := bagger.DefaultOptions
 	opts.Dir = dbDir + "/key"
 	opts.ValueDir = dbDir + "/value"
 	context.db, err = bagger.Open(opts)
 
-	if len(table.Ttl) == 0 || table.Ttl == "eternal" {
+	if len(region.Ttl) == 0 || region.Ttl == "eternal" {
 		context.ttl = 0
 	} else {
 
-		context.ttl, err = bbcommon.ParseTtlExpr(table.Ttl)
+		context.ttl, err = bbcommon.ParseTtlExpr(region.Ttl)
 
 		if err != nil {
 			return nil, err
@@ -138,26 +138,26 @@ func OpenBaggerDriver(dbDir string, table *bbproto.Table, conf *Configuration) (
 
 }
 
-func LoadBaggerDriver(dbDir string, conf *Configuration) (context *BaggerDriver, err error) {
+func LoadBaggerDriver(dbDir string, conf *Configuration) (context *BaggerStore, err error) {
 
-	data, err := ioutil.ReadFile(filepath.Join(dbDir, TABLE_JSON))
-
-	if err != nil {
-		return nil, err
-	}
-
-	table := new(bbproto.Table)
-	err = jsonpb.UnmarshalString(string(data), table)
+	data, err := ioutil.ReadFile(filepath.Join(dbDir, REGION_JSON))
 
 	if err != nil {
 		return nil, err
 	}
 
-	return OpenBaggerDriver(dbDir, table, conf)
+	region := new(bbproto.Region)
+	err = jsonpb.UnmarshalString(string(data), region)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return OpenBaggerStore(dbDir, region, conf)
 
 }
 
-func (this *BaggerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbproto.HeadOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessHeadOperation(key *bbproto.Key, operation *bbproto.HeadOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
@@ -210,7 +210,7 @@ func (this *BaggerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbpr
 
 }
 
-func (this *BaggerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessGetOperation(key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
@@ -289,7 +289,7 @@ func (this *BaggerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbpro
 
 }
 
-func (this *BaggerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
 	defer txn.Discard()
@@ -365,7 +365,7 @@ func (this *BaggerDriver) ProcessTouchOperation(key *bbproto.Key, operation *bbp
 
 }
 
-func (this *BaggerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
     defer txn.Discard()
@@ -442,7 +442,7 @@ func (this *BaggerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbpro
 
 }
 
-func (this *BaggerDriver) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.RecordResult {
 
 	txn := this.db.NewTransaction(true)
     defer txn.Discard()
@@ -470,11 +470,11 @@ func (this *BaggerDriver) ProcessRemoveOperation(key *bbproto.Key, operation *bb
 }
 
 //
-// IDriver
+// IRegionStore
 //
 
 
-func (this *BaggerDriver) ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
 
 	switch operation.Operation.(type) {
 
@@ -498,7 +498,7 @@ func (this *BaggerDriver) ProcessOperation(operation *bbproto.RecordOperation) *
 	return bbcommon.ErrorUnsupported("unknown operation type")
 }
 
-func (this* BaggerDriver) Encrypt(plaintext []byte) ([]byte, error) {
+func (this* BaggerStore) Encrypt(plaintext []byte) ([]byte, error) {
 
 	key, err := this.conf.SecurityContext.GetEncryptionKey(this.conf.EncryptionTopo, 0, this.conf.EncryptionKeyLen)
 
@@ -516,7 +516,7 @@ func (this* BaggerDriver) Encrypt(plaintext []byte) ([]byte, error) {
 
 }
 
-func (this* BaggerDriver) Decrypt(ciphertext []byte) ([]byte, error) {
+func (this* BaggerStore) Decrypt(ciphertext []byte) ([]byte, error) {
 
 	key, err := this.conf.SecurityContext.GetEncryptionKey(this.conf.EncryptionTopo, 0, this.conf.EncryptionKeyLen)
 

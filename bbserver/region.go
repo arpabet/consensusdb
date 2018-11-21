@@ -21,12 +21,12 @@ package bbserver
 import "github.com/bigbagger/bigbagger/proto/bbproto"
 
 const (
-	TABLE_JSON = "table.json"
+	REGION_JSON = "region.json"
 )
 
-type ITableDriver interface {
+type IRegionStore interface {
 
-	GetTable() *bbproto.Table
+	GetRegion() *bbproto.Region
 
 	ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult
 

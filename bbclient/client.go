@@ -27,13 +27,13 @@ import (
 )
 
 type IBigBagger interface {
-	CreateTable(table *bbproto.Table) error
+	CreateRegion(region *bbproto.Region) error
 
-	AlterTable(table *bbproto.Table) error
+	UpdateRegion(region *bbproto.Region) error
 
-	DropTable(name string) error
+	DeleteRegion(name string) error
 
-	DescribeTables(pattern string) ([]*bbproto.Table, error)
+	GetRegions(pattern string) ([]*bbproto.Region, error)
 
 	Execute(IOperation) IResult
 
@@ -42,7 +42,7 @@ type IBigBagger interface {
 
 type BigBaggerClient struct {
 	conn                 *grpc.ClientConn
-	tableService         bbproto.TableServiceClient
+	regionService        bbproto.RegionServiceClient
 	transactionService   bbproto.TransactionServiceClient
 
 }
@@ -55,21 +55,9 @@ func (cli *BigBaggerClient) Close() error {
 	return nil
 }
 
-func (this *BigBaggerClient) CreateTable(table *bbproto.Table) (err error) {
+func (this *BigBaggerClient) CreateRegion(region *bbproto.Region) (err error) {
 
-	_, err = this.tableService.Create(context.Background(), table)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-func (this *BigBaggerClient) AlterTable(table *bbproto.Table) (err error) {
-
-	_, err = this.tableService.Alter(context.Background(), table)
+	_, err = this.regionService.Create(context.Background(), region)
 
 	if err != nil {
 		return err
@@ -79,12 +67,24 @@ func (this *BigBaggerClient) AlterTable(table *bbproto.Table) (err error) {
 
 }
 
-func (this *BigBaggerClient) DropTable(name string) error {
+func (this *BigBaggerClient) UpdateRegion(region *bbproto.Region) (err error) {
+
+	_, err = this.regionService.Update(context.Background(), region)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (this *BigBaggerClient) DeleteRegion(name string) error {
 
 	request := new(bbproto.String)
 	request.Value = name
 
-	_, err := this.tableService.Drop(context.Background(), request)
+	_, err := this.regionService.Delete(context.Background(), request)
 
 	if err != nil {
 		return err
@@ -94,18 +94,18 @@ func (this *BigBaggerClient) DropTable(name string) error {
 
 }
 
-func (this *BigBaggerClient) DescribeTables(pattern string) (result []*bbproto.Table, err error) {
+func (this *BigBaggerClient) GetRegions(pattern string) (result []*bbproto.Region, err error) {
 
 	request := new(bbproto.String)
 	request.Value = pattern
 
-	response, err := this.tableService.Describe(context.Background(), request)
+	response, err := this.regionService.Get(context.Background(), request)
 
 	if err != nil {
 		return nil, err
 	}
 
-	result = make([]*bbproto.Table, 0, 10)
+	result = make([]*bbproto.Region, 0, 10)
 
 	for dataset, e := response.Recv(); e == nil; dataset, e = response.Recv() {
 		result = append(result, dataset)
@@ -175,7 +175,7 @@ func NewClient(grpcAddress string) (*BigBaggerClient, error) {
 	}
 
 	var cli = &BigBaggerClient{conn,
-	bbproto.NewTableServiceClient(conn),
+	bbproto.NewRegionServiceClient(conn),
 	 bbproto.NewTransactionServiceClient(conn)}
 
 	return cli, nil
