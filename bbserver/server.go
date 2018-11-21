@@ -36,7 +36,7 @@ import (
 type BigBaggerServer struct {
 	grpcServer       *grpc.Server
 	conf             *Configuration
-	tableDriverMap   *TableDriverMap
+	regionStoreMap   *RegionStoreMap
 	shuttingDown     bool
 }
 
@@ -55,9 +55,9 @@ func (this *BigBaggerServer) Close() {
 		this.grpcServer = nil
 	}
 
-	list := this.tableDriverMap.List()
+	list := this.regionStoreMap.List()
 
-	this.tableDriverMap.Clear()
+	this.regionStoreMap.Clear()
 
 	for _, e := range list {
 		e.Value.Close();
@@ -69,7 +69,7 @@ func NewServer(conf *Configuration) (server *BigBaggerServer, err error) {
 
 	server = &BigBaggerServer{
 		conf: conf,
-		tableDriverMap: NewTableDriverMap()}
+		regionStoreMap: NewRegionStoreMap()}
 
 	log.Printf("init dataDir=%s\n", server.conf.DataDir)
 
@@ -89,12 +89,12 @@ func NewServer(conf *Configuration) (server *BigBaggerServer, err error) {
 
 			log.Printf("load dbDir=%s\n", dbDir.Name())
 
-			driver, err := LoadBaggerDriver(filepath.Join(server.conf.DataDir, dbDir.Name()), conf)
+			store, err := LoadBaggerDriver(filepath.Join(server.conf.DataDir, dbDir.Name()), conf)
 			if err != nil {
 				return nil, err
 			}
 
-			server.tableDriverMap.Put(driver.GetTable().GetName(), driver)
+			server.regionStoreMap.Put(store.GetRegion().GetName(), store)
 
 		}
 
@@ -105,44 +105,44 @@ func NewServer(conf *Configuration) (server *BigBaggerServer, err error) {
 
 //
 //
-// DATASET API
+// REGION API
 //
 //
 
 
-func (this *BigBaggerServer) Create(context context.Context, table *bbproto.Table) (response *empty.Empty, err error) {
+func (this *BigBaggerServer) Create(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
 
-	name := table.Name
+	name := region.Name
 
-	log.Printf("Create table: %s\n", name)
+	log.Printf("Create region: %s\n", name)
 
 	if name == "" {
 		return nil, errors.New("empty name")
 	}
 
-	driver, ok := this.tableDriverMap.Get(name)
+	store, ok := this.regionStoreMap.Get(name)
 
 	if ok {
 		return new(empty.Empty), nil
 	}
 
-	driver, err = NewBaggerDriver(filepath.Join(this.conf.DataDir, name), table, this.conf)
+	store, err = NewBaggerStore(filepath.Join(this.conf.DataDir, name), region, this.conf)
 
 	if err != nil {
 		return nil, err
 	}
 
-	this.tableDriverMap.Put(name, driver)
+	this.regionStoreMap.Put(name, store)
 
 	return new(empty.Empty), nil
 
 }
 
-func (this *BigBaggerServer) Alter(context context.Context, table *bbproto.Table) (response *empty.Empty, err error) {
+func (this *BigBaggerServer) Update(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
 
-	name := table.Name
+	name := region.Name
 
-	log.Printf("Alter table: %s\n", name)
+	log.Printf("Alter region: %s\n", name)
 
 	if name == "" {
 		return nil, errors.New("empty name")
@@ -152,13 +152,13 @@ func (this *BigBaggerServer) Alter(context context.Context, table *bbproto.Table
 
 }
 
-func (this *BigBaggerServer) Drop(context context.Context, request *bbproto.String) (response *empty.Empty, err error) {
+func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.String) (response *empty.Empty, err error) {
 
 	name := request.Value
 
 	log.Printf("Drop table: %s\n", name)
 
-	prev, ok := this.tableDriverMap.Remove(name)
+	prev, ok := this.regionStoreMap.Remove(name)
 
 	if ok {
 		prev.Close()
@@ -167,7 +167,7 @@ func (this *BigBaggerServer) Drop(context context.Context, request *bbproto.Stri
 	return new(empty.Empty), nil
 }
 
-func (this *BigBaggerServer) Describe(request *bbproto.String, responseServer bbproto.TableService_DescribeServer) error {
+func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto.RegionService_GetServer) error {
 
     pattern := request.Value
 
@@ -175,7 +175,7 @@ func (this *BigBaggerServer) Describe(request *bbproto.String, responseServer bb
     	pattern = "*"
 	}
 
-	log.Printf("Describe tables: %s\n", pattern)
+	log.Printf("Get regions: %s\n", pattern)
 
     matcher, err := glob.Compile(pattern)
 
@@ -184,13 +184,13 @@ func (this *BigBaggerServer) Describe(request *bbproto.String, responseServer bb
 	}
 
 
-	list := this.tableDriverMap.List()
+	list := this.regionStoreMap.List()
 
 	for _, e := range list {
 
 		if matcher.Match(e.Name) {
 
-			responseServer.Send(e.Value.GetTable())
+			responseServer.Send(e.Value.GetRegion())
 
 		}
 
@@ -222,7 +222,7 @@ func (this *BigBaggerServer) ExecuteOperation(operation *bbproto.RecordOperation
 		return bbcommon.ErrorBadRequest("replicated empty MajorKey not supported yet")
 	}
 
-	driver, ok := this.tableDriverMap.Get(key.RegionName)
+	driver, ok := this.regionStoreMap.Get(key.RegionName)
 
 	if !ok {
 		return bbcommon.ErrorTableNotFound(key.RegionName)
@@ -262,7 +262,7 @@ func (this *BigBaggerServer) StartServer() error {
 	// Create new grpc bbserver
 	this.grpcServer = grpc.NewServer()
 	// Register services
-	bbproto.RegisterTableServiceServer(this.grpcServer, this)
+	bbproto.RegisterRegionServiceServer(this.grpcServer, this)
 	bbproto.RegisterTransactionServiceServer(this.grpcServer, this)
 	// Start serving requests
 	return this.grpcServer.Serve(listen)

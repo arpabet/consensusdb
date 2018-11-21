@@ -47,66 +47,40 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 
 package bb;
 
-service TableService {
+service RegionService {
 
-    rpc Create (Table) returns (google.protobuf.Empty) {
+    rpc Create (Region) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-            post: "/v1/table"
+            post: "/v1/region"
             body: "*"
         };
     }
 
-    rpc Alter (Table) returns (google.protobuf.Empty) {
+    rpc Update (Region) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-            put: "/v1/table/{name}"
+            put: "/v1/region/{name}"
             body: "*"
         };
     }
 
-    rpc Drop (String) returns (google.protobuf.Empty) {
+    rpc Delete (String) returns (google.protobuf.Empty) {
         option (google.api.http) = {
-            delete: "/v1/table/{value}"
+            delete: "/v1/region/{value}"
         };
     }
 
-    rpc Describe (String) returns (stream Table) {
+    rpc Get (String) returns (stream Region) {
         option (google.api.http) = {
-            get: "/v1/table/{value}"
+            get: "/v1/region/{value}"
         };
     }
 
 }
 
-enum DataPolicy {
-    LOCAL_ONLY     = 0;
-    REPLICATED     = 1;
-    PARTITIONED    = 2;
-}
-
-enum DataScope {
-    LOCAL_NO_ACK        = 0;   // local does not send data
-    DISTRIBUTED_ACK     = 1;   // sent and wait response (success or error)
-    DISTRIBUTED_NO_ACK  = 2;   // sent and forgot
-}
-
-message Partition {
-    uint32 total             = 1;
-    uint32 replicationFactor = 2;
-}
-
-message PointInTime {
-    bool  primaryTimestamp     = 1;    // use PIT timestamp to calculate ExpiresAt by adding TTL
-    bool  conflation           = 2;    // do not store values if previous one is the same
-}
-
-message Table {
+message Region {
     string           version      = 1;     // version of the data structure, 1.0 - the first one
     string           name         = 2;     // can not be changed
-    DataPolicy       policy       = 3;     // can be changed from LOCAL to any other only
-    DataScope        scope        = 4;     // can be changed
-    Partition        partition    = 5;     // can be changed from LOCAL to PARTITIONED
-    PointInTime      pit          = 8;     // can not be changed (another key schema is used)
-    string           ttl          = 9;     // "" or "eternal" for no TTL and supported formats: "1Y", "1M", "1D", "1h", "1m", "1s"
+    string           ttl          = 3;     // "" or "eternal" for no TTL and supported formats: "1Y", "1M", "1D", "1h", "1m", "1s"
 }
 
 message String {
@@ -183,7 +157,7 @@ enum StatusCode {
      SUCCESS = 0;
      SUCCESS_NOT_UPDATED = 1;  // for compare and put operation that is non-locking algorithm
 
-     ERROR_NO_TABLE = 10;      // not found: database, namespace, store, table, cache, catalog, etc.
+     ERROR_NO_REGION = 10;     // not found: database, namespace, store, table, cache, catalog, etc.
      ERROR_BAD_REQUEST = 11;   // invalid parameters in request
      ERROR_POLICY = 12;        // exists record for operation that requires record and vise versa
      ERROR_MIGRATION = 13;     // data or connections migration occur during operation

@@ -28,8 +28,8 @@ var _ status.Status
 var _ = runtime.String
 var _ = utilities.NewDoubleArray
 
-func request_TableService_Create_0(ctx context.Context, marshaler runtime.Marshaler, client TableServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq Table
+func request_RegionService_Create_0(ctx context.Context, marshaler runtime.Marshaler, client RegionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq Region
 	var metadata runtime.ServerMetadata
 
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
@@ -41,8 +41,8 @@ func request_TableService_Create_0(ctx context.Context, marshaler runtime.Marsha
 
 }
 
-func request_TableService_Alter_0(ctx context.Context, marshaler runtime.Marshaler, client TableServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq Table
+func request_RegionService_Update_0(ctx context.Context, marshaler runtime.Marshaler, client RegionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq Region
 	var metadata runtime.ServerMetadata
 
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil && err != io.EOF {
@@ -67,12 +67,12 @@ func request_TableService_Alter_0(ctx context.Context, marshaler runtime.Marshal
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "name", err)
 	}
 
-	msg, err := client.Alter(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Update(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func request_TableService_Drop_0(ctx context.Context, marshaler runtime.Marshaler, client TableServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_RegionService_Delete_0(ctx context.Context, marshaler runtime.Marshaler, client RegionServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq String
 	var metadata runtime.ServerMetadata
 
@@ -94,12 +94,12 @@ func request_TableService_Drop_0(ctx context.Context, marshaler runtime.Marshale
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "value", err)
 	}
 
-	msg, err := client.Drop(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
+	msg, err := client.Delete(ctx, &protoReq, grpc.Header(&metadata.HeaderMD), grpc.Trailer(&metadata.TrailerMD))
 	return msg, metadata, err
 
 }
 
-func request_TableService_Describe_0(ctx context.Context, marshaler runtime.Marshaler, client TableServiceClient, req *http.Request, pathParams map[string]string) (TableService_DescribeClient, runtime.ServerMetadata, error) {
+func request_RegionService_Get_0(ctx context.Context, marshaler runtime.Marshaler, client RegionServiceClient, req *http.Request, pathParams map[string]string) (RegionService_GetClient, runtime.ServerMetadata, error) {
 	var protoReq String
 	var metadata runtime.ServerMetadata
 
@@ -121,7 +121,7 @@ func request_TableService_Describe_0(ctx context.Context, marshaler runtime.Mars
 		return nil, metadata, status.Errorf(codes.InvalidArgument, "type mismatch, parameter: %s, error: %v", "value", err)
 	}
 
-	stream, err := client.Describe(ctx, &protoReq)
+	stream, err := client.Get(ctx, &protoReq)
 	if err != nil {
 		return nil, metadata, err
 	}
@@ -147,9 +147,9 @@ func request_TransactionService_Execute_0(ctx context.Context, marshaler runtime
 
 }
 
-// RegisterTableServiceHandlerFromEndpoint is same as RegisterTableServiceHandler but
+// RegisterRegionServiceHandlerFromEndpoint is same as RegisterRegionServiceHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterTableServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterRegionServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -169,23 +169,23 @@ func RegisterTableServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.S
 		}()
 	}()
 
-	return RegisterTableServiceHandler(ctx, mux, conn)
+	return RegisterRegionServiceHandler(ctx, mux, conn)
 }
 
-// RegisterTableServiceHandler registers the http handlers for service TableService to "mux".
+// RegisterRegionServiceHandler registers the http handlers for service RegionService to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterTableServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterTableServiceHandlerClient(ctx, mux, NewTableServiceClient(conn))
+func RegisterRegionServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterRegionServiceHandlerClient(ctx, mux, NewRegionServiceClient(conn))
 }
 
-// RegisterTableServiceHandlerClient registers the http handlers for service TableService
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "TableServiceClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "TableServiceClient"
+// RegisterRegionServiceHandlerClient registers the http handlers for service RegionService
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "RegionServiceClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "RegionServiceClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "TableServiceClient" to call the correct interceptors.
-func RegisterTableServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client TableServiceClient) error {
+// "RegionServiceClient" to call the correct interceptors.
+func RegisterRegionServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client RegionServiceClient) error {
 
-	mux.Handle("POST", pattern_TableService_Create_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_RegionService_Create_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -203,18 +203,18 @@ func RegisterTableServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_TableService_Create_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_RegionService_Create_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_TableService_Create_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_RegionService_Create_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("PUT", pattern_TableService_Alter_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_RegionService_Update_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -232,18 +232,18 @@ func RegisterTableServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_TableService_Alter_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_RegionService_Update_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_TableService_Alter_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_RegionService_Update_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("DELETE", pattern_TableService_Drop_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("DELETE", pattern_RegionService_Delete_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -261,18 +261,18 @@ func RegisterTableServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_TableService_Drop_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_RegionService_Delete_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_TableService_Drop_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_RegionService_Delete_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
-	mux.Handle("GET", pattern_TableService_Describe_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_RegionService_Get_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -290,14 +290,14 @@ func RegisterTableServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_TableService_Describe_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_RegionService_Get_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_TableService_Describe_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
+		forward_RegionService_Get_0(ctx, mux, outboundMarshaler, w, req, func() (proto.Message, error) { return resp.Recv() }, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -305,23 +305,23 @@ func RegisterTableServiceHandlerClient(ctx context.Context, mux *runtime.ServeMu
 }
 
 var (
-	pattern_TableService_Create_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "table"}, ""))
+	pattern_RegionService_Create_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "region"}, ""))
 
-	pattern_TableService_Alter_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "table", "name"}, ""))
+	pattern_RegionService_Update_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "region", "name"}, ""))
 
-	pattern_TableService_Drop_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "table", "value"}, ""))
+	pattern_RegionService_Delete_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "region", "value"}, ""))
 
-	pattern_TableService_Describe_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "table", "value"}, ""))
+	pattern_RegionService_Get_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1, 1, 0, 4, 1, 5, 2}, []string{"v1", "region", "value"}, ""))
 )
 
 var (
-	forward_TableService_Create_0 = runtime.ForwardResponseMessage
+	forward_RegionService_Create_0 = runtime.ForwardResponseMessage
 
-	forward_TableService_Alter_0 = runtime.ForwardResponseMessage
+	forward_RegionService_Update_0 = runtime.ForwardResponseMessage
 
-	forward_TableService_Drop_0 = runtime.ForwardResponseMessage
+	forward_RegionService_Delete_0 = runtime.ForwardResponseMessage
 
-	forward_TableService_Describe_0 = runtime.ForwardResponseStream
+	forward_RegionService_Get_0 = runtime.ForwardResponseStream
 )
 
 // RegisterTransactionServiceHandlerFromEndpoint is same as RegisterTransactionServiceHandler but

@@ -25,7 +25,7 @@ import (
 func ErrorTableNotFound(name string) *bbproto.RecordResult {
 
 	res := new(bbproto.RecordResult)
-	res.Status = bbproto.StatusCode_ERROR_NO_TABLE
+	res.Status = bbproto.StatusCode_ERROR_NO_REGION
 	res.Message = "table not found: " + name
 
 	return res
