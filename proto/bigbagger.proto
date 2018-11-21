@@ -164,6 +164,9 @@ message PutOperation {
 
     bytes    value         = 1;
 
+    bool     compressOnServer = 2;
+    bool     encryptOnServer  = 3;
+
     bool     overrideTtl   = 5;
     uint32   ttlSeconds    = 6;   // overrides dataset TTL
 

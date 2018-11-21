@@ -484,7 +484,7 @@ func RunCompressionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Put
 	//
 
-	op := bbclient.Put(set, []byte("compress"), payload)
+	op := bbclient.Put(set, []byte("compress"), payload).CompressOnServer()
 
 	res := client.Execute(op)
 
@@ -551,7 +551,7 @@ func RunEncryptionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Put
 	//
 
-	op := bbclient.Put(set, []byte("enc"), payload)
+	op := bbclient.Put(set, []byte("enc"), payload).EncryptOnServer()
 
 	res := client.Execute(op)
 

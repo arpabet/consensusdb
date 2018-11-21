@@ -26,6 +26,10 @@ import (
 
 type IOperation interface {
 
+	CompressOnServer() IOperation
+
+	EncryptOnServer() IOperation
+
 	WithPartitionKey(key []byte) IOperation
 
 	WithTimestamp(timestamp uint64) IOperation
@@ -208,6 +212,57 @@ func Remove(setName string, key []byte) IOperation {
 	op.Key.RecordKey = key
 
 	return op
+}
+
+//
+//  CompressOnServer
+//
+
+func (this *HeadOp) CompressOnServer() IOperation {
+	return this
+}
+
+func (this *GetOp) CompressOnServer() IOperation {
+	return this
+}
+
+func (this *TouchOp) CompressOnServer() IOperation {
+	return this
+}
+
+func (this *PutOp) CompressOnServer() IOperation {
+	this.Put.CompressOnServer = true
+	return this
+}
+
+func (this *RemoveOp) CompressOnServer() IOperation {
+	return this
+}
+
+
+//
+//  EncryptOnServer
+//
+
+func (this *HeadOp) EncryptOnServer() IOperation {
+	return this
+}
+
+func (this *GetOp) EncryptOnServer() IOperation {
+	return this
+}
+
+func (this *TouchOp) EncryptOnServer() IOperation {
+	return this
+}
+
+func (this *PutOp) EncryptOnServer() IOperation {
+	this.Put.EncryptOnServer = true
+	return this
+}
+
+func (this *RemoveOp) EncryptOnServer() IOperation {
+	return this
 }
 
 //
