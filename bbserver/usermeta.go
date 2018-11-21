@@ -21,6 +21,7 @@
 const (
 	bitCompressed             byte = 1 << 0    // Set if the entry has been compressed.
 	bitEncrypted              byte = 1 << 1    // Set if the entry has been encrypted.
+	bitChunked                byte = 1 << 2    // Set if the entry was packed in to the chunk.
 )
 
 func isCompressionEnabled(userMeta byte) bool {
@@ -37,5 +38,13 @@ func isEncryptionEnabled(userMeta byte) bool {
 
 func SetEncryptionEnabled(userMeta byte) byte {
 	return userMeta | bitEncrypted
+}
+
+func isChunked(userMeta byte) bool {
+	return userMeta & bitChunked > 0
+}
+
+func SetChunked(userMeta byte) byte {
+	return userMeta | bitChunked
 }
 
