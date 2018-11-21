@@ -19,7 +19,6 @@
 package bbserver
 
 import (
-	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"compress/gzip"
 	"bytes"
 	"io/ioutil"
@@ -31,41 +30,52 @@ import (
 
 type ICompressor interface {
 
-	Compress([]byte, bbproto.CompressionLevel) ([]byte, error)
+	Compress(payload []byte, level int) ([]byte, error)
 
-	Decompress([]byte) ([]byte, error)
+	Decompress(payload []byte) ([]byte, error)
 
 }
 
-var KnownCompressors = map[bbproto.Compressor]ICompressor {
-	bbproto.Compressor_COMPRESS_FLATE: &FlateCompression{},
-	bbproto.Compressor_COMPRESS_GZIP: &GZIPCompression{},
-	bbproto.Compressor_COMPRESS_LZW: &LZWCompression{},
-	bbproto.Compressor_COMPRESS_ZLIB: &ZLIBCompression{},
-	bbproto.Compressor_COMPRESS_BZIP2: &BZIP2Compression{},
+var KnownCompressors = map[string]ICompressor {
+	"FLATE": &FlateCompressor{},
+	"GZIP": &GZIPCompressor{},
+	"LZW": &LZWCompressor{},
+	"ZLIB": &ZLIBCompressor{},
+	"BZIP2": &BZIP2Compressor{},
 }
 
-func FlateCompressionLevel(level bbproto.CompressionLevel) int {
+type NoCompressor struct {
+}
 
-	if level == bbproto.CompressionLevel_DEFAULT_COMPRESSION {
+func (this*NoCompressor) Compress(input []byte, level int) (output []byte, err error) {
+	return input, nil
+}
+
+func (this*NoCompressor) Decompress(input  []byte) (output []byte, err error) {
+	return input, nil
+}
+
+func FlateCompressionLevel(level int) int {
+
+	if level == 6 {
 		return -1
 	}
 
-	return int(level)
+	return level
 }
 
-func BZIP2CompressionLevel(level bbproto.CompressionLevel) int {
-	return int(level)
+func BZIP2CompressionLevel(level int) int {
+	return level
 }
 
 //
-//  Flate Compression
+//  Flate Compressor
 //
 
-type FlateCompression struct {
+type FlateCompressor struct {
 }
 
-func (this* FlateCompression) Compress(input []byte, level bbproto.CompressionLevel) (output []byte, err error) {
+func (this*FlateCompressor) Compress(input []byte, level int) (output []byte, err error) {
 
 	var b bytes.Buffer
 
@@ -87,7 +97,7 @@ func (this* FlateCompression) Compress(input []byte, level bbproto.CompressionLe
 	return b.Bytes(), nil
 }
 
-func (this* FlateCompression) Decompress(input  []byte) (output []byte, err error) {
+func (this*FlateCompressor) Decompress(input  []byte) (output []byte, err error) {
 
 	b := bytes.NewBuffer(input)
 
@@ -100,13 +110,13 @@ func (this* FlateCompression) Decompress(input  []byte) (output []byte, err erro
 
 
 //
-//  GZIP Compression
+//  GZIP Compressor
 //
 
-type GZIPCompression struct {
+type GZIPCompressor struct {
 }
 
-func (this* GZIPCompression) Compress(input []byte, level bbproto.CompressionLevel) (output []byte, err error) {
+func (this*GZIPCompressor) Compress(input []byte, level int) (output []byte, err error) {
 
 	var b bytes.Buffer
 
@@ -128,7 +138,7 @@ func (this* GZIPCompression) Compress(input []byte, level bbproto.CompressionLev
 	return b.Bytes(), nil
 }
 
-func (this* GZIPCompression) Decompress(input  []byte) (output []byte, err error) {
+func (this*GZIPCompressor) Decompress(input  []byte) (output []byte, err error) {
 
 	b := bytes.NewBuffer(input)
 
@@ -145,13 +155,13 @@ func (this* GZIPCompression) Decompress(input  []byte) (output []byte, err error
 
 
 //
-//  LZW Compression
+//  LZW Compressor
 //
 
-type LZWCompression struct {
+type LZWCompressor struct {
 }
 
-func (this* LZWCompression) Compress(input []byte, level bbproto.CompressionLevel) (output []byte, err error) {
+func (this*LZWCompressor) Compress(input []byte, level int) (output []byte, err error) {
 
 	var b bytes.Buffer
 
@@ -169,7 +179,7 @@ func (this* LZWCompression) Compress(input []byte, level bbproto.CompressionLeve
 	return b.Bytes(), nil
 }
 
-func (this* LZWCompression) Decompress(input  []byte) (output []byte, err error) {
+func (this*LZWCompressor) Decompress(input  []byte) (output []byte, err error) {
 
 	b := bytes.NewBuffer(input)
 
@@ -181,13 +191,13 @@ func (this* LZWCompression) Decompress(input  []byte) (output []byte, err error)
 }
 
 //
-//  ZLIB Compression
+//  ZLIB Compressor
 //
 
-type ZLIBCompression struct {
+type ZLIBCompressor struct {
 }
 
-func (this* ZLIBCompression) Compress(input []byte, level bbproto.CompressionLevel) (output []byte, err error) {
+func (this*ZLIBCompressor) Compress(input []byte, level int) (output []byte, err error) {
 
 	var b bytes.Buffer
 
@@ -209,7 +219,7 @@ func (this* ZLIBCompression) Compress(input []byte, level bbproto.CompressionLev
 	return b.Bytes(), nil
 }
 
-func (this* ZLIBCompression) Decompress(input  []byte) (output []byte, err error) {
+func (this*ZLIBCompressor) Decompress(input  []byte) (output []byte, err error) {
 
 	b := bytes.NewBuffer(input)
 
@@ -226,13 +236,13 @@ func (this* ZLIBCompression) Decompress(input  []byte) (output []byte, err error
 
 
 //
-//  BZIP2 Compression
+//  BZIP2 Compressor
 //
 
-type BZIP2Compression struct {
+type BZIP2Compressor struct {
 }
 
-func (this* BZIP2Compression) Compress(input []byte, level bbproto.CompressionLevel) (output []byte, err error) {
+func (this*BZIP2Compressor) Compress(input []byte, level int) (output []byte, err error) {
 
 	var b bytes.Buffer
 
@@ -255,7 +265,7 @@ func (this* BZIP2Compression) Compress(input []byte, level bbproto.CompressionLe
 	return b.Bytes(), nil
 }
 
-func (this* BZIP2Compression) Decompress(input  []byte) (output []byte, err error) {
+func (this*BZIP2Compressor) Decompress(input  []byte) (output []byte, err error) {
 
 	var config bzip2.ReaderConfig
 

@@ -35,8 +35,7 @@ import (
 
 type BigBaggerServer struct {
 	grpcServer       *grpc.Server
-	security         ISecurity
-	dataDir          string
+	conf             *Configuration
 	tableDriverMap   *TableDriverMap
 	shuttingDown     bool
 }
@@ -66,20 +65,19 @@ func (this *BigBaggerServer) Close() {
 
 }
 
-func NewServer(dataDir string, security ISecurity) (server *BigBaggerServer, err error) {
+func NewServer(conf *Configuration) (server *BigBaggerServer, err error) {
 
-	server = new(BigBaggerServer)
-	server.tableDriverMap = NewTableDriverMap()
-	server.dataDir = dataDir
-	server.security = security
+	server = &BigBaggerServer{
+		conf: conf,
+		tableDriverMap: NewTableDriverMap()}
 
-	log.Printf("init dataDir=%s\n", server.dataDir)
+	log.Printf("init dataDir=%s\n", server.conf.DataDir)
 
-	if _, err := os.Stat(server.dataDir); os.IsNotExist(err) {
+	if _, err := os.Stat(server.conf.DataDir); os.IsNotExist(err) {
 		return nil, err;
 	}
 
-	subDirs, err := ioutil.ReadDir(server.dataDir)
+	subDirs, err := ioutil.ReadDir(server.conf.DataDir)
 
 	if err != nil {
 		return nil, err
@@ -91,7 +89,7 @@ func NewServer(dataDir string, security ISecurity) (server *BigBaggerServer, err
 
 			log.Printf("load dbDir=%s\n", dbDir.Name())
 
-			driver, err := LoadBaggerDriver(filepath.Join(server.dataDir, dbDir.Name()), security)
+			driver, err := LoadBaggerDriver(filepath.Join(server.conf.DataDir, dbDir.Name()), conf)
 			if err != nil {
 				return nil, err
 			}
@@ -128,7 +126,7 @@ func (this *BigBaggerServer) Create(context context.Context, table *bbproto.Tabl
 		return new(empty.Empty), nil
 	}
 
-	driver, err = NewBaggerDriver(filepath.Join(this.dataDir, name), table, this.security)
+	driver, err = NewBaggerDriver(filepath.Join(this.conf.DataDir, name), table, this.conf)
 
 	if err != nil {
 		return nil, err
@@ -252,12 +250,12 @@ func (this *BigBaggerServer) Execute(context context.Context, tnx *bbproto.Trans
 }
 
 
-func (this *BigBaggerServer) StartServer(grpcAddress string) error {
+func (this *BigBaggerServer) StartServer() error {
 
 	// start listening for grpc
-	listen, err := net.Listen("tcp4", grpcAddress)
+	listen, err := net.Listen("tcp4", this.conf.GrpcAddress)
 	if err != nil {
-		log.Fatal("port is busy " + grpcAddress, err)
+		log.Fatal("port is busy " + this.conf.GrpcAddress, err)
 		return err
 	}
 

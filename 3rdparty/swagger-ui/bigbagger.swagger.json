@@ -152,70 +152,6 @@
     }
   },
   "definitions": {
-    "bbBlockMode": {
-      "type": "string",
-      "enum": [
-        "MODE_NO",
-        "MODE_GCM",
-        "MODE_CFB"
-      ],
-      "default": "MODE_NO"
-    },
-    "bbBlockSize": {
-      "type": "string",
-      "enum": [
-        "BIT_NO",
-        "BIT_128",
-        "BIT_192",
-        "BIT_256"
-      ],
-      "default": "BIT_NO"
-    },
-    "bbCipher": {
-      "type": "string",
-      "enum": [
-        "CIPHER_NO",
-        "CIPHER_AES"
-      ],
-      "default": "CIPHER_NO"
-    },
-    "bbCompression": {
-      "type": "object",
-      "properties": {
-        "compressor": {
-          "$ref": "#/definitions/bbCompressor"
-        },
-        "level": {
-          "$ref": "#/definitions/bbCompressionLevel"
-        },
-        "threshold": {
-          "type": "integer",
-          "format": "int64"
-        }
-      }
-    },
-    "bbCompressionLevel": {
-      "type": "string",
-      "enum": [
-        "NO_COMPRESSION",
-        "BEST_SPEED",
-        "DEFAULT_COMPRESSION",
-        "BEST_COMPRESSION"
-      ],
-      "default": "NO_COMPRESSION"
-    },
-    "bbCompressor": {
-      "type": "string",
-      "enum": [
-        "COMPRESS_NO",
-        "COMPRESS_FLATE",
-        "COMPRESS_GZIP",
-        "COMPRESS_LZW",
-        "COMPRESS_ZLIB",
-        "COMPRESS_BZIP2"
-      ],
-      "default": "COMPRESS_NO"
-    },
     "bbDataPolicy": {
       "type": "string",
       "enum": [
@@ -233,23 +169,6 @@
         "DISTRIBUTED_NO_ACK"
       ],
       "default": "LOCAL_NO_ACK"
-    },
-    "bbEncryption": {
-      "type": "object",
-      "properties": {
-        "cipher": {
-          "$ref": "#/definitions/bbCipher"
-        },
-        "size": {
-          "$ref": "#/definitions/bbBlockSize"
-        },
-        "mode": {
-          "$ref": "#/definitions/bbBlockMode"
-        },
-        "topo": {
-          "type": "string"
-        }
-      }
     },
     "bbGetOperation": {
       "type": "object"
@@ -469,12 +388,6 @@
         },
         "partition": {
           "$ref": "#/definitions/bbPartition"
-        },
-        "compression": {
-          "$ref": "#/definitions/bbCompression"
-        },
-        "encryption": {
-          "$ref": "#/definitions/bbEncryption"
         },
         "pit": {
           "$ref": "#/definitions/bbPointInTime"

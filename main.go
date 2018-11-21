@@ -48,32 +48,27 @@ func run() error {
 		return err
 	}
 
-	httpAddress := cfg.Section("server").Key("httpAddress").String()
-	grpcAddress := cfg.Section("server").Key("grpcAddress").String()
-	dataDir := cfg.Section("database").Key("dataDir").String()
-
-	security, err := bbserver.NewSimpleSecurityContext(cfg.Section("security").KeysHash())
-
+	conf, err := bbserver.LoadConfiguration(cfg)
 	if err != nil {
 		return err
 	}
 
-	server, err := bbserver.NewServer(dataDir, security)
+	server, err := bbserver.NewServer(conf)
 	defer server.Close()
 
 	if err != nil {
 		return err
 	}
 
-	log.Println("Starting gRPC server on " + grpcAddress)
-	go server.StartServer(grpcAddress)
+	log.Println("Starting gRPC server on " + conf.GrpcAddress)
+	go server.StartServer()
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	log.Println("Starting HTTP server on " + httpAddress)
-	httpServer, err := NewHttpServer(ctx, httpAddress, grpcAddress)
+	log.Println("Starting HTTP server on " + conf.HttpAddress)
+	httpServer, err := NewHttpServer(ctx, conf.HttpAddress, conf.GrpcAddress)
 	defer httpServer.Close()
 
 	if err != nil {
