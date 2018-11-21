@@ -214,18 +214,18 @@ func (this *BigBaggerServer) ExecuteOperation(operation *bbproto.RecordOperation
 
 	key := operation.Key
 
-	if len(key.SetName) == 0 {
-		return bbcommon.ErrorBadRequest("empty Key.SetName")
+	if key.RegionName == "" {
+		return bbcommon.ErrorBadRequest("empty Key.RegionName")
 	}
 
-	if len(key.RecordKey) == 0 {
-		return bbcommon.ErrorBadRequest("empty Key.RecordKey")
+	if len(key.MajorKey) == 0 {
+		return bbcommon.ErrorBadRequest("replicated empty MajorKey not supported yet")
 	}
 
-	driver, ok := this.tableDriverMap.Get(key.SetName)
+	driver, ok := this.tableDriverMap.Get(key.RegionName)
 
 	if !ok {
-		return bbcommon.ErrorTableNotFound(key.SetName)
+		return bbcommon.ErrorTableNotFound(key.RegionName)
 	}
 
 	return driver.ProcessOperation(operation)
