@@ -72,20 +72,20 @@ client, err := bbclient.NewClient(grpcAddress)
 defer client.Close()
 
 //
-// create table TEST
+// Create Region TEST
 //
 
-table := new(bbproto.Table)
-table.Version = "1.0"
-table.Name = "TEST"
+region := new(bbproto.Region)
+region.Version = "1.0"
+region.Name = "TEST"
 
-err = client.CreateTable(table)
+err = client.CreateRegion(region)
 
 //
 // Put
 //
 
-op = bbclient.Put(set, []byte("key"), []byte("value"))
+op = bbclient.Put("TEST", []byte("key"), []byte("value"))
 
 res = client.Execute(op)
 
@@ -93,7 +93,7 @@ res = client.Execute(op)
 // Get
 //
 
-op = bbclient.Get(set, []byte("key"))
+op = bbclient.Get("TEST", []byte("key"))
 
 res = client.Execute(op)
 
@@ -102,9 +102,25 @@ if res.IsError() {
     return
 }
 
-data := res.GetValue()
+data := res.GetRecord().Value()
+
+// Put PIT Value
+
+op = bbclient.Put("TEST", []byte("key"), []byte("value")).WithTimestamp(1514764800)
+
+res = client.Execute(op)
 
 ```
+
+// Get Last PIT Value
+
+op = bbclient.Range("TEST", []byte("key"), 1).WithTimestamp(math.MaxUint64)
+
+res = client.Execute(op)
+
+if res.Exists() {
+   data = res.GetRecord().Value()
+}
 
 ### Bagger
 

@@ -206,7 +206,7 @@ func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto
 //
 //
 
-func (this *BigBaggerServer) ExecuteOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
+func (this *BigBaggerServer) ExecuteOperation(operation *bbproto.TxOperation) *bbproto.TxOperationResult {
 
 	if operation.Key == nil {
 		return bbcommon.ErrorBadRequest("empty Key")
@@ -225,17 +225,17 @@ func (this *BigBaggerServer) ExecuteOperation(operation *bbproto.RecordOperation
 	driver, ok := this.regionStoreMap.Get(key.RegionName)
 
 	if !ok {
-		return bbcommon.ErrorTableNotFound(key.RegionName)
+		return bbcommon.ErrorRegionNotFound(key.RegionName)
 	}
 
 	return driver.ProcessOperation(operation)
 
 }
 
-func (this *BigBaggerServer) Execute(context context.Context, tnx *bbproto.Transaction) (response *bbproto.TransactionContext, err error) {
+func (this *BigBaggerServer) Execute(context context.Context, tnx *bbproto.Transaction) (response *bbproto.TransactionResult, err error) {
 
-	response = new(bbproto.TransactionContext)
-	response.Results = make([]*bbproto.RecordResult, 0, len(tnx.Operations))
+	response = new(bbproto.TransactionResult)
+	response.Results = make([]*bbproto.TxOperationResult, 0, len(tnx.Operations))
 
 	if len(tnx.Operations) == 0 {
 		return response, nil
@@ -261,9 +261,11 @@ func (this *BigBaggerServer) StartServer() error {
 
 	// Create new grpc bbserver
 	this.grpcServer = grpc.NewServer()
+
 	// Register services
 	bbproto.RegisterRegionServiceServer(this.grpcServer, this)
 	bbproto.RegisterTransactionServiceServer(this.grpcServer, this)
+
 	// Start serving requests
 	return this.grpcServer.Serve(listen)
 

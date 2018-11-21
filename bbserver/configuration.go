@@ -33,7 +33,6 @@ type Configuration struct {
 	SecurityContext        ISecurityContext
 
 	CompressionEnabled     bool
-	CompressionThreshold   int
 	Compressor             ICompressor
 	CompressionLevel       int
 
@@ -72,11 +71,6 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 		return nil, err
 	}
 
-	threshold, err := compressionSection.Key("threshold").Int()
-	if err != nil {
-		return nil, err
-	}
-
 	encryptionSection := cfg.Section("encryption")
 
 	encryptionEnabled, cipher, err := FindCipher(encryptionSection.Key("cipher").String())
@@ -109,7 +103,6 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 		DataDir: dataDir,
 
 		CompressionEnabled: compressionEnabled,
-		CompressionThreshold: threshold,
 		Compressor: compressor,
 		CompressionLevel: level,
 
@@ -188,9 +181,8 @@ func NewDefaultConfiguration(httpAddress, grpcAddress, dataDir string) (*Configu
 		DataDir: dataDir,
 
 		CompressionEnabled: true,
-		CompressionThreshold: 100,
-		Compressor: &FlateCompressor{},
-		CompressionLevel: 6,
+		Compressor: &LZ4Compressor{},
+		CompressionLevel: 9,
 
 		EncryptionEnabled: true,
 		EncryptionCipher: &AESCipher{},

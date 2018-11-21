@@ -118,7 +118,7 @@ func (this *BigBaggerClient) GetRegions(pattern string) (result []*bbproto.Regio
 func (this *BigBaggerClient) Execute(op IOperation) (res IResult) {
 
 	request := new(bbproto.Transaction)
-	request.Operations = make([]*bbproto.RecordOperation, 1)
+	request.Operations = make([]*bbproto.TxOperation, 1)
 
 	request.Operations[0] = op.toProto()
 
@@ -141,7 +141,7 @@ func (this *BigBaggerClient) ExecuteTransaction(ops []IOperation) (res []IResult
 	size := len(ops)
 
 	request := new(bbproto.Transaction)
-	request.Operations = make([]*bbproto.RecordOperation, size)
+	request.Operations = make([]*bbproto.TxOperation, size)
 
 	for i, op := range ops {
 		request.Operations[i] = op.toProto()

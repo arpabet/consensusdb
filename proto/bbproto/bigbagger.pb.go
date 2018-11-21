@@ -261,248 +261,248 @@ func (m *Key) GetTimestamp() uint64 {
 	return 0
 }
 
-type RecordOperation struct {
+type TxOperation struct {
 	Key *Key `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// Types that are valid to be assigned to Operation:
-	//	*RecordOperation_Head
-	//	*RecordOperation_Get
-	//	*RecordOperation_Touch
-	//	*RecordOperation_Put
-	//	*RecordOperation_Remove
-	Operation            isRecordOperation_Operation `protobuf_oneof:"operation"`
-	XXX_NoUnkeyedLiteral struct{}                    `json:"-"`
-	XXX_unrecognized     []byte                      `json:"-"`
-	XXX_sizecache        int32                       `json:"-"`
+	//	*TxOperation_Get
+	//	*TxOperation_Range
+	//	*TxOperation_Touch
+	//	*TxOperation_Put
+	//	*TxOperation_Remove
+	Operation            isTxOperation_Operation `protobuf_oneof:"operation"`
+	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
+	XXX_unrecognized     []byte                  `json:"-"`
+	XXX_sizecache        int32                   `json:"-"`
 }
 
-func (m *RecordOperation) Reset()         { *m = RecordOperation{} }
-func (m *RecordOperation) String() string { return proto.CompactTextString(m) }
-func (*RecordOperation) ProtoMessage()    {}
-func (*RecordOperation) Descriptor() ([]byte, []int) {
+func (m *TxOperation) Reset()         { *m = TxOperation{} }
+func (m *TxOperation) String() string { return proto.CompactTextString(m) }
+func (*TxOperation) ProtoMessage()    {}
+func (*TxOperation) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5a14183de89fcd5b, []int{3}
 }
 
-func (m *RecordOperation) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RecordOperation.Unmarshal(m, b)
+func (m *TxOperation) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TxOperation.Unmarshal(m, b)
 }
-func (m *RecordOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RecordOperation.Marshal(b, m, deterministic)
+func (m *TxOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TxOperation.Marshal(b, m, deterministic)
 }
-func (m *RecordOperation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RecordOperation.Merge(m, src)
+func (m *TxOperation) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TxOperation.Merge(m, src)
 }
-func (m *RecordOperation) XXX_Size() int {
-	return xxx_messageInfo_RecordOperation.Size(m)
+func (m *TxOperation) XXX_Size() int {
+	return xxx_messageInfo_TxOperation.Size(m)
 }
-func (m *RecordOperation) XXX_DiscardUnknown() {
-	xxx_messageInfo_RecordOperation.DiscardUnknown(m)
+func (m *TxOperation) XXX_DiscardUnknown() {
+	xxx_messageInfo_TxOperation.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RecordOperation proto.InternalMessageInfo
+var xxx_messageInfo_TxOperation proto.InternalMessageInfo
 
-func (m *RecordOperation) GetKey() *Key {
+func (m *TxOperation) GetKey() *Key {
 	if m != nil {
 		return m.Key
 	}
 	return nil
 }
 
-type isRecordOperation_Operation interface {
-	isRecordOperation_Operation()
+type isTxOperation_Operation interface {
+	isTxOperation_Operation()
 }
 
-type RecordOperation_Head struct {
-	Head *HeadOperation `protobuf:"bytes,10,opt,name=head,proto3,oneof"`
-}
-
-type RecordOperation_Get struct {
+type TxOperation_Get struct {
 	Get *GetOperation `protobuf:"bytes,11,opt,name=get,proto3,oneof"`
 }
 
-type RecordOperation_Touch struct {
-	Touch *TouchOperation `protobuf:"bytes,12,opt,name=touch,proto3,oneof"`
+type TxOperation_Range struct {
+	Range *RangeOperation `protobuf:"bytes,12,opt,name=range,proto3,oneof"`
 }
 
-type RecordOperation_Put struct {
-	Put *PutOperation `protobuf:"bytes,13,opt,name=put,proto3,oneof"`
+type TxOperation_Touch struct {
+	Touch *TouchOperation `protobuf:"bytes,13,opt,name=touch,proto3,oneof"`
 }
 
-type RecordOperation_Remove struct {
-	Remove *RemoveOperation `protobuf:"bytes,14,opt,name=remove,proto3,oneof"`
+type TxOperation_Put struct {
+	Put *PutOperation `protobuf:"bytes,14,opt,name=put,proto3,oneof"`
 }
 
-func (*RecordOperation_Head) isRecordOperation_Operation() {}
+type TxOperation_Remove struct {
+	Remove *RemoveOperation `protobuf:"bytes,15,opt,name=remove,proto3,oneof"`
+}
 
-func (*RecordOperation_Get) isRecordOperation_Operation() {}
+func (*TxOperation_Get) isTxOperation_Operation() {}
 
-func (*RecordOperation_Touch) isRecordOperation_Operation() {}
+func (*TxOperation_Range) isTxOperation_Operation() {}
 
-func (*RecordOperation_Put) isRecordOperation_Operation() {}
+func (*TxOperation_Touch) isTxOperation_Operation() {}
 
-func (*RecordOperation_Remove) isRecordOperation_Operation() {}
+func (*TxOperation_Put) isTxOperation_Operation() {}
 
-func (m *RecordOperation) GetOperation() isRecordOperation_Operation {
+func (*TxOperation_Remove) isTxOperation_Operation() {}
+
+func (m *TxOperation) GetOperation() isTxOperation_Operation {
 	if m != nil {
 		return m.Operation
 	}
 	return nil
 }
 
-func (m *RecordOperation) GetHead() *HeadOperation {
-	if x, ok := m.GetOperation().(*RecordOperation_Head); ok {
-		return x.Head
-	}
-	return nil
-}
-
-func (m *RecordOperation) GetGet() *GetOperation {
-	if x, ok := m.GetOperation().(*RecordOperation_Get); ok {
+func (m *TxOperation) GetGet() *GetOperation {
+	if x, ok := m.GetOperation().(*TxOperation_Get); ok {
 		return x.Get
 	}
 	return nil
 }
 
-func (m *RecordOperation) GetTouch() *TouchOperation {
-	if x, ok := m.GetOperation().(*RecordOperation_Touch); ok {
+func (m *TxOperation) GetRange() *RangeOperation {
+	if x, ok := m.GetOperation().(*TxOperation_Range); ok {
+		return x.Range
+	}
+	return nil
+}
+
+func (m *TxOperation) GetTouch() *TouchOperation {
+	if x, ok := m.GetOperation().(*TxOperation_Touch); ok {
 		return x.Touch
 	}
 	return nil
 }
 
-func (m *RecordOperation) GetPut() *PutOperation {
-	if x, ok := m.GetOperation().(*RecordOperation_Put); ok {
+func (m *TxOperation) GetPut() *PutOperation {
+	if x, ok := m.GetOperation().(*TxOperation_Put); ok {
 		return x.Put
 	}
 	return nil
 }
 
-func (m *RecordOperation) GetRemove() *RemoveOperation {
-	if x, ok := m.GetOperation().(*RecordOperation_Remove); ok {
+func (m *TxOperation) GetRemove() *RemoveOperation {
+	if x, ok := m.GetOperation().(*TxOperation_Remove); ok {
 		return x.Remove
 	}
 	return nil
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*RecordOperation) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RecordOperation_OneofMarshaler, _RecordOperation_OneofUnmarshaler, _RecordOperation_OneofSizer, []interface{}{
-		(*RecordOperation_Head)(nil),
-		(*RecordOperation_Get)(nil),
-		(*RecordOperation_Touch)(nil),
-		(*RecordOperation_Put)(nil),
-		(*RecordOperation_Remove)(nil),
+func (*TxOperation) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _TxOperation_OneofMarshaler, _TxOperation_OneofUnmarshaler, _TxOperation_OneofSizer, []interface{}{
+		(*TxOperation_Get)(nil),
+		(*TxOperation_Range)(nil),
+		(*TxOperation_Touch)(nil),
+		(*TxOperation_Put)(nil),
+		(*TxOperation_Remove)(nil),
 	}
 }
 
-func _RecordOperation_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RecordOperation)
+func _TxOperation_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*TxOperation)
 	// operation
 	switch x := m.Operation.(type) {
-	case *RecordOperation_Head:
-		b.EncodeVarint(10<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Head); err != nil {
-			return err
-		}
-	case *RecordOperation_Get:
+	case *TxOperation_Get:
 		b.EncodeVarint(11<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Get); err != nil {
 			return err
 		}
-	case *RecordOperation_Touch:
+	case *TxOperation_Range:
 		b.EncodeVarint(12<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Range); err != nil {
+			return err
+		}
+	case *TxOperation_Touch:
+		b.EncodeVarint(13<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Touch); err != nil {
 			return err
 		}
-	case *RecordOperation_Put:
-		b.EncodeVarint(13<<3 | proto.WireBytes)
+	case *TxOperation_Put:
+		b.EncodeVarint(14<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Put); err != nil {
 			return err
 		}
-	case *RecordOperation_Remove:
-		b.EncodeVarint(14<<3 | proto.WireBytes)
+	case *TxOperation_Remove:
+		b.EncodeVarint(15<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Remove); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("RecordOperation.Operation has unexpected type %T", x)
+		return fmt.Errorf("TxOperation.Operation has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _RecordOperation_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RecordOperation)
+func _TxOperation_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*TxOperation)
 	switch tag {
-	case 10: // operation.head
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(HeadOperation)
-		err := b.DecodeMessage(msg)
-		m.Operation = &RecordOperation_Head{msg}
-		return true, err
 	case 11: // operation.get
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(GetOperation)
 		err := b.DecodeMessage(msg)
-		m.Operation = &RecordOperation_Get{msg}
+		m.Operation = &TxOperation_Get{msg}
 		return true, err
-	case 12: // operation.touch
+	case 12: // operation.range
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(RangeOperation)
+		err := b.DecodeMessage(msg)
+		m.Operation = &TxOperation_Range{msg}
+		return true, err
+	case 13: // operation.touch
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(TouchOperation)
 		err := b.DecodeMessage(msg)
-		m.Operation = &RecordOperation_Touch{msg}
+		m.Operation = &TxOperation_Touch{msg}
 		return true, err
-	case 13: // operation.put
+	case 14: // operation.put
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(PutOperation)
 		err := b.DecodeMessage(msg)
-		m.Operation = &RecordOperation_Put{msg}
+		m.Operation = &TxOperation_Put{msg}
 		return true, err
-	case 14: // operation.remove
+	case 15: // operation.remove
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(RemoveOperation)
 		err := b.DecodeMessage(msg)
-		m.Operation = &RecordOperation_Remove{msg}
+		m.Operation = &TxOperation_Remove{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _RecordOperation_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RecordOperation)
+func _TxOperation_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*TxOperation)
 	// operation
 	switch x := m.Operation.(type) {
-	case *RecordOperation_Head:
-		s := proto.Size(x.Head)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *RecordOperation_Get:
+	case *TxOperation_Get:
 		s := proto.Size(x.Get)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *RecordOperation_Touch:
+	case *TxOperation_Range:
+		s := proto.Size(x.Range)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *TxOperation_Touch:
 		s := proto.Size(x.Touch)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *RecordOperation_Put:
+	case *TxOperation_Put:
 		s := proto.Size(x.Put)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *RecordOperation_Remove:
+	case *TxOperation_Remove:
 		s := proto.Size(x.Remove)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
@@ -514,38 +514,8 @@ func _RecordOperation_OneofSizer(msg proto.Message) (n int) {
 	return n
 }
 
-type HeadOperation struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *HeadOperation) Reset()         { *m = HeadOperation{} }
-func (m *HeadOperation) String() string { return proto.CompactTextString(m) }
-func (*HeadOperation) ProtoMessage()    {}
-func (*HeadOperation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5a14183de89fcd5b, []int{4}
-}
-
-func (m *HeadOperation) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HeadOperation.Unmarshal(m, b)
-}
-func (m *HeadOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HeadOperation.Marshal(b, m, deterministic)
-}
-func (m *HeadOperation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HeadOperation.Merge(m, src)
-}
-func (m *HeadOperation) XXX_Size() int {
-	return xxx_messageInfo_HeadOperation.Size(m)
-}
-func (m *HeadOperation) XXX_DiscardUnknown() {
-	xxx_messageInfo_HeadOperation.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HeadOperation proto.InternalMessageInfo
-
 type GetOperation struct {
+	HeadOnly             bool     `protobuf:"varint,1,opt,name=headOnly,proto3" json:"headOnly,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -555,7 +525,7 @@ func (m *GetOperation) Reset()         { *m = GetOperation{} }
 func (m *GetOperation) String() string { return proto.CompactTextString(m) }
 func (*GetOperation) ProtoMessage()    {}
 func (*GetOperation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5a14183de89fcd5b, []int{5}
+	return fileDescriptor_5a14183de89fcd5b, []int{4}
 }
 
 func (m *GetOperation) XXX_Unmarshal(b []byte) error {
@@ -575,6 +545,60 @@ func (m *GetOperation) XXX_DiscardUnknown() {
 }
 
 var xxx_messageInfo_GetOperation proto.InternalMessageInfo
+
+func (m *GetOperation) GetHeadOnly() bool {
+	if m != nil {
+		return m.HeadOnly
+	}
+	return false
+}
+
+type RangeOperation struct {
+	HeadOnly             bool     `protobuf:"varint,1,opt,name=headOnly,proto3" json:"headOnly,omitempty"`
+	NumRecords           uint32   `protobuf:"varint,2,opt,name=numRecords,proto3" json:"numRecords,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *RangeOperation) Reset()         { *m = RangeOperation{} }
+func (m *RangeOperation) String() string { return proto.CompactTextString(m) }
+func (*RangeOperation) ProtoMessage()    {}
+func (*RangeOperation) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a14183de89fcd5b, []int{5}
+}
+
+func (m *RangeOperation) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RangeOperation.Unmarshal(m, b)
+}
+func (m *RangeOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RangeOperation.Marshal(b, m, deterministic)
+}
+func (m *RangeOperation) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RangeOperation.Merge(m, src)
+}
+func (m *RangeOperation) XXX_Size() int {
+	return xxx_messageInfo_RangeOperation.Size(m)
+}
+func (m *RangeOperation) XXX_DiscardUnknown() {
+	xxx_messageInfo_RangeOperation.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RangeOperation proto.InternalMessageInfo
+
+func (m *RangeOperation) GetHeadOnly() bool {
+	if m != nil {
+		return m.HeadOnly
+	}
+	return false
+}
+
+func (m *RangeOperation) GetNumRecords() uint32 {
+	if m != nil {
+		return m.NumRecords
+	}
+	return 0
+}
 
 type TouchOperation struct {
 	OverrideTtl          bool     `protobuf:"varint,1,opt,name=overrideTtl,proto3" json:"overrideTtl,omitempty"`
@@ -741,256 +765,256 @@ func (m *RemoveOperation) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_RemoveOperation proto.InternalMessageInfo
 
-type RecordResult struct {
+type TxOperationResult struct {
 	Status  StatusCode `protobuf:"varint,1,opt,name=status,proto3,enum=bb.StatusCode" json:"status,omitempty"`
 	Message string     `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
 	// Types that are valid to be assigned to Result:
-	//	*RecordResult_Head
-	//	*RecordResult_Get
-	//	*RecordResult_Touch
-	//	*RecordResult_Put
-	//	*RecordResult_Remove
-	Result               isRecordResult_Result `protobuf_oneof:"result"`
-	XXX_NoUnkeyedLiteral struct{}              `json:"-"`
-	XXX_unrecognized     []byte                `json:"-"`
-	XXX_sizecache        int32                 `json:"-"`
+	//	*TxOperationResult_Get
+	//	*TxOperationResult_Range
+	//	*TxOperationResult_Touch
+	//	*TxOperationResult_Put
+	//	*TxOperationResult_Remove
+	Result               isTxOperationResult_Result `protobuf_oneof:"result"`
+	XXX_NoUnkeyedLiteral struct{}                   `json:"-"`
+	XXX_unrecognized     []byte                     `json:"-"`
+	XXX_sizecache        int32                      `json:"-"`
 }
 
-func (m *RecordResult) Reset()         { *m = RecordResult{} }
-func (m *RecordResult) String() string { return proto.CompactTextString(m) }
-func (*RecordResult) ProtoMessage()    {}
-func (*RecordResult) Descriptor() ([]byte, []int) {
+func (m *TxOperationResult) Reset()         { *m = TxOperationResult{} }
+func (m *TxOperationResult) String() string { return proto.CompactTextString(m) }
+func (*TxOperationResult) ProtoMessage()    {}
+func (*TxOperationResult) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5a14183de89fcd5b, []int{9}
 }
 
-func (m *RecordResult) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RecordResult.Unmarshal(m, b)
+func (m *TxOperationResult) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TxOperationResult.Unmarshal(m, b)
 }
-func (m *RecordResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RecordResult.Marshal(b, m, deterministic)
+func (m *TxOperationResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TxOperationResult.Marshal(b, m, deterministic)
 }
-func (m *RecordResult) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RecordResult.Merge(m, src)
+func (m *TxOperationResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TxOperationResult.Merge(m, src)
 }
-func (m *RecordResult) XXX_Size() int {
-	return xxx_messageInfo_RecordResult.Size(m)
+func (m *TxOperationResult) XXX_Size() int {
+	return xxx_messageInfo_TxOperationResult.Size(m)
 }
-func (m *RecordResult) XXX_DiscardUnknown() {
-	xxx_messageInfo_RecordResult.DiscardUnknown(m)
+func (m *TxOperationResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_TxOperationResult.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RecordResult proto.InternalMessageInfo
+var xxx_messageInfo_TxOperationResult proto.InternalMessageInfo
 
-func (m *RecordResult) GetStatus() StatusCode {
+func (m *TxOperationResult) GetStatus() StatusCode {
 	if m != nil {
 		return m.Status
 	}
 	return StatusCode_SUCCESS
 }
 
-func (m *RecordResult) GetMessage() string {
+func (m *TxOperationResult) GetMessage() string {
 	if m != nil {
 		return m.Message
 	}
 	return ""
 }
 
-type isRecordResult_Result interface {
-	isRecordResult_Result()
+type isTxOperationResult_Result interface {
+	isTxOperationResult_Result()
 }
 
-type RecordResult_Head struct {
-	Head *HeadResult `protobuf:"bytes,10,opt,name=head,proto3,oneof"`
-}
-
-type RecordResult_Get struct {
+type TxOperationResult_Get struct {
 	Get *GetResult `protobuf:"bytes,11,opt,name=get,proto3,oneof"`
 }
 
-type RecordResult_Touch struct {
-	Touch *TouchResult `protobuf:"bytes,12,opt,name=touch,proto3,oneof"`
+type TxOperationResult_Range struct {
+	Range *RangeResult `protobuf:"bytes,12,opt,name=range,proto3,oneof"`
 }
 
-type RecordResult_Put struct {
-	Put *PutResult `protobuf:"bytes,13,opt,name=put,proto3,oneof"`
+type TxOperationResult_Touch struct {
+	Touch *TouchResult `protobuf:"bytes,13,opt,name=touch,proto3,oneof"`
 }
 
-type RecordResult_Remove struct {
-	Remove *RemoveResult `protobuf:"bytes,14,opt,name=remove,proto3,oneof"`
+type TxOperationResult_Put struct {
+	Put *PutResult `protobuf:"bytes,14,opt,name=put,proto3,oneof"`
 }
 
-func (*RecordResult_Head) isRecordResult_Result() {}
+type TxOperationResult_Remove struct {
+	Remove *RemoveResult `protobuf:"bytes,15,opt,name=remove,proto3,oneof"`
+}
 
-func (*RecordResult_Get) isRecordResult_Result() {}
+func (*TxOperationResult_Get) isTxOperationResult_Result() {}
 
-func (*RecordResult_Touch) isRecordResult_Result() {}
+func (*TxOperationResult_Range) isTxOperationResult_Result() {}
 
-func (*RecordResult_Put) isRecordResult_Result() {}
+func (*TxOperationResult_Touch) isTxOperationResult_Result() {}
 
-func (*RecordResult_Remove) isRecordResult_Result() {}
+func (*TxOperationResult_Put) isTxOperationResult_Result() {}
 
-func (m *RecordResult) GetResult() isRecordResult_Result {
+func (*TxOperationResult_Remove) isTxOperationResult_Result() {}
+
+func (m *TxOperationResult) GetResult() isTxOperationResult_Result {
 	if m != nil {
 		return m.Result
 	}
 	return nil
 }
 
-func (m *RecordResult) GetHead() *HeadResult {
-	if x, ok := m.GetResult().(*RecordResult_Head); ok {
-		return x.Head
-	}
-	return nil
-}
-
-func (m *RecordResult) GetGet() *GetResult {
-	if x, ok := m.GetResult().(*RecordResult_Get); ok {
+func (m *TxOperationResult) GetGet() *GetResult {
+	if x, ok := m.GetResult().(*TxOperationResult_Get); ok {
 		return x.Get
 	}
 	return nil
 }
 
-func (m *RecordResult) GetTouch() *TouchResult {
-	if x, ok := m.GetResult().(*RecordResult_Touch); ok {
+func (m *TxOperationResult) GetRange() *RangeResult {
+	if x, ok := m.GetResult().(*TxOperationResult_Range); ok {
+		return x.Range
+	}
+	return nil
+}
+
+func (m *TxOperationResult) GetTouch() *TouchResult {
+	if x, ok := m.GetResult().(*TxOperationResult_Touch); ok {
 		return x.Touch
 	}
 	return nil
 }
 
-func (m *RecordResult) GetPut() *PutResult {
-	if x, ok := m.GetResult().(*RecordResult_Put); ok {
+func (m *TxOperationResult) GetPut() *PutResult {
+	if x, ok := m.GetResult().(*TxOperationResult_Put); ok {
 		return x.Put
 	}
 	return nil
 }
 
-func (m *RecordResult) GetRemove() *RemoveResult {
-	if x, ok := m.GetResult().(*RecordResult_Remove); ok {
+func (m *TxOperationResult) GetRemove() *RemoveResult {
+	if x, ok := m.GetResult().(*TxOperationResult_Remove); ok {
 		return x.Remove
 	}
 	return nil
 }
 
 // XXX_OneofFuncs is for the internal use of the proto package.
-func (*RecordResult) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _RecordResult_OneofMarshaler, _RecordResult_OneofUnmarshaler, _RecordResult_OneofSizer, []interface{}{
-		(*RecordResult_Head)(nil),
-		(*RecordResult_Get)(nil),
-		(*RecordResult_Touch)(nil),
-		(*RecordResult_Put)(nil),
-		(*RecordResult_Remove)(nil),
+func (*TxOperationResult) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
+	return _TxOperationResult_OneofMarshaler, _TxOperationResult_OneofUnmarshaler, _TxOperationResult_OneofSizer, []interface{}{
+		(*TxOperationResult_Get)(nil),
+		(*TxOperationResult_Range)(nil),
+		(*TxOperationResult_Touch)(nil),
+		(*TxOperationResult_Put)(nil),
+		(*TxOperationResult_Remove)(nil),
 	}
 }
 
-func _RecordResult_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*RecordResult)
+func _TxOperationResult_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
+	m := msg.(*TxOperationResult)
 	// result
 	switch x := m.Result.(type) {
-	case *RecordResult_Head:
-		b.EncodeVarint(10<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Head); err != nil {
-			return err
-		}
-	case *RecordResult_Get:
+	case *TxOperationResult_Get:
 		b.EncodeVarint(11<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Get); err != nil {
 			return err
 		}
-	case *RecordResult_Touch:
+	case *TxOperationResult_Range:
 		b.EncodeVarint(12<<3 | proto.WireBytes)
+		if err := b.EncodeMessage(x.Range); err != nil {
+			return err
+		}
+	case *TxOperationResult_Touch:
+		b.EncodeVarint(13<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Touch); err != nil {
 			return err
 		}
-	case *RecordResult_Put:
-		b.EncodeVarint(13<<3 | proto.WireBytes)
+	case *TxOperationResult_Put:
+		b.EncodeVarint(14<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Put); err != nil {
 			return err
 		}
-	case *RecordResult_Remove:
-		b.EncodeVarint(14<<3 | proto.WireBytes)
+	case *TxOperationResult_Remove:
+		b.EncodeVarint(15<<3 | proto.WireBytes)
 		if err := b.EncodeMessage(x.Remove); err != nil {
 			return err
 		}
 	case nil:
 	default:
-		return fmt.Errorf("RecordResult.Result has unexpected type %T", x)
+		return fmt.Errorf("TxOperationResult.Result has unexpected type %T", x)
 	}
 	return nil
 }
 
-func _RecordResult_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*RecordResult)
+func _TxOperationResult_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
+	m := msg.(*TxOperationResult)
 	switch tag {
-	case 10: // result.head
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(HeadResult)
-		err := b.DecodeMessage(msg)
-		m.Result = &RecordResult_Head{msg}
-		return true, err
 	case 11: // result.get
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(GetResult)
 		err := b.DecodeMessage(msg)
-		m.Result = &RecordResult_Get{msg}
+		m.Result = &TxOperationResult_Get{msg}
 		return true, err
-	case 12: // result.touch
+	case 12: // result.range
+		if wire != proto.WireBytes {
+			return true, proto.ErrInternalBadWireType
+		}
+		msg := new(RangeResult)
+		err := b.DecodeMessage(msg)
+		m.Result = &TxOperationResult_Range{msg}
+		return true, err
+	case 13: // result.touch
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(TouchResult)
 		err := b.DecodeMessage(msg)
-		m.Result = &RecordResult_Touch{msg}
+		m.Result = &TxOperationResult_Touch{msg}
 		return true, err
-	case 13: // result.put
+	case 14: // result.put
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(PutResult)
 		err := b.DecodeMessage(msg)
-		m.Result = &RecordResult_Put{msg}
+		m.Result = &TxOperationResult_Put{msg}
 		return true, err
-	case 14: // result.remove
+	case 15: // result.remove
 		if wire != proto.WireBytes {
 			return true, proto.ErrInternalBadWireType
 		}
 		msg := new(RemoveResult)
 		err := b.DecodeMessage(msg)
-		m.Result = &RecordResult_Remove{msg}
+		m.Result = &TxOperationResult_Remove{msg}
 		return true, err
 	default:
 		return false, nil
 	}
 }
 
-func _RecordResult_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*RecordResult)
+func _TxOperationResult_OneofSizer(msg proto.Message) (n int) {
+	m := msg.(*TxOperationResult)
 	// result
 	switch x := m.Result.(type) {
-	case *RecordResult_Head:
-		s := proto.Size(x.Head)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *RecordResult_Get:
+	case *TxOperationResult_Get:
 		s := proto.Size(x.Get)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *RecordResult_Touch:
+	case *TxOperationResult_Range:
+		s := proto.Size(x.Range)
+		n += 1 // tag and wire
+		n += proto.SizeVarint(uint64(s))
+		n += s
+	case *TxOperationResult_Touch:
 		s := proto.Size(x.Touch)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *RecordResult_Put:
+	case *TxOperationResult_Put:
 		s := proto.Size(x.Put)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
 		n += s
-	case *RecordResult_Remove:
+	case *TxOperationResult_Remove:
 		s := proto.Size(x.Remove)
 		n += 1 // tag and wire
 		n += proto.SizeVarint(uint64(s))
@@ -1065,48 +1089,55 @@ func (m *Head) GetDiskSize() int64 {
 	return 0
 }
 
-type HeadResult struct {
+type Record struct {
 	Head                 *Head    `protobuf:"bytes,1,opt,name=head,proto3" json:"head,omitempty"`
+	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *HeadResult) Reset()         { *m = HeadResult{} }
-func (m *HeadResult) String() string { return proto.CompactTextString(m) }
-func (*HeadResult) ProtoMessage()    {}
-func (*HeadResult) Descriptor() ([]byte, []int) {
+func (m *Record) Reset()         { *m = Record{} }
+func (m *Record) String() string { return proto.CompactTextString(m) }
+func (*Record) ProtoMessage()    {}
+func (*Record) Descriptor() ([]byte, []int) {
 	return fileDescriptor_5a14183de89fcd5b, []int{11}
 }
 
-func (m *HeadResult) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_HeadResult.Unmarshal(m, b)
+func (m *Record) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Record.Unmarshal(m, b)
 }
-func (m *HeadResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_HeadResult.Marshal(b, m, deterministic)
+func (m *Record) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Record.Marshal(b, m, deterministic)
 }
-func (m *HeadResult) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HeadResult.Merge(m, src)
+func (m *Record) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Record.Merge(m, src)
 }
-func (m *HeadResult) XXX_Size() int {
-	return xxx_messageInfo_HeadResult.Size(m)
+func (m *Record) XXX_Size() int {
+	return xxx_messageInfo_Record.Size(m)
 }
-func (m *HeadResult) XXX_DiscardUnknown() {
-	xxx_messageInfo_HeadResult.DiscardUnknown(m)
+func (m *Record) XXX_DiscardUnknown() {
+	xxx_messageInfo_Record.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_HeadResult proto.InternalMessageInfo
+var xxx_messageInfo_Record proto.InternalMessageInfo
 
-func (m *HeadResult) GetHead() *Head {
+func (m *Record) GetHead() *Head {
 	if m != nil {
 		return m.Head
 	}
 	return nil
 }
 
+func (m *Record) GetValue() []byte {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
 type GetResult struct {
-	Head                 *Head    `protobuf:"bytes,1,opt,name=head,proto3" json:"head,omitempty"`
-	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Record               *Record  `protobuf:"bytes,1,opt,name=record,proto3" json:"record,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -1137,16 +1168,48 @@ func (m *GetResult) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_GetResult proto.InternalMessageInfo
 
-func (m *GetResult) GetHead() *Head {
+func (m *GetResult) GetRecord() *Record {
 	if m != nil {
-		return m.Head
+		return m.Record
 	}
 	return nil
 }
 
-func (m *GetResult) GetValue() []byte {
+type RangeResult struct {
+	Records              []*Record `protobuf:"bytes,1,rep,name=records,proto3" json:"records,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *RangeResult) Reset()         { *m = RangeResult{} }
+func (m *RangeResult) String() string { return proto.CompactTextString(m) }
+func (*RangeResult) ProtoMessage()    {}
+func (*RangeResult) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a14183de89fcd5b, []int{13}
+}
+
+func (m *RangeResult) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RangeResult.Unmarshal(m, b)
+}
+func (m *RangeResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RangeResult.Marshal(b, m, deterministic)
+}
+func (m *RangeResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RangeResult.Merge(m, src)
+}
+func (m *RangeResult) XXX_Size() int {
+	return xxx_messageInfo_RangeResult.Size(m)
+}
+func (m *RangeResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_RangeResult.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RangeResult proto.InternalMessageInfo
+
+func (m *RangeResult) GetRecords() []*Record {
 	if m != nil {
-		return m.Value
+		return m.Records
 	}
 	return nil
 }
@@ -1162,7 +1225,7 @@ func (m *TouchResult) Reset()         { *m = TouchResult{} }
 func (m *TouchResult) String() string { return proto.CompactTextString(m) }
 func (*TouchResult) ProtoMessage()    {}
 func (*TouchResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5a14183de89fcd5b, []int{13}
+	return fileDescriptor_5a14183de89fcd5b, []int{14}
 }
 
 func (m *TouchResult) XXX_Unmarshal(b []byte) error {
@@ -1200,7 +1263,7 @@ func (m *PutResult) Reset()         { *m = PutResult{} }
 func (m *PutResult) String() string { return proto.CompactTextString(m) }
 func (*PutResult) ProtoMessage()    {}
 func (*PutResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5a14183de89fcd5b, []int{14}
+	return fileDescriptor_5a14183de89fcd5b, []int{15}
 }
 
 func (m *PutResult) XXX_Unmarshal(b []byte) error {
@@ -1231,7 +1294,7 @@ func (m *RemoveResult) Reset()         { *m = RemoveResult{} }
 func (m *RemoveResult) String() string { return proto.CompactTextString(m) }
 func (*RemoveResult) ProtoMessage()    {}
 func (*RemoveResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5a14183de89fcd5b, []int{15}
+	return fileDescriptor_5a14183de89fcd5b, []int{16}
 }
 
 func (m *RemoveResult) XXX_Unmarshal(b []byte) error {
@@ -1253,17 +1316,17 @@ func (m *RemoveResult) XXX_DiscardUnknown() {
 var xxx_messageInfo_RemoveResult proto.InternalMessageInfo
 
 type Transaction struct {
-	Operations           []*RecordOperation `protobuf:"bytes,1,rep,name=operations,proto3" json:"operations,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}           `json:"-"`
-	XXX_unrecognized     []byte             `json:"-"`
-	XXX_sizecache        int32              `json:"-"`
+	Operations           []*TxOperation `protobuf:"bytes,1,rep,name=operations,proto3" json:"operations,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
+	XXX_unrecognized     []byte         `json:"-"`
+	XXX_sizecache        int32          `json:"-"`
 }
 
 func (m *Transaction) Reset()         { *m = Transaction{} }
 func (m *Transaction) String() string { return proto.CompactTextString(m) }
 func (*Transaction) ProtoMessage()    {}
 func (*Transaction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5a14183de89fcd5b, []int{16}
+	return fileDescriptor_5a14183de89fcd5b, []int{17}
 }
 
 func (m *Transaction) XXX_Unmarshal(b []byte) error {
@@ -1284,46 +1347,46 @@ func (m *Transaction) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Transaction proto.InternalMessageInfo
 
-func (m *Transaction) GetOperations() []*RecordOperation {
+func (m *Transaction) GetOperations() []*TxOperation {
 	if m != nil {
 		return m.Operations
 	}
 	return nil
 }
 
-type TransactionContext struct {
-	Results              []*RecordResult `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}        `json:"-"`
-	XXX_unrecognized     []byte          `json:"-"`
-	XXX_sizecache        int32           `json:"-"`
+type TransactionResult struct {
+	Results              []*TxOperationResult `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
+	XXX_unrecognized     []byte               `json:"-"`
+	XXX_sizecache        int32                `json:"-"`
 }
 
-func (m *TransactionContext) Reset()         { *m = TransactionContext{} }
-func (m *TransactionContext) String() string { return proto.CompactTextString(m) }
-func (*TransactionContext) ProtoMessage()    {}
-func (*TransactionContext) Descriptor() ([]byte, []int) {
-	return fileDescriptor_5a14183de89fcd5b, []int{17}
+func (m *TransactionResult) Reset()         { *m = TransactionResult{} }
+func (m *TransactionResult) String() string { return proto.CompactTextString(m) }
+func (*TransactionResult) ProtoMessage()    {}
+func (*TransactionResult) Descriptor() ([]byte, []int) {
+	return fileDescriptor_5a14183de89fcd5b, []int{18}
 }
 
-func (m *TransactionContext) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TransactionContext.Unmarshal(m, b)
+func (m *TransactionResult) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_TransactionResult.Unmarshal(m, b)
 }
-func (m *TransactionContext) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TransactionContext.Marshal(b, m, deterministic)
+func (m *TransactionResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_TransactionResult.Marshal(b, m, deterministic)
 }
-func (m *TransactionContext) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TransactionContext.Merge(m, src)
+func (m *TransactionResult) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_TransactionResult.Merge(m, src)
 }
-func (m *TransactionContext) XXX_Size() int {
-	return xxx_messageInfo_TransactionContext.Size(m)
+func (m *TransactionResult) XXX_Size() int {
+	return xxx_messageInfo_TransactionResult.Size(m)
 }
-func (m *TransactionContext) XXX_DiscardUnknown() {
-	xxx_messageInfo_TransactionContext.DiscardUnknown(m)
+func (m *TransactionResult) XXX_DiscardUnknown() {
+	xxx_messageInfo_TransactionResult.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_TransactionContext proto.InternalMessageInfo
+var xxx_messageInfo_TransactionResult proto.InternalMessageInfo
 
-func (m *TransactionContext) GetResults() []*RecordResult {
+func (m *TransactionResult) GetResults() []*TxOperationResult {
 	if m != nil {
 		return m.Results
 	}
@@ -1335,21 +1398,22 @@ func init() {
 	proto.RegisterType((*Region)(nil), "bb.Region")
 	proto.RegisterType((*String)(nil), "bb.String")
 	proto.RegisterType((*Key)(nil), "bb.Key")
-	proto.RegisterType((*RecordOperation)(nil), "bb.RecordOperation")
-	proto.RegisterType((*HeadOperation)(nil), "bb.HeadOperation")
+	proto.RegisterType((*TxOperation)(nil), "bb.TxOperation")
 	proto.RegisterType((*GetOperation)(nil), "bb.GetOperation")
+	proto.RegisterType((*RangeOperation)(nil), "bb.RangeOperation")
 	proto.RegisterType((*TouchOperation)(nil), "bb.TouchOperation")
 	proto.RegisterType((*PutOperation)(nil), "bb.PutOperation")
 	proto.RegisterType((*RemoveOperation)(nil), "bb.RemoveOperation")
-	proto.RegisterType((*RecordResult)(nil), "bb.RecordResult")
+	proto.RegisterType((*TxOperationResult)(nil), "bb.TxOperationResult")
 	proto.RegisterType((*Head)(nil), "bb.Head")
-	proto.RegisterType((*HeadResult)(nil), "bb.HeadResult")
+	proto.RegisterType((*Record)(nil), "bb.Record")
 	proto.RegisterType((*GetResult)(nil), "bb.GetResult")
+	proto.RegisterType((*RangeResult)(nil), "bb.RangeResult")
 	proto.RegisterType((*TouchResult)(nil), "bb.TouchResult")
 	proto.RegisterType((*PutResult)(nil), "bb.PutResult")
 	proto.RegisterType((*RemoveResult)(nil), "bb.RemoveResult")
 	proto.RegisterType((*Transaction)(nil), "bb.Transaction")
-	proto.RegisterType((*TransactionContext)(nil), "bb.TransactionContext")
+	proto.RegisterType((*TransactionResult)(nil), "bb.TransactionResult")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1555,7 +1619,7 @@ var _RegionService_serviceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type TransactionServiceClient interface {
-	Execute(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*TransactionContext, error)
+	Execute(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*TransactionResult, error)
 }
 
 type transactionServiceClient struct {
@@ -1566,8 +1630,8 @@ func NewTransactionServiceClient(cc *grpc.ClientConn) TransactionServiceClient {
 	return &transactionServiceClient{cc}
 }
 
-func (c *transactionServiceClient) Execute(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*TransactionContext, error) {
-	out := new(TransactionContext)
+func (c *transactionServiceClient) Execute(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*TransactionResult, error) {
+	out := new(TransactionResult)
 	err := c.cc.Invoke(ctx, "/bb.TransactionService/Execute", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1577,7 +1641,7 @@ func (c *transactionServiceClient) Execute(ctx context.Context, in *Transaction,
 
 // TransactionServiceServer is the server API for TransactionService service.
 type TransactionServiceServer interface {
-	Execute(context.Context, *Transaction) (*TransactionContext, error)
+	Execute(context.Context, *Transaction) (*TransactionResult, error)
 }
 
 func RegisterTransactionServiceServer(s *grpc.Server, srv TransactionServiceServer) {
@@ -1618,84 +1682,89 @@ var _TransactionService_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("bigbagger.proto", fileDescriptor_5a14183de89fcd5b) }
 
 var fileDescriptor_5a14183de89fcd5b = []byte{
-	// 1262 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x56, 0x4d, 0x73, 0xdb, 0x44,
-	0x18, 0xae, 0xed, 0xd4, 0x71, 0x5e, 0x7f, 0x29, 0x9b, 0x36, 0x75, 0x4d, 0xa6, 0x93, 0x6a, 0x3a,
-	0x6d, 0xc6, 0x50, 0xab, 0x4d, 0x6f, 0xe1, 0x40, 0x2d, 0x5b, 0x4d, 0x4c, 0x52, 0xcb, 0xac, 0xe5,
-	0x76, 0xe0, 0x92, 0x91, 0xed, 0x45, 0x51, 0x6b, 0x4b, 0x1a, 0x69, 0x6d, 0x12, 0x3a, 0x1d, 0x66,
-	0xb8, 0x71, 0x85, 0x23, 0x37, 0x2e, 0xfc, 0x04, 0x7e, 0x08, 0x7f, 0x81, 0x9f, 0xc1, 0x0c, 0xcc,
-	0xae, 0x3e, 0x56, 0x72, 0x80, 0x72, 0xb2, 0xf6, 0x79, 0x9f, 0x7d, 0x76, 0xf7, 0xdd, 0xe7, 0x7d,
-	0xbd, 0x50, 0x9f, 0xd8, 0xd6, 0xc4, 0xb4, 0x2c, 0xe2, 0xb7, 0x3d, 0xdf, 0xa5, 0x2e, 0xca, 0x4f,
-	0x26, 0xcd, 0x3d, 0xcb, 0x75, 0xad, 0x39, 0x51, 0x4c, 0xcf, 0x56, 0x4c, 0xc7, 0x71, 0xa9, 0x49,
-	0x6d, 0xd7, 0x09, 0x42, 0x46, 0xf3, 0xa3, 0x28, 0xca, 0x47, 0x93, 0xe5, 0xd7, 0x0a, 0x59, 0x78,
-	0xf4, 0x2a, 0x0a, 0x7e, 0xc2, 0x7f, 0xa6, 0x8f, 0x2d, 0xe2, 0x3c, 0x0e, 0xbe, 0xe1, 0xc2, 0x8a,
-	0xeb, 0xf1, 0xe9, 0xd7, 0xa5, 0xe4, 0x13, 0x28, 0x62, 0x62, 0xd9, 0xae, 0x83, 0x1a, 0xb0, 0xb9,
-	0x22, 0x7e, 0x60, 0xbb, 0x4e, 0x23, 0xb7, 0x9f, 0x3b, 0xd8, 0xc2, 0xf1, 0x10, 0x21, 0xd8, 0x70,
-	0xcc, 0x05, 0x69, 0xe4, 0x39, 0xcc, 0xbf, 0x91, 0x04, 0x05, 0x4a, 0xe7, 0x8d, 0x02, 0x87, 0xd8,
-	0xa7, 0x7c, 0x0f, 0x8a, 0x23, 0xea, 0xdb, 0x8e, 0x85, 0x6e, 0xc1, 0xcd, 0x95, 0x39, 0x5f, 0x92,
-	0x48, 0x27, 0x1c, 0xc8, 0xef, 0xa0, 0x70, 0x4a, 0xae, 0xd0, 0x3d, 0x00, 0x9f, 0x2f, 0x38, 0x60,
-	0x92, 0x21, 0x23, 0x85, 0xa0, 0x26, 0x94, 0x16, 0xe6, 0x1b, 0xd7, 0x3f, 0x25, 0x57, 0x7c, 0xc1,
-	0x0a, 0x4e, 0xc6, 0x3c, 0x66, 0x3b, 0x61, 0xac, 0x10, 0xc5, 0xa2, 0x31, 0xda, 0x83, 0x2d, 0x6a,
-	0x2f, 0x48, 0x40, 0xcd, 0x85, 0xd7, 0xd8, 0xd8, 0xcf, 0x1d, 0x14, 0xb1, 0x00, 0xe4, 0x1f, 0xf2,
-	0x50, 0xc7, 0x64, 0xea, 0xfa, 0x33, 0xdd, 0x23, 0x3e, 0xcf, 0x00, 0xba, 0x0b, 0x85, 0xb7, 0xe4,
-	0x8a, 0x6f, 0xa1, 0x7c, 0xb8, 0xd9, 0x9e, 0x4c, 0xda, 0xa7, 0xe4, 0x0a, 0x33, 0x0c, 0x3d, 0x82,
-	0x8d, 0x0b, 0x62, 0xce, 0x1a, 0xc0, 0x63, 0xdb, 0x2c, 0x76, 0x42, 0x4c, 0x31, 0xf7, 0xe4, 0x06,
-	0xe6, 0x04, 0xf4, 0x00, 0x0a, 0x16, 0xa1, 0x8d, 0x32, 0xe7, 0x49, 0x8c, 0x77, 0x4c, 0x68, 0x9a,
-	0xc6, 0xc2, 0xa8, 0x05, 0x37, 0xa9, 0xbb, 0x9c, 0x5e, 0x34, 0x2a, 0x9c, 0x87, 0x18, 0xcf, 0x60,
-	0x40, 0x9a, 0x19, 0x52, 0x98, 0xa2, 0xb7, 0xa4, 0x8d, 0xaa, 0x50, 0x1c, 0x2e, 0xb3, 0x8a, 0xde,
-	0x92, 0xa2, 0xc7, 0x50, 0xf4, 0xc9, 0xc2, 0x5d, 0x91, 0x46, 0x8d, 0x13, 0x77, 0x18, 0x11, 0x73,
-	0x24, 0xcd, 0x8d, 0x48, 0x6a, 0x19, 0xb6, 0xdc, 0x18, 0x96, 0xeb, 0x50, 0xcd, 0x1c, 0x46, 0xae,
-	0x41, 0x25, 0xbd, 0x6b, 0x19, 0x43, 0x2d, 0xbb, 0x3b, 0xb4, 0x0f, 0x65, 0x77, 0x45, 0x7c, 0xdf,
-	0x9e, 0x11, 0x83, 0xce, 0x79, 0xca, 0x4a, 0x38, 0x0d, 0xb1, 0x6b, 0xa5, 0x74, 0x3e, 0x22, 0x53,
-	0xd7, 0x99, 0x05, 0xfc, 0xe2, 0xaa, 0x38, 0x85, 0xc8, 0x7f, 0xe6, 0xa0, 0x92, 0x3e, 0x48, 0xd6,
-	0x24, 0x95, 0xc8, 0x24, 0xa8, 0x05, 0xd2, 0xd4, 0x5d, 0x78, 0x3e, 0x09, 0x02, 0xdd, 0x19, 0x11,
-	0x7f, 0x45, 0x7c, 0x2e, 0x56, 0xc2, 0xd7, 0x70, 0x74, 0x00, 0x75, 0xe2, 0x4c, 0xfd, 0x2b, 0x8f,
-	0x26, 0xd4, 0x02, 0xa7, 0xae, 0xc3, 0xeb, 0xdb, 0xbf, 0xf9, 0xa1, 0xed, 0x17, 0xd7, 0xb7, 0x8f,
-	0x1e, 0x40, 0x95, 0xad, 0x6f, 0xfa, 0xa4, 0xe3, 0xcc, 0x46, 0x84, 0x36, 0x36, 0xb9, 0x46, 0x16,
-	0x4c, 0x97, 0x50, 0x69, 0x3f, 0x77, 0xb0, 0x91, 0x94, 0x90, 0xbc, 0xcd, 0xec, 0x97, 0xb9, 0x1d,
-	0xf9, 0xe7, 0x3c, 0x54, 0x42, 0x4b, 0x62, 0x12, 0x2c, 0xe7, 0x14, 0x3d, 0x84, 0x62, 0x40, 0x4d,
-	0xba, 0x0c, 0x78, 0x4a, 0x6a, 0x87, 0x35, 0x76, 0xa7, 0x23, 0x8e, 0x74, 0xdd, 0x19, 0xc1, 0x51,
-	0x94, 0xad, 0xb2, 0x20, 0x41, 0x60, 0x5a, 0x71, 0x45, 0xc6, 0x43, 0xf4, 0x20, 0x63, 0xdb, 0x5a,
-	0x6c, 0xdb, 0x50, 0x3f, 0xf1, 0xec, 0xfd, 0xb4, 0x67, 0xab, 0x91, 0x67, 0x13, 0x0e, 0x37, 0xec,
-	0xa3, 0xac, 0x61, 0xeb, 0x89, 0x61, 0x13, 0x5a, 0xe4, 0xd6, 0xfb, 0x69, 0xb7, 0x56, 0x23, 0xb7,
-	0x0a, 0x2d, 0x66, 0xd5, 0xd6, 0x9a, 0x55, 0x25, 0x61, 0xd5, 0x84, 0x18, 0xfb, 0xb4, 0xc4, 0xb8,
-	0x0c, 0x93, 0x2f, 0x61, 0x83, 0x6d, 0x7d, 0xbd, 0x2b, 0x89, 0x94, 0xb2, 0x82, 0x27, 0x97, 0x9e,
-	0xed, 0x93, 0xa0, 0x43, 0x79, 0x22, 0x8a, 0x58, 0x00, 0xd9, 0x76, 0x50, 0x58, 0x6b, 0x07, 0xac,
-	0x91, 0xcc, 0xec, 0xe0, 0xed, 0xc8, 0xfe, 0x96, 0xf0, 0x5e, 0x51, 0xc0, 0xc9, 0x58, 0x6e, 0x01,
-	0x88, 0xa4, 0xa1, 0xbd, 0x28, 0xa5, 0x61, 0x97, 0x28, 0x25, 0x29, 0xe5, 0xa8, 0xfc, 0x19, 0x6c,
-	0x25, 0xb9, 0xfb, 0x6f, 0xaa, 0xf0, 0x7b, 0x3e, 0xe5, 0x77, 0xf9, 0x63, 0x28, 0xa7, 0xf2, 0xfa,
-	0x81, 0xd5, 0xca, 0xb0, 0x95, 0x64, 0x97, 0x15, 0x6d, 0x3a, 0x89, 0xb2, 0x0a, 0x65, 0xc3, 0x37,
-	0x9d, 0xc0, 0x9c, 0xf2, 0xf2, 0x7a, 0x06, 0x90, 0x54, 0x3c, 0x33, 0x54, 0x41, 0x34, 0x89, 0x4c,
-	0x17, 0xc4, 0x29, 0x9a, 0xfc, 0x1c, 0x50, 0x4a, 0xa3, 0xeb, 0x3a, 0x94, 0x5c, 0xb2, 0x0b, 0xdc,
-	0x0c, 0x2f, 0x25, 0xd6, 0x91, 0x84, 0x4e, 0xb8, 0x38, 0x8e, 0x09, 0xad, 0xbf, 0xf2, 0x00, 0xc2,
-	0xb2, 0xa8, 0x0c, 0x9b, 0xa3, 0x71, 0xb7, 0xab, 0x8d, 0x46, 0xd2, 0x0d, 0x74, 0x07, 0x76, 0xa2,
-	0xc1, 0xf9, 0x40, 0x37, 0xce, 0xc7, 0xc3, 0x5e, 0xc7, 0xd0, 0x7a, 0x52, 0x0e, 0xed, 0x40, 0x5d,
-	0xc3, 0x58, 0xc7, 0xe7, 0x03, 0xfd, 0x1c, 0x6b, 0xc7, 0x7d, 0x7d, 0x20, 0x01, 0xba, 0x0d, 0xdb,
-	0x21, 0xa8, 0x76, 0x7a, 0xe7, 0x58, 0xfb, 0x62, 0xac, 0x8d, 0x0c, 0xa9, 0x8c, 0x24, 0xa8, 0x84,
-	0xf0, 0x50, 0x3f, 0xeb, 0x77, 0xbf, 0x94, 0x2a, 0x62, 0xf6, 0xcb, 0xfe, 0x31, 0xee, 0x18, 0x6c,
-	0x76, 0x15, 0x6d, 0x43, 0x35, 0x92, 0xd4, 0x8c, 0xd7, 0x3a, 0x3e, 0x95, 0x6a, 0xa8, 0x06, 0x10,
-	0x42, 0x9d, 0xb1, 0x71, 0x22, 0xd5, 0xc5, 0xbc, 0x17, 0x3a, 0x56, 0xfb, 0xbd, 0x9e, 0x36, 0x90,
-	0x24, 0x31, 0xcf, 0xe8, 0xbf, 0xd4, 0xf4, 0xb1, 0x21, 0x6d, 0x23, 0x04, 0xb5, 0x10, 0xd2, 0x5f,
-	0x69, 0xf8, 0x4c, 0xef, 0xf4, 0x24, 0x94, 0xc5, 0x5e, 0x9c, 0xe9, 0xaf, 0xa5, 0x1d, 0xb1, 0xb3,
-	0x33, 0xbd, 0x7b, 0xaa, 0xf5, 0xa4, 0x5b, 0x42, 0xac, 0xa3, 0xea, 0x98, 0x1d, 0xf5, 0xb6, 0x38,
-	0x55, 0x7f, 0x60, 0x68, 0x18, 0x8f, 0x87, 0x0c, 0xde, 0x15, 0xf0, 0x78, 0x30, 0x1a, 0x0f, 0x87,
-	0x21, 0xfb, 0x8e, 0x90, 0xec, 0xe1, 0xfe, 0x2b, 0x0d, 0x4b, 0x0d, 0x54, 0x81, 0x52, 0x34, 0x5f,
-	0x97, 0xee, 0x8a, 0x6d, 0x70, 0xb5, 0x41, 0xe7, 0x4c, 0x6a, 0x1e, 0xfe, 0x9a, 0x87, 0x6a, 0xf8,
-	0x8f, 0xce, 0x9a, 0x9f, 0x3d, 0x25, 0xa8, 0x0b, 0xc5, 0xae, 0x4f, 0x4c, 0x4a, 0x10, 0x84, 0x17,
-	0xc7, 0x82, 0xcd, 0xdd, 0x76, 0xf8, 0x88, 0x68, 0xc7, 0x8f, 0x88, 0xb6, 0xc6, 0x1e, 0x11, 0xf2,
-	0xed, 0xef, 0x7f, 0xff, 0xe3, 0xa7, 0x7c, 0x5d, 0x06, 0x65, 0xf5, 0x54, 0x09, 0xff, 0x97, 0x8f,
-	0x72, 0x2d, 0xf4, 0x39, 0x14, 0xc7, 0xde, 0xec, 0xff, 0x8a, 0xec, 0x71, 0x91, 0xdd, 0xe6, 0xb6,
-	0x10, 0x51, 0xde, 0xb1, 0x77, 0xc3, 0x7b, 0xa6, 0x75, 0x02, 0xc5, 0x1e, 0x99, 0x93, 0x58, 0x2b,
-	0x7c, 0x35, 0xfc, 0xab, 0x56, 0x93, 0x6b, 0xdd, 0x6a, 0xa1, 0xb4, 0x16, 0xaf, 0x9e, 0xf7, 0xe8,
-	0x53, 0x28, 0x1c, 0x13, 0x9a, 0x91, 0x49, 0x6d, 0x2f, 0x9e, 0x8a, 0xfe, 0x61, 0xea, 0x93, 0xdc,
-	0xe1, 0x2c, 0xe3, 0xf6, 0x38, 0x5b, 0x03, 0xd8, 0xd4, 0x2e, 0xc9, 0x74, 0x49, 0x09, 0x0a, 0xdb,
-	0x9e, 0xa0, 0x34, 0x77, 0xd7, 0x80, 0xa8, 0x42, 0xe2, 0x75, 0x9a, 0x75, 0xb6, 0x0e, 0x15, 0xf1,
-	0xa3, 0x5c, 0x4b, 0xfd, 0x2d, 0xf7, 0x63, 0xe7, 0x3b, 0x34, 0x86, 0x2d, 0xd5, 0xb6, 0x54, 0xfe,
-	0x1a, 0x93, 0xbb, 0xa9, 0x01, 0x7a, 0x78, 0x41, 0xa9, 0x17, 0x1c, 0x29, 0x8a, 0x65, 0xd3, 0x8b,
-	0xe5, 0xa4, 0x3d, 0x75, 0x17, 0x4a, 0x12, 0x55, 0x92, 0xb7, 0x61, 0xb3, 0x66, 0xce, 0xc9, 0xe5,
-	0xf3, 0xe0, 0x62, 0x65, 0xcf, 0x18, 0xe7, 0xb0, 0xf0, 0xb4, 0xfd, 0xa4, 0x95, 0xcf, 0xe5, 0x0f,
-	0x25, 0xd3, 0xf3, 0xe6, 0xf6, 0x94, 0x97, 0xb0, 0xf2, 0x26, 0x70, 0x9d, 0xa3, 0x6b, 0x08, 0xec,
-	0xd8, 0x6e, 0x3b, 0xd2, 0x4f, 0x14, 0xd5, 0x92, 0xaa, 0x0e, 0x59, 0xaa, 0x83, 0x61, 0xee, 0xab,
-	0x2a, 0x4f, 0xba, 0x32, 0x99, 0xf0, 0xdf, 0x5f, 0xf2, 0x79, 0x55, 0x9d, 0x14, 0xf9, 0xf7, 0xb3,
-	0xbf, 0x03, 0x00, 0x00, 0xff, 0xff, 0xe3, 0xd5, 0x3e, 0xcc, 0xa1, 0x0a, 0x00, 0x00,
+	// 1329 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x56, 0xcb, 0x6e, 0xdb, 0x46,
+	0x17, 0x0e, 0x25, 0x47, 0x96, 0x8f, 0x6e, 0xd4, 0x38, 0x4e, 0x18, 0xfd, 0x46, 0xe0, 0x10, 0x41,
+	0x62, 0xe8, 0xaf, 0xc5, 0x44, 0xd9, 0xb9, 0x45, 0x51, 0x5d, 0x18, 0x5b, 0xb5, 0x23, 0xaa, 0x23,
+	0x2a, 0x41, 0xbb, 0x31, 0x28, 0x6a, 0x4a, 0x33, 0x91, 0x48, 0x82, 0x1c, 0xa9, 0x76, 0x83, 0x6c,
+	0xba, 0xea, 0xba, 0x7d, 0x83, 0x76, 0xd1, 0x07, 0xe8, 0xa3, 0xf4, 0x15, 0xba, 0xec, 0x23, 0x14,
+	0x68, 0x31, 0xc3, 0xab, 0x94, 0x26, 0xed, 0x8a, 0x9c, 0xef, 0x7c, 0xe7, 0x3b, 0x67, 0x2e, 0xdf,
+	0x60, 0xa0, 0x36, 0xb5, 0xad, 0xa9, 0x61, 0x59, 0xc4, 0x6f, 0x79, 0xbe, 0x4b, 0x5d, 0x94, 0x9b,
+	0x4e, 0x1b, 0xfb, 0x96, 0xeb, 0x5a, 0x73, 0xa2, 0x18, 0x9e, 0xad, 0x18, 0x8e, 0xe3, 0x52, 0x83,
+	0xda, 0xae, 0x13, 0x84, 0x8c, 0xc6, 0xff, 0xa2, 0x28, 0x1f, 0x4d, 0x97, 0x5f, 0x2b, 0x64, 0xe1,
+	0xd1, 0xeb, 0x28, 0xf8, 0x11, 0xff, 0x98, 0x47, 0x16, 0x71, 0x8e, 0x82, 0x6f, 0xb8, 0xb0, 0xe2,
+	0x7a, 0x3c, 0xfd, 0x5d, 0x29, 0xf9, 0x14, 0x0a, 0x98, 0x58, 0xb6, 0xeb, 0x20, 0x09, 0xb6, 0x57,
+	0xc4, 0x0f, 0x6c, 0xd7, 0x91, 0x84, 0x03, 0xe1, 0x70, 0x07, 0xc7, 0x43, 0x84, 0x60, 0xcb, 0x31,
+	0x16, 0x44, 0xca, 0x71, 0x98, 0xff, 0x23, 0x11, 0xf2, 0x94, 0xce, 0xa5, 0x3c, 0x87, 0xd8, 0xaf,
+	0x7c, 0x0f, 0x0a, 0x63, 0xea, 0xdb, 0x8e, 0x85, 0x6e, 0xc1, 0xcd, 0x95, 0x31, 0x5f, 0x92, 0x48,
+	0x27, 0x1c, 0xc8, 0x6f, 0x20, 0x7f, 0x46, 0xae, 0xd1, 0x3d, 0x00, 0x9f, 0x17, 0x1c, 0x32, 0xc9,
+	0x90, 0x91, 0x41, 0x50, 0x03, 0x8a, 0x0b, 0xe3, 0x95, 0xeb, 0x9f, 0x91, 0x6b, 0x5e, 0xb0, 0x8c,
+	0x93, 0x31, 0x8f, 0xd9, 0x4e, 0x18, 0xcb, 0x47, 0xb1, 0x68, 0x8c, 0xf6, 0x61, 0x87, 0xda, 0x0b,
+	0x12, 0x50, 0x63, 0xe1, 0x49, 0x5b, 0x07, 0xc2, 0x61, 0x01, 0xa7, 0x80, 0xfc, 0x7d, 0x0e, 0x4a,
+	0xfa, 0x95, 0xe6, 0x11, 0x9f, 0xcf, 0x1e, 0xdd, 0x85, 0xfc, 0x6b, 0x72, 0xcd, 0xcb, 0x97, 0xda,
+	0xdb, 0xad, 0xe9, 0xb4, 0x75, 0x46, 0xae, 0x31, 0xc3, 0xd0, 0x03, 0xc8, 0x5b, 0x84, 0x4a, 0x25,
+	0x1e, 0x12, 0x59, 0xe8, 0x84, 0xd0, 0x24, 0xf3, 0xf4, 0x06, 0x66, 0x61, 0xd4, 0x84, 0x9b, 0xbe,
+	0xe1, 0x58, 0x44, 0x2a, 0x73, 0x1e, 0x62, 0x3c, 0xcc, 0x80, 0x2c, 0x33, 0xa4, 0x30, 0x2e, 0x75,
+	0x97, 0xe6, 0xa5, 0x54, 0x49, 0xb9, 0x3a, 0x03, 0xd6, 0xb8, 0x9c, 0xc2, 0xaa, 0x7b, 0x4b, 0x2a,
+	0x55, 0xd3, 0xea, 0xa3, 0xe5, 0x7a, 0x75, 0x6f, 0x49, 0xd1, 0x11, 0x14, 0x7c, 0xb2, 0x70, 0x57,
+	0x44, 0xaa, 0x71, 0xe2, 0x2e, 0x2f, 0xcf, 0x91, 0x2c, 0x37, 0x22, 0x75, 0x4b, 0xb0, 0xe3, 0xc6,
+	0xb0, 0xdc, 0x84, 0x72, 0x76, 0x42, 0x6c, 0x51, 0x2f, 0x89, 0x31, 0xd3, 0x9c, 0x79, 0xb8, 0x1e,
+	0x45, 0x9c, 0x8c, 0xe5, 0x73, 0xa8, 0xae, 0x4f, 0xea, 0x43, 0x6c, 0xb6, 0xb5, 0xce, 0x72, 0x81,
+	0x89, 0xe9, 0xfa, 0xb3, 0x80, 0x6f, 0x5e, 0x05, 0x67, 0x10, 0x19, 0x43, 0x75, 0x7d, 0xda, 0xe8,
+	0x00, 0x4a, 0xee, 0x8a, 0xf8, 0xbe, 0x3d, 0x23, 0x3a, 0x9d, 0x47, 0x82, 0x59, 0x88, 0x69, 0x52,
+	0x3a, 0x1f, 0x13, 0xd3, 0x75, 0x52, 0xcd, 0x14, 0x91, 0xff, 0x14, 0xa0, 0x9c, 0x5d, 0xa1, 0xf5,
+	0xc3, 0x57, 0x8e, 0x0e, 0x1f, 0x6a, 0x82, 0x68, 0xba, 0x0b, 0xcf, 0x27, 0x41, 0xa0, 0x39, 0x63,
+	0xe2, 0xaf, 0x88, 0xcf, 0xc5, 0x8a, 0xf8, 0x1d, 0x1c, 0x1d, 0x42, 0x8d, 0x38, 0xa6, 0x7f, 0xed,
+	0xd1, 0x84, 0x9a, 0xe7, 0xd4, 0x4d, 0x78, 0xb3, 0xfd, 0x9b, 0xff, 0xd6, 0x7e, 0x61, 0xb3, 0x7d,
+	0xf4, 0x00, 0x2a, 0xac, 0xbe, 0xe1, 0x93, 0x8e, 0x33, 0x1b, 0x13, 0x2a, 0x6d, 0x73, 0x8d, 0x75,
+	0x30, 0x6b, 0xcd, 0xe2, 0x81, 0x70, 0xb8, 0x95, 0x58, 0x53, 0xae, 0x43, 0x6d, 0x63, 0xdb, 0xe5,
+	0x9f, 0x73, 0x50, 0xcf, 0x1c, 0x75, 0x4c, 0x82, 0xe5, 0x9c, 0xa2, 0x87, 0x50, 0x08, 0xa8, 0x41,
+	0x97, 0x01, 0x5f, 0x97, 0x6a, 0xbb, 0xca, 0x4e, 0xcc, 0x98, 0x23, 0x3d, 0x77, 0x46, 0x70, 0x14,
+	0x65, 0xa5, 0x16, 0x24, 0x08, 0x0c, 0x2b, 0xb6, 0x7b, 0x3c, 0x44, 0xf7, 0xb3, 0xbe, 0xa8, 0x44,
+	0xbe, 0x08, 0xd5, 0x63, 0x53, 0x3c, 0x5a, 0x37, 0x45, 0x2d, 0x31, 0x45, 0x42, 0x8b, 0x1c, 0xf1,
+	0x68, 0xdd, 0x11, 0xb5, 0xc4, 0x11, 0x29, 0x31, 0xb4, 0xc3, 0xfd, 0xac, 0x1d, 0x2a, 0x91, 0x1d,
+	0xd2, 0xa2, 0xcc, 0x0b, 0xcd, 0x0d, 0x2f, 0x88, 0xa9, 0x17, 0x12, 0x62, 0x6c, 0x84, 0x22, 0xe3,
+	0x32, 0x4c, 0xbe, 0x82, 0xad, 0x53, 0x62, 0xcc, 0x36, 0x6f, 0xbd, 0x74, 0x69, 0xd9, 0x85, 0x42,
+	0xae, 0x3c, 0xdb, 0x27, 0x41, 0x87, 0xf2, 0xb5, 0x28, 0xe0, 0x14, 0x58, 0xbf, 0x6e, 0xf2, 0x1b,
+	0xd7, 0x0d, 0x73, 0xc9, 0xcc, 0x0e, 0x5e, 0x8f, 0xed, 0x6f, 0x09, 0xbf, 0x8b, 0xf2, 0x38, 0x19,
+	0xcb, 0x9f, 0xb0, 0x1b, 0x97, 0x19, 0x02, 0xed, 0xc3, 0x16, 0xf3, 0x4e, 0x74, 0x0b, 0x15, 0x59,
+	0xdf, 0xac, 0x27, 0xcc, 0xd1, 0xf4, 0x20, 0xe7, 0x32, 0x07, 0x59, 0x56, 0x60, 0x27, 0x59, 0x76,
+	0x24, 0xb3, 0xe9, 0x30, 0xa9, 0x48, 0x02, 0xc2, 0xa9, 0x33, 0x04, 0x47, 0x11, 0xf9, 0x29, 0x94,
+	0x32, 0x5b, 0x80, 0x1e, 0xc0, 0xb6, 0x1f, 0x19, 0x54, 0x38, 0xc8, 0x6f, 0xe4, 0xc4, 0x21, 0xf9,
+	0xff, 0x50, 0xca, 0x6c, 0xc7, 0x87, 0x1b, 0x95, 0x4b, 0xb0, 0x93, 0x6c, 0x8a, 0x5c, 0x85, 0x72,
+	0x76, 0xed, 0xe5, 0x4f, 0xa1, 0xa4, 0xfb, 0x86, 0x13, 0x18, 0x26, 0x77, 0xa7, 0x02, 0x90, 0xdc,
+	0x44, 0x71, 0x07, 0xe1, 0xee, 0x67, 0x4e, 0x6c, 0x86, 0x22, 0xf7, 0xa1, 0x9e, 0xc9, 0x8f, 0xfa,
+	0x51, 0xd8, 0x24, 0xd8, 0x5f, 0x2c, 0xb1, 0xb7, 0x29, 0xc1, 0xa3, 0x38, 0x66, 0x35, 0xff, 0xca,
+	0x01, 0xa4, 0x87, 0x1d, 0x95, 0x60, 0x7b, 0x3c, 0xe9, 0xf5, 0xd4, 0xf1, 0x58, 0xbc, 0x81, 0xee,
+	0xc0, 0x6e, 0x34, 0xb8, 0x18, 0x6a, 0xfa, 0xc5, 0x64, 0xd4, 0xef, 0xe8, 0x6a, 0x5f, 0x14, 0xd0,
+	0x2e, 0xd4, 0x54, 0x8c, 0x35, 0x7c, 0x31, 0xd4, 0x2e, 0xb0, 0x7a, 0x32, 0xd0, 0x86, 0x22, 0xa0,
+	0x3d, 0xa8, 0x87, 0x60, 0xb7, 0xd3, 0xbf, 0xc0, 0xea, 0x17, 0x13, 0x75, 0xac, 0x8b, 0x25, 0x24,
+	0x42, 0x39, 0x84, 0x47, 0xda, 0xf9, 0xa0, 0xf7, 0xa5, 0x58, 0x4e, 0xb3, 0x9f, 0x0f, 0x4e, 0x70,
+	0x47, 0x67, 0xd9, 0x15, 0x54, 0x87, 0x4a, 0x24, 0xa9, 0xea, 0x2f, 0x35, 0x7c, 0x26, 0x56, 0x51,
+	0x15, 0x20, 0x84, 0x3a, 0x13, 0xfd, 0x54, 0xac, 0xa5, 0x79, 0xcf, 0x34, 0xdc, 0x1d, 0xf4, 0xfb,
+	0xea, 0x50, 0x14, 0xd3, 0x3c, 0x7d, 0xf0, 0x5c, 0xd5, 0x26, 0xba, 0x58, 0x47, 0x08, 0xaa, 0x21,
+	0xa4, 0xbd, 0x50, 0xf1, 0xb9, 0xd6, 0xe9, 0x8b, 0x68, 0x1d, 0x7b, 0x76, 0xae, 0xbd, 0x14, 0x77,
+	0xd3, 0xce, 0xce, 0xb5, 0xde, 0x99, 0xda, 0x17, 0x6f, 0xa5, 0x62, 0x9d, 0xae, 0x86, 0xd9, 0x54,
+	0xf7, 0xd2, 0x59, 0x0d, 0x86, 0xba, 0x8a, 0xf1, 0x64, 0xc4, 0xe0, 0xdb, 0x29, 0x3c, 0x19, 0x8e,
+	0x27, 0xa3, 0x51, 0xc8, 0xbe, 0x93, 0x4a, 0xf6, 0xf1, 0xe0, 0x85, 0x8a, 0x45, 0x09, 0x95, 0xa1,
+	0x18, 0xe5, 0x6b, 0xe2, 0xdd, 0xb4, 0x0d, 0xae, 0x36, 0xec, 0x9c, 0x8b, 0x8d, 0xf6, 0x2f, 0x39,
+	0xa8, 0x84, 0x0f, 0x0d, 0x76, 0x77, 0xda, 0x26, 0x41, 0x3d, 0x28, 0xf4, 0x7c, 0x62, 0x50, 0x82,
+	0xa2, 0x23, 0xc8, 0x82, 0x8d, 0xdb, 0xad, 0xf0, 0x6d, 0xd3, 0x8a, 0xdf, 0x36, 0x2d, 0x95, 0xbd,
+	0x6d, 0xe4, 0xbd, 0xef, 0x7e, 0xfb, 0xfd, 0xc7, 0x5c, 0x4d, 0x06, 0x65, 0xf5, 0x44, 0x09, 0x9f,
+	0x0b, 0xc7, 0x42, 0x13, 0x7d, 0x0e, 0x85, 0x89, 0x37, 0xfb, 0xaf, 0x22, 0xfb, 0x5c, 0xe4, 0x76,
+	0xa3, 0x9e, 0x8a, 0x28, 0x6f, 0xd8, 0x73, 0xe6, 0x2d, 0xd3, 0x3a, 0x85, 0x42, 0x9f, 0xcc, 0x49,
+	0xac, 0x15, 0x3e, 0x66, 0xde, 0xab, 0xd5, 0xe0, 0x5a, 0xb7, 0x9a, 0x28, 0xab, 0xc5, 0x3d, 0xfa,
+	0x16, 0x7d, 0x0c, 0xf9, 0x13, 0x42, 0xd7, 0x64, 0x32, 0xed, 0xc5, 0xa9, 0xe8, 0x1f, 0x52, 0x1f,
+	0x0b, 0x6d, 0x13, 0x50, 0xe6, 0xc4, 0xc7, 0xab, 0xf5, 0x1c, 0xb6, 0xd5, 0x2b, 0x62, 0x2e, 0x29,
+	0x41, 0xa1, 0x5f, 0x52, 0x4a, 0x63, 0x6f, 0x03, 0x88, 0xac, 0x17, 0x95, 0x69, 0xd4, 0x58, 0x19,
+	0x9a, 0x86, 0x8f, 0x85, 0x66, 0xf7, 0x0f, 0xe1, 0x87, 0xce, 0xaf, 0x02, 0x9a, 0xc0, 0x4e, 0xd7,
+	0xb6, 0xba, 0xfc, 0x91, 0x28, 0xf7, 0x32, 0x03, 0xf4, 0xf0, 0x92, 0x52, 0x2f, 0x38, 0x56, 0x14,
+	0xcb, 0xa6, 0x97, 0xcb, 0x69, 0xcb, 0x74, 0x17, 0x4a, 0x12, 0x55, 0x92, 0x27, 0x6b, 0xa3, 0x6a,
+	0xcc, 0xc9, 0xd5, 0x67, 0xc1, 0xe5, 0xca, 0x9e, 0x31, 0x4e, 0x3b, 0xff, 0xa4, 0xf5, 0xb8, 0x99,
+	0x13, 0x72, 0x6d, 0xd1, 0xf0, 0xbc, 0xb9, 0x6d, 0x72, 0x3b, 0x2a, 0xaf, 0x02, 0xd7, 0x69, 0x4b,
+	0x59, 0xc4, 0x35, 0x29, 0xa1, 0x47, 0x01, 0xf5, 0x89, 0xb1, 0x38, 0x7e, 0x87, 0x7b, 0xfc, 0x5e,
+	0x2e, 0xec, 0xda, 0x6e, 0x2b, 0xea, 0x29, 0xe9, 0xa2, 0x5b, 0xec, 0x76, 0x47, 0x6c, 0x7b, 0x82,
+	0x91, 0xf0, 0x55, 0x85, 0x6f, 0x94, 0x32, 0x9d, 0xf2, 0xef, 0x4f, 0xb9, 0x5c, 0xb7, 0x3b, 0x2d,
+	0xf0, 0xff, 0xa7, 0x7f, 0x07, 0x00, 0x00, 0xff, 0xff, 0x2f, 0xbd, 0xf2, 0xca, 0x6c, 0x0b, 0x00,
+	0x00,
 }

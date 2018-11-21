@@ -28,7 +28,7 @@ type IRegionStore interface {
 
 	GetRegion() *bbproto.Region
 
-	ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult
+	ProcessOperation(operation *bbproto.TxOperation) *bbproto.TxOperationResult
 
 	Close() error
 

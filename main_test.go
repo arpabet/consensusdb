@@ -138,7 +138,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Not Exists
 	//
 
-	op := bbclient.Head(set, []byte("key"))
+	op := bbclient.Get(set, []byte("key")).HeadOnly()
 
 	res := client.Execute(op)
 
@@ -162,7 +162,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Exists
 	//
 
-	op = bbclient.Head(set, []byte("key"))
+	op = bbclient.Get(set, []byte("key")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -182,7 +182,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 		t.Fatal("fail to get entry ", res.GetError())
 	}
 
-	data := res.GetValue()
+	data := res.GetRecord().Value()
 
 	if data == nil {
 		t.Fatal("entry not found")
@@ -208,7 +208,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Not Exists
 	//
 
-	op = bbclient.Head(set, []byte("key"))
+	op = bbclient.Get(set, []byte("key")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -226,7 +226,7 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 	//  Test Not Exists
 	//
 
-	op := bbclient.Head(set, []byte("cas"))
+	op := bbclient.Get(set, []byte("cas")).HeadOnly()
 
 	res := client.Execute(op)
 
@@ -267,15 +267,15 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 		t.Fatal("fail to get", res.GetError())
 	}
 
-	if res.GetValue() == nil {
+	if res.GetRecord().Value() == nil {
 		t.Fatal("entry not found")
 	}
 
-	if string(res.GetValue()) != "first" {
+	if string(res.GetRecord().Value()) != "first" {
 		t.Fatal("wrong value of the first entry")
 	}
 
-	firstVersion := res.GetHead().GetVersion()
+	firstVersion := res.GetRecord().Head().Version()
 
 	if firstVersion <= 0 {
 		t.Fatal("wrong value of the first version")
@@ -312,15 +312,15 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 		t.Fatal("fail to get", res.GetError())
 	}
 
-	if res.GetValue() == nil {
+	if !res.Exists() {
 		t.Fatal("entry not found")
 	}
 
-	if string(res.GetValue()) != "second" {
+	if string(res.GetRecord().Value()) != "second" {
 		t.Fatal("wrong value of the second entry")
 	}
 
-	secondVersion := res.GetHead().GetVersion()
+	secondVersion := res.GetRecord().Head().Version()
 
 	if secondVersion <= firstVersion {
 		t.Fatal("wrong value of the second version")
@@ -350,7 +350,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Not Exists
 	//
 
-	op := bbclient.Head(set, []byte("ttl"))
+	op := bbclient.Get(set, []byte("ttl")).HeadOnly()
 
 	res := client.Execute(op)
 
@@ -362,7 +362,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 		t.Fatal("this is a new test, entry must not exists")
 	}
 
-	if res.GetHead().GetExpiresAt() > 0 {
+	if res.GetRecord().Head().ExpiresAt() > 0 {
 		t.Fatal("expected zero for expiration time")
 	}
 
@@ -370,7 +370,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Put With TTL
 	//
 
-	op = bbclient.Put(set, []byte("ttl"), []byte("value")).WithTtl(100)
+	op = bbclient.Put(set, []byte("ttl"), []byte("value")).OverrideTtl(100)
 
 	res = client.Execute(op)
 
@@ -382,7 +382,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Exists With TTL
 	//
 
-	op = bbclient.Head(set, []byte("ttl"))
+	op = bbclient.Get(set, []byte("ttl")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -396,7 +396,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 	//fmt.Print("ExpireAt=", res.GetExpiresAt(), "\n")
 
-	if res.GetHead().GetExpiresAt() == 0 {
+	if res.GetRecord().Head().ExpiresAt() == 0 {
 		t.Fatal("expected non zero for expiration time")
 	}
 
@@ -416,21 +416,21 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 		t.Fatal("value with ttl not found")
 	}
 
-	if res.GetHead().GetExpiresAt() == 0 {
+	if res.GetRecord().Head().ExpiresAt() == 0 {
 		t.Fatal("expected non zero for expiration time")
 	}
 
-	if string(res.GetValue()) != "value" {
+	if string(res.GetRecord().Value()) != "value" {
 		t.Fatal("wrong value with ttl")
 	}
 
-	firstExpiresAt := res.GetHead().GetExpiresAt()
+	firstExpiresAt := res.GetRecord().Head().ExpiresAt()
 
 	//
 	//  Test Touch
 	//
 
-	op = bbclient.Touch(set, []byte("ttl")).WithTtl(1000)
+	op = bbclient.Touch(set, []byte("ttl")).OverrideTtl(1000)
 
 	res = client.Execute(op)
 
@@ -442,7 +442,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 		t.Fatal("touch did not update result")
 	}
 
-	if firstExpiresAt >= res.GetHead().GetExpiresAt() {
+	if firstExpiresAt >= res.GetRecord().Head().ExpiresAt() {
 		t.Fatal("after touch expire at time must be changed")
 	}
 
@@ -477,7 +477,7 @@ func RunCompressionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Size
 	//
 
-	op = bbclient.Head(set, []byte("compress"))
+	op = bbclient.Get(set, []byte("compress")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -489,7 +489,7 @@ func RunCompressionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 		t.Fatal("entry not found")
 	}
 
-	if res.GetHead().GetDiskSize() > 1000 {
+	if res.GetRecord().Head().DiskSize() > 1000 {
 		t.Fatal("value must be compressed")
 	}
 
@@ -509,11 +509,11 @@ func RunCompressionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 		t.Fatal("entry not found")
 	}
 
-	if res.GetHead().GetDiskSize() > 1000 {
+	if res.GetRecord().Head().DiskSize() > 1000 {
 		t.Fatal("value must be compressed")
 	}
 
-	if !bytes.Equal(payload, res.GetValue()) {
+	if !bytes.Equal(payload, res.GetRecord().Value()) {
 		t.Fatal("actual value is not the same as payload")
 	}
 
@@ -544,7 +544,7 @@ func RunEncryptionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Test Size
 	//
 
-	op = bbclient.Head(set, []byte("enc"))
+	op = bbclient.Get(set, []byte("enc")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -572,7 +572,7 @@ func RunEncryptionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 		t.Fatal("entry not found")
 	}
 
-	if string(res.GetValue()) != "a" {
+	if string(res.GetRecord().Value()) != "a" {
 		t.Fatal("actual value is wrong")
 	}
 
@@ -598,7 +598,7 @@ func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Exact Lookup Head
 	//
 
-	op = bbclient.Head(set, []byte("pit1")).WithTimestamp(1514764800)
+	op = bbclient.Get(set, []byte("pit1")).HeadOnly().WithTimestamp(1514764800)
 
 	res = client.Execute(op)
 
@@ -610,9 +610,9 @@ func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
 		t.Fatal("entry not found")
 	}
 
-	fmt.Print("res.GetHead().GetTimestamp()=", res.GetHead().GetTimestamp(), "\n")
+	fmt.Print("res.GetHead().GetTimestamp()=", res.GetRecord().Head().Timestamp(), "\n")
 
-	if res.GetHead().GetTimestamp() != 1514764800 {
+	if res.GetRecord().Head().Timestamp() != 1514764800 {
 		t.Fatal("wrong timestamp")
 	}
 
@@ -620,7 +620,7 @@ func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Lower Lookup Head
 	//
 
-	op = bbclient.Head(set, []byte("pit2"))
+	op = bbclient.Get(set, []byte("pit2")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -649,7 +649,7 @@ func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Exact Lookup Head
 	//
 
-	op = bbclient.Head(set, []byte("pit1")).WithTimestamp(math.MaxUint64)
+	op = bbclient.Range(set, []byte("pit1"), 1).HeadOnly().WithTimestamp(math.MaxUint64)
 
 	res = client.Execute(op)
 
@@ -661,9 +661,9 @@ func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
 		t.Fatal("entry not found")
 	}
 
-	fmt.Print("res.GetHead().GetTimestamp()=", res.GetHead().GetTimestamp(), "\n")
+	fmt.Print("res.GetHead().GetTimestamp()=", res.GetRecord().Head().Timestamp(), "\n")
 
-	if res.GetHead().GetTimestamp() != 1514764900 {
+	if res.GetRecord().Head().Timestamp() != 1514764900 {
 		t.Fatal("wrong timestamp")
 	}
 
@@ -671,7 +671,7 @@ func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Lower Lookup Head
 	//
 
-	op = bbclient.Head(set, []byte("pit2"))
+	op = bbclient.Range(set, []byte("pit2"), 1).HeadOnly()
 
 	res = client.Execute(op)
 
