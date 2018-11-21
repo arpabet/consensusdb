@@ -26,6 +26,7 @@ import (
 	"compress/lzw"
 	"compress/zlib"
 	"github.com/dsnet/compress/bzip2"
+	"github.com/pierrec/lz4"
 )
 
 type ICompressor interface {
@@ -42,6 +43,7 @@ var KnownCompressors = map[string]ICompressor {
 	"LZW": &LZWCompressor{},
 	"ZLIB": &ZLIBCompressor{},
 	"BZIP2": &BZIP2Compressor{},
+	"LZ4": &LZ4Compressor{},
 }
 
 type NoCompressor struct {
@@ -275,6 +277,39 @@ func (this*BZIP2Compressor) Decompress(input  []byte) (output []byte, err error)
 	if err != nil {
 		return nil, err
 	}
+
+	return ioutil.ReadAll(r)
+
+}
+
+//
+//  LZ4 Compressor
+//
+
+type LZ4Compressor struct {
+}
+
+func (this*LZ4Compressor) Compress(input []byte, level int) (output []byte, err error) {
+
+	var b bytes.Buffer
+
+	w := lz4.NewWriter(&b)
+
+	if _, err := w.Write(input); err != nil {
+		return nil, err
+	}
+
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
+}
+
+func (this*LZ4Compressor) Decompress(input  []byte) (output []byte, err error) {
+
+	b := bytes.NewBuffer(input)
+	r := lz4.NewReader(b)
 
 	return ioutil.ReadAll(r)
 
