@@ -29,7 +29,6 @@ import (
 	"time"
 	"log"
 	"github.com/pkg/errors"
-	"encoding/binary"
 	"math"
 	"github.com/bigbagger/bagger"
 )
@@ -49,10 +48,6 @@ type BaggerDriver struct {
 	conf                   *Configuration
 
 	ttl                    time.Duration    // 0 - for eternal
-
-	pitEnabled             bool
-	pitPrimaryTimestamp    bool
-	pitConflate            bool
 
 }
 
@@ -76,56 +71,20 @@ func (this *BaggerDriver) Close() error {
 	return nil
 }
 
-func (this *BaggerDriver) GetEntryKey(key *bbproto.Key) (fullKey []byte, prefixKey []byte, err error) {
+func (this *BaggerDriver) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefixKey []byte, err error) {
 
-	if this.pitEnabled {
+	k := &Key{MajorKey: key.MajorKey, MinorKey: key.MinorKey, Timestamp: key.Timestamp}
 
-		recordKey := key.RecordKey
-		recordKeyLen := len(recordKey)
-		if recordKeyLen > 255 {
-			return nil, nil, errors.New("recordKey is too long")
-		}
+	size := k.EncodedSize()
 
-		fullKey = make([]byte, 1+recordKeyLen+8)
-		fullKey[0] = byte(recordKeyLen)
-		copy(fullKey[1:], recordKey)
-		binary.BigEndian.PutUint64(fullKey[recordKeyLen+1:], key.Timestamp)
-		//binary.BigEndian.PutUint64(fullKey[recordKeyLen+1:], math.MaxUint64 - key.Timestamp)
-
-		return fullKey, fullKey[:recordKeyLen+1], nil
-
-	} else {
-		return key.RecordKey, key.RecordKey, nil
+	if size > math.MaxUint16 {
+		return nil, nil, errors.New("key is too long")
 	}
 
-}
+	entryKey = make([]byte, size)
+	PrefixLen := k.Encode(entryKey)
 
-func (this *BaggerDriver) GetTimestamp(fullKey []byte) uint64 {
-
-	if len(fullKey) <= 9 {
-		return 0
-	}
-	return binary.BigEndian.Uint64(fullKey[len(fullKey)-8:])
-	//return math.MaxUint64 - binary.BigEndian.Uint64(fullKey[len(fullKey)-8:])
-
-}
-
-func (this *BaggerDriver) GetEntryKeyPrefix(key *bbproto.Key) ([]byte) {
-
-	if this.pitEnabled {
-
-		recordKey := key.RecordKey
-		recordKeyLen := len(recordKey)
-
-		out := make([]byte, recordKeyLen+1)
-		out[0] = byte(recordKeyLen)
-		copy(out[1:], recordKey)
-
-		return out
-
-	} else {
-		return key.RecordKey
-	}
+	return entryKey, entryKey[:PrefixLen], nil
 
 }
 
@@ -162,12 +121,6 @@ func OpenBaggerDriver(dbDir string, table *bbproto.Table, conf *Configuration) (
 	opts.Dir = dbDir + "/key"
 	opts.ValueDir = dbDir + "/value"
 	context.db, err = bagger.Open(opts)
-
-	if table.Pit != nil {
-		context.pitEnabled = true
-		context.pitPrimaryTimestamp = table.Pit.PrimaryTimestamp
-		context.pitConflate = table.Pit.Conflation
-	}
 
 	if len(table.Ttl) == 0 || table.Ttl == "eternal" {
 		context.ttl = 0
@@ -209,22 +162,25 @@ func (this *BaggerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbpr
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
 
-	if key.Timestamp == 0 {
-		key.Timestamp = math.MaxUint64
-	}
-
 	entryKey, prefixKey, err := this.GetEntryKey(key)
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
 	}
 
-	fmt.Print("Head EntryKey=", entryKey, ", PrefixKey=", prefixKey, "\n")
+	fmt.Print("Head EntryKey=", entryKey, ", PrefixKey=", prefixKey, ", Timestamp=", key.Timestamp, "\n")
 
 	timestamp := key.Timestamp
 	var item *bagger.Item
 
-	if this.pitEnabled {
+	if key.Timestamp == 0 {
+
+		item, err = txn.Get(entryKey)
+
+		if err != nil {
+			return SuccessHeadNotFoundResult()
+		}
+	} else {
 
 		iter := txn.NewIterator(ReverseIteratorOptions)
 
@@ -233,7 +189,7 @@ func (this *BaggerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbpr
 		if iter.Valid() && iter.ValidForPrefix(prefixKey) {
 
 			item = iter.Item()
-			timestamp = this.GetTimestamp(item.Key())
+			timestamp = GetKeyTimestamp(item.Key())
 
 		} else {
 			iter.Close()
@@ -242,12 +198,6 @@ func (this *BaggerDriver) ProcessHeadOperation(key *bbproto.Key, operation *bbpr
 
 		iter.Close()
 
-	} else {
-		item, err = txn.Get(entryKey)
-
-		if err != nil {
-			return SuccessHeadNotFoundResult()
-		}
 	}
 
 	fmt.Print("item=", item, "\n")

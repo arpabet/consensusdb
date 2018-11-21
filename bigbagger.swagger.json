@@ -220,14 +220,14 @@
     "bbKey": {
       "type": "object",
       "properties": {
-        "setName": {
+        "regionName": {
           "type": "string"
         },
-        "partitionKey": {
+        "majorKey": {
           "type": "string",
           "format": "byte"
         },
-        "recordKey": {
+        "minorKey": {
           "type": "string",
           "format": "byte"
         },

@@ -28,6 +28,7 @@ import (
 	"os"
 	"bytes"
 	"fmt"
+	"math"
 )
 
 const (
@@ -617,7 +618,7 @@ func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Exact Lookup Head
 	//
 
-	op = bbclient.Head(set, []byte("pit1"))
+	op = bbclient.Head(set, []byte("pit1")).WithTimestamp(1514764800)
 
 	res = client.Execute(op)
 
@@ -668,7 +669,7 @@ func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
 	//  Exact Lookup Head
 	//
 
-	op = bbclient.Head(set, []byte("pit1"))
+	op = bbclient.Head(set, []byte("pit1")).WithTimestamp(math.MaxUint64)
 
 	res = client.Execute(op)
 

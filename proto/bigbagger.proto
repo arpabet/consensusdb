@@ -126,10 +126,10 @@ service TransactionService {
 
 message Key {
 
-    string    setName       = 1;
-    bytes     partitionKey  = 2;
-    bytes     recordKey     = 3;
-    fixed64   timestamp     = 4;   // requests before or equal to this timestamp, if not 0
+    string    regionName    = 1;
+    bytes     majorKey      = 2;   // used as a partition key, good candidate is accountId, if empty - data replicated in all partitions
+    bytes     minorKey      = 3;   // used as a record key in the partition
+    fixed64   timestamp     = 4;   // PIT enabled if not 0, search/store entries before or equal to this timestamp
 
 }
 

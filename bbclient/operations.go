@@ -26,11 +26,11 @@ import (
 
 type IOperation interface {
 
+	WithMinorKey(minorKey []byte) IOperation
+
 	CompressOnServer() IOperation
 
 	EncryptOnServer() IOperation
-
-	WithPartitionKey(key []byte) IOperation
 
 	WithTimestamp(timestamp uint64) IOperation
 
@@ -162,54 +162,100 @@ type RemoveOp struct {
 
 }
 
-func Head(setName string, key []byte) IOperation {
+func Head(regionName string, majorKey []byte) IOperation {
 
 	op := new(HeadOp)
 
-	op.Key.SetName = setName
-	op.Key.RecordKey = key
+	op.Key.RegionName = regionName
+	op.Key.MajorKey = majorKey
 
 	return op
 }
 
-func Get(setName string, key []byte) IOperation {
+func HeadReplicated(regionName string) IOperation {
+
+	op := new(HeadOp)
+
+	op.Key.RegionName = regionName
+
+	return op
+}
+
+func Get(regionName string, majorKey []byte) IOperation {
 
 	op := new(GetOp)
 
-	op.Key.SetName = setName
-	op.Key.RecordKey = key
+	op.Key.RegionName = regionName
+	op.Key.MajorKey = majorKey
 
 	return op
 }
 
-func Touch(setName string, key []byte) IOperation {
+func GetReplicated(regionName string) IOperation {
+
+	op := new(GetOp)
+
+	op.Key.RegionName = regionName
+
+	return op
+}
+
+func Touch(regionName string, majorKey []byte) IOperation {
 
 	op := new(TouchOp)
 
-	op.Key.SetName = setName
-	op.Key.RecordKey = key
+	op.Key.RegionName = regionName
+	op.Key.MajorKey = majorKey
 
 	return op
 }
 
-func Put(setName string, key, value []byte) IOperation {
+func TouchReplicated(regionName string) IOperation {
+
+	op := new(TouchOp)
+
+	op.Key.RegionName = regionName
+
+	return op
+}
+
+func Put(regionName string, majorKey, value []byte) IOperation {
 
 	op := new(PutOp)
 
-	op.Key.SetName = setName
-	op.Key.RecordKey = key
+	op.Key.RegionName = regionName
+	op.Key.MajorKey = majorKey
 
 	op.Put.Value = value
 
 	return op
 }
 
-func Remove(setName string, key []byte) IOperation {
+func PutReplicated(regionName string, value []byte) IOperation {
+
+	op := new(PutOp)
+
+	op.Key.RegionName = regionName
+	op.Put.Value = value
+
+	return op
+}
+
+func Remove(regionName string, majorKey []byte) IOperation {
 
 	op := new(RemoveOp)
 
-	op.Key.SetName = setName
-	op.Key.RecordKey = key
+	op.Key.RegionName = regionName
+	op.Key.MajorKey = majorKey
+
+	return op
+}
+
+func RemoveReplicated(regionName string) IOperation {
+
+	op := new(RemoveOp)
+
+	op.Key.RegionName = regionName
 
 	return op
 }
@@ -266,31 +312,31 @@ func (this *RemoveOp) EncryptOnServer() IOperation {
 }
 
 //
-//  WithPartitionKey
+//  WithMinorKey
 //
 
-func (this *HeadOp) WithPartitionKey(key []byte) IOperation {
-	this.Key.PartitionKey = key
+func (this *HeadOp) WithMinorKey(minorKey []byte) IOperation {
+	this.Key.MinorKey = minorKey
 	return this
 }
 
-func (this *GetOp) WithPartitionKey(key []byte) IOperation {
-	this.Key.PartitionKey = key
+func (this *GetOp) WithMinorKey(minorKey []byte) IOperation {
+	this.Key.MinorKey = minorKey
 	return this
 }
 
-func (this *TouchOp) WithPartitionKey(key []byte) IOperation {
-	this.Key.PartitionKey = key
+func (this *TouchOp) WithMinorKey(minorKey []byte) IOperation {
+	this.Key.MinorKey = minorKey
 	return this
 }
 
-func (this *PutOp) WithPartitionKey(key []byte) IOperation {
-	this.Key.PartitionKey = key
+func (this *PutOp) WithMinorKey(minorKey []byte) IOperation {
+	this.Key.MinorKey = minorKey
 	return this
 }
 
-func (this *RemoveOp) WithPartitionKey(key []byte) IOperation {
-	this.Key.PartitionKey = key
+func (this *RemoveOp) WithMinorKey(minorKey []byte) IOperation {
+	this.Key.MinorKey = minorKey
 	return this
 }
 
