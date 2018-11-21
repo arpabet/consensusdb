@@ -21,48 +21,47 @@ package bbserver_test
 import (
 	"testing"
 	"github.com/bigbagger/bigbagger/bbserver"
-	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"bytes"
 	"reflect"
 	"crypto/cipher"
 	"github.com/bigbagger/bigbagger/bbcommon"
 )
 
-func TestEncryptions(t *testing.T) {
+var KeySizes = [...]int{128, 192, 256}
+
+func TestEncryption(t *testing.T) {
 
 	hash, err := bbserver.GetPasswordHash("test")
 	if err != nil {
 		t.Fatal("fail to hash password", err)
 	}
 
-	for len, _ := range bbproto.BlockSize_name {
+	for _, keySize := range KeySizes {
 
-		if len > 0 {
+		key := bbserver.GetCipherKey(hash, keySize / 8)
 
-			key := bbserver.GetBlockKey(hash, len)
+		for _, c := range bbserver.KnownCiphers {
 
-			for _, c := range bbserver.KnownCiphers {
+			block, err := c.Create(key)
+			if err != nil {
+				t.Fatal("fail to create cipher", err)
+			}
 
-				block, err := c.Create(key)
-				if err != nil {
-					t.Fatal("fail to create cipher", err)
-				}
+			for _, mode := range bbserver.KnownCipherModes {
 
-				for _, mode := range bbserver.KnownBlockModes {
-
-					RunCipherTest(t, mode, block)
-
-				}
+				RunCipherTest(t, mode, block)
 
 			}
 
 		}
 
+
+
 	}
 
 }
 
-func RunCipherTest(t *testing.T, mode bbserver.IBlockMode, block cipher.Block) {
+func RunCipherTest(t *testing.T, mode bbserver.ICipherMode, block cipher.Block) {
 
 	original := []byte("alexshvid")
 

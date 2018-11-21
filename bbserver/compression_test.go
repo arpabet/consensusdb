@@ -21,13 +21,14 @@ package bbserver_test
 import (
 	"testing"
 	"github.com/bigbagger/bigbagger/bbserver"
-	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"bytes"
 	"fmt"
 	"reflect"
 )
 
-func TestCompressions(t *testing.T) {
+var Levels = [...]int{0, 1, 6, 9}
+
+func TestCompression(t *testing.T) {
 
 	input := make([]byte, 1000, 1000)
 
@@ -37,8 +38,8 @@ func TestCompressions(t *testing.T) {
 
 	for _, v := range bbserver.KnownCompressors {
 
-		for _, level := range bbproto.CompressionLevel_value {
-			CompressionTest(t, input, v, bbproto.CompressionLevel(level))
+		for _, level := range Levels {
+			CompressorTest(t, input, v, level)
 		}
 
 	}
@@ -47,7 +48,7 @@ func TestCompressions(t *testing.T) {
 }
 
 
-func CompressionTest(t *testing.T, input []byte, compression bbserver.ICompressor, level bbproto.CompressionLevel) {
+func CompressorTest(t *testing.T, input []byte, compression bbserver.ICompressor, level int) {
 
 	output, err := compression.Compress(input, level)
 	if err != nil {

@@ -45,24 +45,14 @@ var ReverseIteratorOptions = bagger.IteratorOptions{
 type BaggerDriver struct {
 	db                     *bagger.DB
 	table                  *bbproto.Table
-	security               ISecurity
+	dbDir                  string
+	conf                   *Configuration
 
 	ttl                    time.Duration    // 0 - for eternal
 
 	pitEnabled             bool
 	pitPrimaryTimestamp    bool
 	pitConflate            bool
-
-	compressionEnabled     bool
-	compressThreshold      int
-	compressor             ICompressor
-	compressionLevel       bbproto.CompressionLevel
-
-	encryptionEnabled      bool
-	encryptionCipher       ICipher
-	encryptionMode         IBlockMode
-	encryptionTopo         string
-	encryptionBlockSize    int
 
 }
 
@@ -139,7 +129,7 @@ func (this *BaggerDriver) GetEntryKeyPrefix(key *bbproto.Key) ([]byte) {
 
 }
 
-func NewBaggerDriver(dbDir string, table *bbproto.Table, security ISecurity) (context *BaggerDriver, err error) {
+func NewBaggerDriver(dbDir string, table *bbproto.Table, conf *Configuration) (context *BaggerDriver, err error) {
 
 	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
 		err = os.Mkdir(dbDir, 0755)
@@ -160,15 +150,13 @@ func NewBaggerDriver(dbDir string, table *bbproto.Table, security ISecurity) (co
 
 	}
 
-	return OpenBaggerDriver(dbDir, table, security)
+	return OpenBaggerDriver(dbDir, table, conf)
 
 }
 
-func OpenBaggerDriver(dbDir string, table *bbproto.Table, security ISecurity) (context *BaggerDriver, err error) {
+func OpenBaggerDriver(dbDir string, table *bbproto.Table, conf *Configuration) (context *BaggerDriver, err error) {
 
-	context = new(BaggerDriver)
-	context.table = table
-	context.security = security
+	context = &BaggerDriver{dbDir: dbDir, table: table, conf: conf}
 
 	opts := bagger.DefaultOptions
 	opts.Dir = dbDir + "/key"
@@ -179,52 +167,6 @@ func OpenBaggerDriver(dbDir string, table *bbproto.Table, security ISecurity) (c
 		context.pitEnabled = true
 		context.pitPrimaryTimestamp = table.Pit.PrimaryTimestamp
 		context.pitConflate = table.Pit.Conflation
-	}
-
-	if table.Compression != nil && table.Compression.Compressor != bbproto.Compressor_COMPRESS_NO {
-
-		compressor, ok := KnownCompressors[table.Compression.Compressor]
-
-		if !ok {
-			return nil, errors.New("compression algorithm not found: " + table.Compression.Compressor.String())
-		}
-
-		context.compressionEnabled = true
-		context.compressThreshold = int(table.Compression.Threshold)
-		context.compressor = compressor
-		context.compressionLevel = table.Compression.Level
-
-	}
-
-	if table.Encryption != nil && table.Encryption.Cipher != bbproto.Cipher_CIPHER_NO {
-
-		if table.Encryption.Mode == bbproto.BlockMode_MODE_NO {
-			return nil, errors.New("empty block mode")
-		}
-
-		if table.Encryption.Size == bbproto.BlockSize_BIT_NO {
-			return nil, errors.New("empty block size")
-		}
-
-		cipher, ok := KnownCiphers[table.Encryption.Cipher]
-
-		if !ok {
-			return nil, errors.New("cipher not found " + table.Encryption.Cipher.String())
-		}
-
-		mode, ok := KnownBlockModes[table.Encryption.Mode]
-
-		if !ok {
-			return nil, errors.New("block mode not found " + table.Encryption.Mode.String())
-		}
-
-		context.encryptionEnabled = true
-		context.encryptionCipher = cipher
-		context.encryptionMode = mode
-		context.encryptionTopo = table.Encryption.Topo
-		context.encryptionBlockSize = int(table.Encryption.Size)
-
-
 	}
 
 	if len(table.Ttl) == 0 || table.Ttl == "eternal" {
@@ -243,7 +185,7 @@ func OpenBaggerDriver(dbDir string, table *bbproto.Table, security ISecurity) (c
 
 }
 
-func LoadBaggerDriver(dbDir string, security ISecurity) (context *BaggerDriver, err error) {
+func LoadBaggerDriver(dbDir string, conf *Configuration) (context *BaggerDriver, err error) {
 
 	data, err := ioutil.ReadFile(filepath.Join(dbDir, TABLE_JSON))
 
@@ -258,7 +200,7 @@ func LoadBaggerDriver(dbDir string, security ISecurity) (context *BaggerDriver, 
 		return nil, err
 	}
 
-	return OpenBaggerDriver(dbDir, table, security)
+	return OpenBaggerDriver(dbDir, table, conf)
 
 }
 
@@ -341,7 +283,7 @@ func (this *BaggerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbpro
 
 	//dataCopied := false
 
-	if this.encryptionEnabled && isEncryptionEnabled(item.UserMeta()) {
+	if this.conf.EncryptionEnabled && isEncryptionEnabled(item.UserMeta()) {
 
 		if decrypted, err := this.Decrypt(data); err == nil {
 			data = decrypted
@@ -352,9 +294,9 @@ func (this *BaggerDriver) ProcessGetOperation(key *bbproto.Key, operation *bbpro
 
 	}
 
-	if this.compressionEnabled && isCompressionEnabled(item.UserMeta()) {
+	if this.conf.CompressionEnabled && isCompressionEnabled(item.UserMeta()) {
 
-		if decompressed, err := this.compressor.Decompress(data); err == nil {
+		if decompressed, err := this.conf.Compressor.Decompress(data); err == nil {
 			data = decompressed
 			//dataCopied = true
 		} else {
@@ -461,9 +403,9 @@ func (this *BaggerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbpro
 		entry.ExpiresAt = uint64(expire)
 	}
 
-	if this.compressionEnabled && len(operation.Value) >= this.compressThreshold {
+	if this.conf.CompressionEnabled && len(operation.Value) >= this.conf.CompressionThreshold {
 
-		if compressedValue, err := this.compressor.Compress(entry.Value, this.compressionLevel); err == nil {
+		if compressedValue, err := this.conf.Compressor.Compress(entry.Value, this.conf.CompressionLevel); err == nil {
 			entry.Value = compressedValue
 			entry.UserMeta = SetCompressionEnabled(entry.UserMeta)
 		} else {
@@ -472,7 +414,7 @@ func (this *BaggerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbpro
 
 	}
 
-	if this.encryptionEnabled {
+	if this.conf.EncryptionEnabled {
 
 		if encryptedValue, err := this.Encrypt(entry.Value); err == nil {
 			entry.Value = encryptedValue
@@ -557,36 +499,36 @@ func (this *BaggerDriver) ProcessOperation(operation *bbproto.RecordOperation) *
 
 func (this* BaggerDriver) Encrypt(plaintext []byte) ([]byte, error) {
 
-	key, err := this.security.GetEncryptionKey(this.encryptionTopo, 0, this.encryptionBlockSize)
+	key, err := this.conf.SecurityContext.GetEncryptionKey(this.conf.EncryptionTopo, 0, this.conf.EncryptionKeyLen)
 
 	if err != nil {
 		return nil, err
 	}
 
-	block, err := this.encryptionCipher.Create(key)
+	block, err := this.conf.EncryptionCipher.Create(key)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return this.encryptionMode.Encrypt(block, plaintext)
+	return this.conf.EncryptionMode.Encrypt(block, plaintext)
 
 }
 
 func (this* BaggerDriver) Decrypt(ciphertext []byte) ([]byte, error) {
 
-	key, err := this.security.GetEncryptionKey(this.encryptionTopo, 0, this.encryptionBlockSize)
+	key, err := this.conf.SecurityContext.GetEncryptionKey(this.conf.EncryptionTopo, 0, this.conf.EncryptionKeyLen)
 
 	if err != nil {
 		return nil, err
 	}
 
-	block, err := this.encryptionCipher.Create(key)
+	block, err := this.conf.EncryptionCipher.Create(key)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return this.encryptionMode.Decrypt(block, ciphertext)
+	return this.conf.EncryptionMode.Decrypt(block, ciphertext)
 
 }

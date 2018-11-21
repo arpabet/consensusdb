@@ -31,6 +31,7 @@ import (
 )
 
 const (
+	httpAddress=":9481"
 	grpcAddress=":9482"
 )
 
@@ -46,16 +47,12 @@ func TestSuit(t *testing.T) {
 
 	defer os.RemoveAll(dataDir)
 
-	passwordMap := map[string]string {
-		"key1" : "TEST",
-	}
-
-	security, err := bbserver.NewSimpleSecurityContext(passwordMap)
+	conf, err := bbserver.NewDefaultConfiguration(httpAddress, grpcAddress, dataDir)
 	if err != nil {
-		t.Fatal("fail to create security", err)
+		t.Fatal("fail to create configuration", err)
 	}
 
-	server, err := bbserver.NewServer(dataDir, security)
+	server, err := bbserver.NewServer(conf)
 	defer server.Close()
 
 	if err != nil {
@@ -63,7 +60,7 @@ func TestSuit(t *testing.T) {
 		return
 	}
 
-	go server.StartServer(grpcAddress)
+	go server.StartServer()
 
 	time.Sleep(time.Second)
 
@@ -86,10 +83,6 @@ func TestSuit(t *testing.T) {
 	}
 
 	table.Name = "TEST_COMPRESS"
-	table.Compression = new(bbproto.Compression)
-	table.Compression.Compressor = bbproto.Compressor_COMPRESS_FLATE
-	table.Compression.Level = bbproto.CompressionLevel_BEST_COMPRESSION
-	table.Compression.Threshold = 100  // do not compress payloads less than 100 bytes
 
 	err = client.CreateTable(table)
 
@@ -98,12 +91,6 @@ func TestSuit(t *testing.T) {
 	}
 
 	table.Name = "TEST_ENCRYPT"
-	table.Compression = nil
-	table.Encryption = new(bbproto.Encryption)
-	table.Encryption.Cipher = bbproto.Cipher_CIPHER_AES
-	table.Encryption.Mode = bbproto.BlockMode_MODE_CFB
-	table.Encryption.Size = bbproto.BlockSize_BIT_256
-	table.Encryption.Topo = "key1"
 
 	err = client.CreateTable(table)
 
@@ -112,7 +99,6 @@ func TestSuit(t *testing.T) {
 	}
 
 	table.Name = "TEST_PIT_ONE"
-	table.Encryption = nil
 	table.Pit = &bbproto.PointInTime{ PrimaryTimestamp: false, Conflation: false }
 
 	err = client.CreateTable(table)

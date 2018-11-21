@@ -99,61 +99,12 @@ message PointInTime {
     bool  conflation           = 2;    // do not store values if previous one is the same
 }
 
-enum Cipher {
-    CIPHER_NO   = 0;
-    CIPHER_AES  = 1;
-}
-
-enum BlockSize {
-    BIT_NO    = 0;
-    BIT_128   = 16;
-    BIT_192   = 24;
-    BIT_256   = 32;
-}
-
-enum BlockMode {
-    MODE_NO   = 0;
-    MODE_GCM  = 1;
-    MODE_CFB  = 2;
-}
-
-message Encryption {
-    Cipher               cipher    = 1;
-    BlockSize            size      = 2;
-    BlockMode            mode      = 3;
-    string               topo      = 4;
-}
-
-enum Compressor {
-    COMPRESS_NO      = 0;
-    COMPRESS_FLATE   = 1;
-    COMPRESS_GZIP    = 2;
-    COMPRESS_LZW     = 3;
-    COMPRESS_ZLIB    = 4;
-    COMPRESS_BZIP2   = 5;
-}
-
-enum CompressionLevel {
-    NO_COMPRESSION       = 0;
-    BEST_SPEED           = 1;
-    DEFAULT_COMPRESSION  = 6;   // or -1 for some algorithms
-    BEST_COMPRESSION     = 9;
-}
-
-message Compression {
-    Compressor        compressor   = 1;
-    CompressionLevel  level        = 2;
-    uint32            threshold    = 3;    // threshold in bytes when compression will be enabled, 0 - no threshold all data will be compressed
-}
-
 message Table {
     string           version      = 1;     // version of the data structure, 1.0 - the first one
     string           name         = 2;     // can not be changed
     DataPolicy       policy       = 3;     // can be changed from LOCAL to any other only
     DataScope        scope        = 4;     // can be changed
     Partition        partition    = 5;     // can be changed from LOCAL to PARTITIONED
-    Compression      compression  = 6;     // can be changed only to enable
-    Encryption       encryption   = 7;     // can be changed only to enable
     PointInTime      pit          = 8;     // can not be changed (another key schema is used)
     string           ttl          = 9;     // "" or "eternal" for no TTL and supported formats: "1Y", "1M", "1D", "1h", "1m", "1s"
 }

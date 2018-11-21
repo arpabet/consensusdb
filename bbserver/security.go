@@ -18,11 +18,14 @@
 
 package bbserver
 
-import "github.com/pkg/errors"
+import (
+	"github.com/pkg/errors"
+	"golang.org/x/crypto/bcrypt"
+)
 
-type ISecurity interface {
+type ISecurityContext interface {
 
-	GetEncryptionKey(topo string, timestamp uint64, len int) ([]byte, error)
+	GetEncryptionKey(topo string, timestamp uint64, keyLen int) ([]byte, error)
 
 }
 
@@ -48,7 +51,7 @@ func NewSimpleSecurityContext(passwordMap map[string]string) (context *SimpleSec
 	return context, nil
 }
 
-func (this* SimpleSecurityContext) GetEncryptionKey(topo string, timestamp uint64, len int) ([]byte, error) {
+func (this* SimpleSecurityContext) GetEncryptionKey(topo string, timestamp uint64, keyLen int) ([]byte, error) {
 
 	hash, ok := this.hashMap[topo]
 
@@ -56,6 +59,21 @@ func (this* SimpleSecurityContext) GetEncryptionKey(topo string, timestamp uint6
 		return nil, errors.New("topo not found: " + topo)
 	}
 
-	return hash[:len], nil
+	return hash[:keyLen], nil
 
+}
+
+func GetPasswordHash(password string) ([]byte, error) {
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, err
+	}
+
+	return hash, nil
+
+}
+
+func GetCipherKey(hash []byte, keyLen int) ([]byte) {
+	return hash[:keyLen]
 }

@@ -24,9 +24,23 @@ import (
 	"io"
 	"crypto/rand"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/bcrypt"
-	"github.com/bigbagger/bigbagger/proto/bbproto"
 )
+
+var KnownKeySizes = [...]int{128, 192, 256}
+
+func GetKeyLength(keySize int) (int, error) {
+
+	for _, v := range KnownKeySizes {
+
+		if v == keySize {
+			return keySize / 8, nil
+		}
+
+	}
+
+	return 0, errors.New("invalid key size")
+}
+
 
 type ICipher interface {
 
@@ -34,12 +48,18 @@ type ICipher interface {
 
 }
 
-var KnownCiphers = map[bbproto.Cipher]ICipher {
-	bbproto.Cipher_CIPHER_AES: &AesCipher{},
+var KnownCiphers = map[string]ICipher {
+	"AES": &AESCipher{},
 }
 
+type NoCipher struct {
+}
 
-type IBlockMode interface {
+func (this *NoCipher) Create(key []byte) (cipher.Block, error) {
+	return nil, errors.New("NoCipher")
+}
+
+type ICipherMode interface {
 
 	Encrypt(block cipher.Block, plaintext[]byte) ([]byte, error)
 
@@ -47,15 +67,26 @@ type IBlockMode interface {
 
 }
 
-var KnownBlockModes = map[bbproto.BlockMode]IBlockMode {
-	bbproto.BlockMode_MODE_GCM: &GCM{},
-	bbproto.BlockMode_MODE_CFB: &CFB{},
+type NoCipherMode struct {
 }
 
-type GCM struct {
+func (this *NoCipherMode) Encrypt(block cipher.Block, plaintext[]byte) ([]byte, error) {
+	return plaintext, nil
 }
 
-func (this *GCM) Encrypt(block cipher.Block, plaintext[]byte) ([]byte, error) {
+func (this *NoCipherMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
+	return ciphertext, nil
+}
+
+var KnownCipherModes = map[string]ICipherMode {
+	"GCM": &GCMMode{},
+	"CFB": &CFBMode{},
+}
+
+type GCMMode struct {
+}
+
+func (this *GCMMode) Encrypt(block cipher.Block, plaintext[]byte) ([]byte, error) {
 
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
@@ -72,7 +103,7 @@ func (this *GCM) Encrypt(block cipher.Block, plaintext[]byte) ([]byte, error) {
 
 }
 
-func (this *GCM) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
+func (this *GCMMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
 
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
@@ -90,10 +121,10 @@ func (this *GCM) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) 
 
 }
 
-type CFB struct {
+type CFBMode struct {
 }
 
-func (this *CFB) Encrypt(block cipher.Block, plaintext []byte) ([]byte, error) {
+func (this *CFBMode) Encrypt(block cipher.Block, plaintext []byte) ([]byte, error) {
 
 	blockSize := block.BlockSize()
 
@@ -110,7 +141,7 @@ func (this *CFB) Encrypt(block cipher.Block, plaintext []byte) ([]byte, error) {
 	return ciphertext, nil
 }
 
-func (this *CFB) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
+func (this *CFBMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
 
 	blockSize := block.BlockSize()
 
@@ -124,24 +155,10 @@ func (this *CFB) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) 
 	return plaintext, nil
 }
 
-type AesCipher struct {
+type AESCipher struct {
 }
 
-func (this *AesCipher) Create(key []byte) (cipher.Block, error) {
+func (this *AESCipher) Create(key []byte) (cipher.Block, error) {
 	return aes.NewCipher(key)
 }
 
-func GetPasswordHash(password string) ([]byte, error) {
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
-	}
-
-	return hash, nil
-
-}
-
-func GetBlockKey(hash []byte, len int32) []byte {
-	return hash[:len]
-}
