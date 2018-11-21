@@ -22,36 +22,36 @@ import (
 	"github.com/bigbagger/bigbagger/proto/bbproto"
 )
 
-func ErrorTableNotFound(name string) *bbproto.RecordResult {
+func ErrorRegionNotFound(name string) *bbproto.TxOperationResult {
 
-	res := new(bbproto.RecordResult)
+	res := new(bbproto.TxOperationResult)
 	res.Status = bbproto.StatusCode_ERROR_NO_REGION
-	res.Message = "table not found: " + name
+	res.Message = name
 
 	return res
 }
 
-func ErrorBadRequest(message string) *bbproto.RecordResult {
+func ErrorBadRequest(message string) *bbproto.TxOperationResult {
 
-	res := new(bbproto.RecordResult)
+	res := new(bbproto.TxOperationResult)
 	res.Status = bbproto.StatusCode_ERROR_BAD_REQUEST
 	res.Message = message
 
 	return res
 }
 
-func ErrorUnsupported(message string) *bbproto.RecordResult {
+func ErrorUnsupported(message string) *bbproto.TxOperationResult {
 
-	res := new(bbproto.RecordResult)
+	res := new(bbproto.TxOperationResult)
 	res.Status = bbproto.StatusCode_ERROR_UNSUPPORTED
 	res.Message = message
 
 	return res
 }
 
-func ErrorDriver(message string) *bbproto.RecordResult {
+func ErrorDriver(message string) *bbproto.TxOperationResult {
 
-	res := new(bbproto.RecordResult)
+	res := new(bbproto.TxOperationResult)
 	res.Status = bbproto.StatusCode_ERROR_DRIVER
 	res.Message = message
 

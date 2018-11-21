@@ -157,60 +157,43 @@ func LoadBaggerDriver(dbDir string, conf *Configuration) (context *BaggerStore, 
 
 }
 
-func (this *BaggerStore) ProcessHeadOperation(key *bbproto.Key, operation *bbproto.HeadOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessGetOperation(key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.TxOperationResult {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
 
-	entryKey, prefixKey, err := this.GetEntryKey(key)
+	lookupKey, _, err := this.GetEntryKey(key)
 
 	if err != nil {
 		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
 	}
 
-	fmt.Print("Head EntryKey=", entryKey, ", PrefixKey=", prefixKey, ", Timestamp=", key.Timestamp, "\n")
-
 	timestamp := key.Timestamp
-	var item *bagger.Item
 
-	if timestamp == 0 {
+	item, err := txn.Get(lookupKey)
+	if err != nil {
+		return SuccessGetNotFoundResult()
+	}
 
-		item, err = txn.Get(entryKey)
+	if operation.HeadOnly {
 
-		if err != nil {
-			return SuccessHeadNotFoundResult()
-		}
+		return SuccessHeadResult(timestamp, item)
+
 	} else {
 
-		iter := txn.NewIterator(ReverseIteratorOptions)
-
-		iter.Seek(entryKey)
-
-		if iter.Valid() && iter.ValidForPrefix(prefixKey) {
-
-			item = iter.Item()
-			timestamp = GetKeyTimestamp(item.Key())
-
-		} else {
-			iter.Close()
-			return SuccessHeadNotFoundResult()
+		data, resp := this.FetchValue(item)
+		if resp != nil {
+			return resp
 		}
 
-		iter.Close()
+		return SuccessGetResult(timestamp, item, data)
 
 	}
 
-	fmt.Print("item=", item, "\n")
-
-	if err != nil {
-		return SuccessHeadNotFoundResult()
-	}
-
-	return SuccessHeadResult(timestamp, item)
 
 }
 
-func (this *BaggerStore) ProcessGetOperation(key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessRangeOperation(key *bbproto.Key, operation *bbproto.RangeOperation) *bbproto.TxOperationResult {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
@@ -221,80 +204,48 @@ func (this *BaggerStore) ProcessGetOperation(key *bbproto.Key, operation *bbprot
 		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
 	}
 
-	timestamp := key.Timestamp
-	var item *bagger.Item
+	fmt.Print("Range LookupKey=", lookupKey, ", PrefixKey=", prefixKey, ", WithTimestamp=", key.Timestamp, ", NumRecords=", operation.NumRecords,  "\n")
 
-	if timestamp == 0 {
+	iter := txn.NewIterator(ReverseIteratorOptions)
+	iter.Seek(lookupKey)
 
-		item, err = txn.Get(lookupKey)
-		if err != nil {
-			return SuccessGetNotFoundResult()
-		}
+	size := int(operation.NumRecords)
+	records := make([]*bbproto.Record, 0, size)
 
-	} else {
+	for i := 0; i < size && iter.Valid() && iter.ValidForPrefix(prefixKey); i = i + 1 {
 
-		iter := txn.NewIterator(ReverseIteratorOptions)
+		item := iter.Item()
+		timestamp := GetKeyTimestamp(item.Key())
 
-		iter.Seek(lookupKey)
-
-		if iter.Valid() && iter.ValidForPrefix(prefixKey) {
-
-			item = iter.Item()
-			timestamp = GetKeyTimestamp(item.Key())
+		if operation.HeadOnly {
+			records = append(records, &bbproto.Record{Head: HeadOf(timestamp, item)})
 
 		} else {
-			iter.Close()
-			return SuccessHeadNotFoundResult()
+
+			data, resp := this.FetchValue(item)
+			if resp != nil {
+				return resp
+			}
+
+			records = append(records, RecordOf(timestamp, item, data))
 		}
 
-		iter.Close()
+		iter.Next()
 
 	}
 
-	data, err := item.ValueCopy(nil)
-	if err != nil {
-		return bbcommon.ErrorDriver(fmt.Sprint("get failed: ", err))
-	}
+	iter.Close()
 
-	//dataCopied := false
-
-	if this.conf.EncryptionEnabled && isEncryptionEnabled(item.UserMeta()) {
-
-		if decrypted, err := this.Decrypt(data); err == nil {
-			data = decrypted
-			//dataCopied = true
-		} else {
-			return bbcommon.ErrorDriver(fmt.Sprint("decryption failed: ", err))
-		}
-
-	}
-
-	if this.conf.CompressionEnabled && isCompressionEnabled(item.UserMeta()) {
-
-		if decompressed, err := this.conf.Compressor.Decompress(data); err == nil {
-			data = decompressed
-			//dataCopied = true
-		} else {
-			return bbcommon.ErrorDriver(fmt.Sprint("decompress failed: ", err))
-		}
-
-	}
-
-	// copy data because outside of the transaction they will be destroyed
-	//if !dataCopied {
-	//	data = bbcommon.CopyOf(data)
-	//}
-
-	return SuccessGetResult(timestamp, data, item)
+	return SuccessRangeResult(records)
 
 }
 
-func (this *BaggerStore) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.TxOperationResult {
 
 	txn := this.db.NewTransaction(true)
 	defer txn.Discard()
 
-	lookupKey, prefixKey, err := this.GetEntryKey(key)
+	lookupKey, _, err := this.GetEntryKey(key)
 	entryKey := lookupKey
 
 	if err != nil {
@@ -302,34 +253,11 @@ func (this *BaggerStore) ProcessTouchOperation(key *bbproto.Key, operation *bbpr
 	}
 
 	timestamp := key.Timestamp
-	var item *bagger.Item
 
-	if timestamp == 0 {
+	item, err := txn.Get(lookupKey)
 
-		item, err = txn.Get(lookupKey)
-
-		if err != nil {
-			return SuccessTouchNotFoundResult()
-		}
-	} else {
-
-		iter := txn.NewIterator(ReverseIteratorOptions)
-
-		iter.Seek(lookupKey)
-
-		if iter.Valid() && iter.ValidForPrefix(prefixKey) {
-
-			item = iter.Item()
-			timestamp = GetKeyTimestamp(item.Key())
-			entryKey = item.Key()
-
-		} else {
-			iter.Close()
-			return SuccessHeadNotFoundResult()
-		}
-
-		iter.Close()
-
+	if err != nil {
+		return SuccessTouchNotFoundResult()
 	}
 
 	data, err := item.ValueCopy(nil)
@@ -365,7 +293,7 @@ func (this *BaggerStore) ProcessTouchOperation(key *bbproto.Key, operation *bbpr
 
 }
 
-func (this *BaggerStore) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.TxOperationResult {
 
 	txn := this.db.NewTransaction(true)
     defer txn.Discard()
@@ -376,7 +304,7 @@ func (this *BaggerStore) ProcessPutOperation(key *bbproto.Key, operation *bbprot
 		return bbcommon.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
 	}
 
-	fmt.Print("Put entryKey=", entryKey, "\n")
+	fmt.Print("Put entryKey=", entryKey, ", len=", len(entryKey), "\n")
 
 	if operation.CompareAndSet {
 
@@ -397,33 +325,9 @@ func (this *BaggerStore) ProcessPutOperation(key *bbproto.Key, operation *bbprot
 		ttl = time.Duration(operation.TtlSeconds) * time.Second
 	}
 
-	entry := &bagger.Entry{ Key: entryKey, Value: operation.Value  }
-
-	if ttl > 0 {
-		expire := time.Now().Add(ttl).Unix()
-		entry.ExpiresAt = uint64(expire)
-	}
-
-	if this.conf.CompressionEnabled && operation.CompressOnServer && len(operation.Value) >= this.conf.CompressionThreshold {
-
-		if compressedValue, err := this.conf.Compressor.Compress(entry.Value, this.conf.CompressionLevel); err == nil {
-			entry.Value = compressedValue
-			entry.UserMeta = SetCompressionEnabled(entry.UserMeta)
-		} else {
-			return bbcommon.ErrorDriver(fmt.Sprint("compression failed: ", err))
-		}
-
-	}
-
-	if this.conf.EncryptionEnabled && operation.EncryptOnServer {
-
-		if encryptedValue, err := this.Encrypt(entry.Value); err == nil {
-			entry.Value = encryptedValue
-			entry.UserMeta = SetEncryptionEnabled(entry.UserMeta)
-		} else {
-			return bbcommon.ErrorDriver(fmt.Sprint("encryption failed: ", err))
-		}
-
+	entry, resp := this.NewEntry(entryKey, operation.Value, ttl, operation.CompressOnServer, operation.EncryptOnServer)
+	if resp != nil {
+		return resp
 	}
 
 	err = txn.SetEntry(entry)
@@ -442,7 +346,7 @@ func (this *BaggerStore) ProcessPutOperation(key *bbproto.Key, operation *bbprot
 
 }
 
-func (this *BaggerStore) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.TxOperationResult {
 
 	txn := this.db.NewTransaction(true)
     defer txn.Discard()
@@ -474,29 +378,103 @@ func (this *BaggerStore) ProcessRemoveOperation(key *bbproto.Key, operation *bbp
 //
 
 
-func (this *BaggerStore) ProcessOperation(operation *bbproto.RecordOperation) *bbproto.RecordResult {
+func (this *BaggerStore) ProcessOperation(operation *bbproto.TxOperation) *bbproto.TxOperationResult {
 
 	switch operation.Operation.(type) {
 
-		case *bbproto.RecordOperation_Head:
-			return this.ProcessHeadOperation(operation.Key, operation.GetHead())
-
-		case *bbproto.RecordOperation_Get:
+		case *bbproto.TxOperation_Get:
 			return this.ProcessGetOperation(operation.Key, operation.GetGet())
 
-		case *bbproto.RecordOperation_Touch:
+		case *bbproto.TxOperation_Range:
+			return this.ProcessRangeOperation(operation.Key, operation.GetRange())
+
+		case *bbproto.TxOperation_Touch:
 			return this.ProcessTouchOperation(operation.Key, operation.GetTouch())
 
-		case *bbproto.RecordOperation_Put:
+		case *bbproto.TxOperation_Put:
 			return this.ProcessPutOperation(operation.Key, operation.GetPut())
 
-		case *bbproto.RecordOperation_Remove:
+		case *bbproto.TxOperation_Remove:
 			return this.ProcessRemoveOperation(operation.Key, operation.GetRemove())
 
 	}
 
 	return bbcommon.ErrorUnsupported("unknown operation type")
 }
+
+//
+//  Value I/O
+//
+
+func (this *BaggerStore) NewEntry(entryKey, value []byte, ttl time.Duration, compressOnServer, encryptOnServer bool) (*bagger.Entry, *bbproto.TxOperationResult) {
+
+	entry := &bagger.Entry{ Key: entryKey, Value: value }
+
+	if ttl > 0 {
+		expire := time.Now().Add(ttl).Unix()
+		entry.ExpiresAt = uint64(expire)
+	}
+
+	if this.conf.CompressionEnabled && compressOnServer {
+
+		if compressedValue, err := this.conf.Compressor.Compress(entry.Value, this.conf.CompressionLevel); err == nil {
+			entry.Value = compressedValue
+			entry.UserMeta = SetCompressionEnabled(entry.UserMeta)
+		} else {
+			return nil, bbcommon.ErrorDriver(fmt.Sprint("compression failed: ", err))
+		}
+
+	}
+
+	if this.conf.EncryptionEnabled && encryptOnServer {
+
+		if encryptedValue, err := this.Encrypt(entry.Value); err == nil {
+			entry.Value = encryptedValue
+			entry.UserMeta = SetEncryptionEnabled(entry.UserMeta)
+		} else {
+			return nil, bbcommon.ErrorDriver(fmt.Sprint("encryption failed: ", err))
+		}
+
+	}
+
+	return entry, nil
+
+}
+
+
+func (this *BaggerStore) FetchValue(item *bagger.Item) ([]byte, *bbproto.TxOperationResult) {
+
+	data, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, bbcommon.ErrorDriver(fmt.Sprint("retrieve value failed: ", err))
+	}
+
+	if this.conf.EncryptionEnabled && isEncryptionEnabled(item.UserMeta()) {
+
+		if decrypted, err := this.Decrypt(data); err == nil {
+			data = decrypted
+		} else {
+			return nil, bbcommon.ErrorDriver(fmt.Sprint("decryption failed: ", err))
+		}
+
+	}
+
+	if this.conf.CompressionEnabled && isCompressionEnabled(item.UserMeta()) {
+
+		if decompressed, err := this.conf.Compressor.Decompress(data); err == nil {
+			data = decompressed
+		} else {
+			return nil, bbcommon.ErrorDriver(fmt.Sprint("decompress failed: ", err))
+		}
+
+	}
+
+	return data, nil
+}
+
+//
+//  Encryption
+//
 
 func (this* BaggerStore) Encrypt(plaintext []byte) ([]byte, error) {
 

@@ -14,10 +14,12 @@
     "https"
   ],
   "consumes": [
-    "application/json"
+    "application/json",
+    "application/octet-stream"
   ],
   "produces": [
-    "application/json"
+    "application/json",
+    "application/octet-stream"
   ],
   "paths": {
     "/v1/region": {
@@ -131,7 +133,7 @@
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/bbTransactionContext"
+              "$ref": "#/definitions/bbTransactionResult"
             }
           }
         },
@@ -153,17 +155,19 @@
   },
   "definitions": {
     "bbGetOperation": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "headOnly": {
+          "type": "boolean",
+          "format": "boolean"
+        }
+      }
     },
     "bbGetResult": {
       "type": "object",
       "properties": {
-        "head": {
-          "$ref": "#/definitions/bbHead"
-        },
-        "value": {
-          "type": "string",
-          "format": "byte"
+        "record": {
+          "$ref": "#/definitions/bbRecord"
         }
       }
     },
@@ -185,17 +189,6 @@
         "diskSize": {
           "type": "string",
           "format": "int64"
-        }
-      }
-    },
-    "bbHeadOperation": {
-      "type": "object"
-    },
-    "bbHeadResult": {
-      "type": "object",
-      "properties": {
-        "head": {
-          "$ref": "#/definitions/bbHead"
         }
       }
     },
@@ -255,52 +248,39 @@
     "bbPutResult": {
       "type": "object"
     },
-    "bbRecordOperation": {
+    "bbRangeOperation": {
       "type": "object",
       "properties": {
-        "key": {
-          "$ref": "#/definitions/bbKey"
+        "headOnly": {
+          "type": "boolean",
+          "format": "boolean"
         },
-        "head": {
-          "$ref": "#/definitions/bbHeadOperation"
-        },
-        "get": {
-          "$ref": "#/definitions/bbGetOperation"
-        },
-        "touch": {
-          "$ref": "#/definitions/bbTouchOperation"
-        },
-        "put": {
-          "$ref": "#/definitions/bbPutOperation"
-        },
-        "remove": {
-          "$ref": "#/definitions/bbRemoveOperation"
+        "numRecords": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
-    "bbRecordResult": {
+    "bbRangeResult": {
       "type": "object",
       "properties": {
-        "status": {
-          "$ref": "#/definitions/bbStatusCode"
-        },
-        "message": {
-          "type": "string"
-        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/bbRecord"
+          }
+        }
+      }
+    },
+    "bbRecord": {
+      "type": "object",
+      "properties": {
         "head": {
-          "$ref": "#/definitions/bbHeadResult"
+          "$ref": "#/definitions/bbHead"
         },
-        "get": {
-          "$ref": "#/definitions/bbGetResult"
-        },
-        "touch": {
-          "$ref": "#/definitions/bbTouchResult"
-        },
-        "put": {
-          "$ref": "#/definitions/bbPutResult"
-        },
-        "remove": {
-          "$ref": "#/definitions/bbRemoveResult"
+        "value": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -376,19 +356,68 @@
         "operations": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bbRecordOperation"
+            "$ref": "#/definitions/bbTxOperation"
           }
         }
       }
     },
-    "bbTransactionContext": {
+    "bbTransactionResult": {
       "type": "object",
       "properties": {
         "results": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bbRecordResult"
+            "$ref": "#/definitions/bbTxOperationResult"
           }
+        }
+      }
+    },
+    "bbTxOperation": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/bbKey"
+        },
+        "get": {
+          "$ref": "#/definitions/bbGetOperation"
+        },
+        "range": {
+          "$ref": "#/definitions/bbRangeOperation"
+        },
+        "touch": {
+          "$ref": "#/definitions/bbTouchOperation"
+        },
+        "put": {
+          "$ref": "#/definitions/bbPutOperation"
+        },
+        "remove": {
+          "$ref": "#/definitions/bbRemoveOperation"
+        }
+      }
+    },
+    "bbTxOperationResult": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/bbStatusCode"
+        },
+        "message": {
+          "type": "string"
+        },
+        "get": {
+          "$ref": "#/definitions/bbGetResult"
+        },
+        "range": {
+          "$ref": "#/definitions/bbRangeResult"
+        },
+        "touch": {
+          "$ref": "#/definitions/bbTouchResult"
+        },
+        "put": {
+          "$ref": "#/definitions/bbPutResult"
+        },
+        "remove": {
+          "$ref": "#/definitions/bbRemoveResult"
         }
       }
     },

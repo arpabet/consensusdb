@@ -28,29 +28,39 @@ type IOperation interface {
 
 	WithMinorKey(minorKey []byte) IOperation
 
+	HeadOnly() IOperation
+
 	CompressOnServer() IOperation
 
 	EncryptOnServer() IOperation
 
 	WithTimestamp(timestamp uint64) IOperation
 
-	WithTtl(ttlSeconds uint32) IOperation
+	OverrideTtl(ttlSeconds uint32) IOperation
 
 	CompareAndSet(version uint64) IOperation
 
-	toProto() *bbproto.RecordOperation
+	toProto() *bbproto.TxOperation
 
 }
 
 type IHead interface {
 
-	GetVersion() uint64     // committedAt
+	Version() uint64
 
-	GetExpiresAt() uint64
+	ExpiresAt() uint64
 
-	GetTimestamp() uint64
+	Timestamp() uint64
 
-	GetDiskSize() int64
+	DiskSize() int64
+
+}
+
+type IRecord interface {
+
+	Head() IHead
+
+	Value() []byte
 
 }
 
@@ -62,9 +72,9 @@ type IResult interface {
 
 	Exists() bool
 
-	GetHead() IHead
+	GetRecord() IRecord
 
-	GetValue() []byte
+	GetRecords() []IRecord
 
 	IsError() bool
 
@@ -90,19 +100,19 @@ var emptyHead = EmptyHead{}
 type EmptyHead struct {
 }
 
-func (this *EmptyHead) GetVersion() uint64 {
+func (this *EmptyHead) Version() uint64 {
 	return 0
 }
 
-func (this *EmptyHead) GetExpiresAt() uint64 {
+func (this *EmptyHead) ExpiresAt() uint64 {
 	return 0
 }
 
-func (this *EmptyHead) GetTimestamp() uint64 {
+func (this *EmptyHead) Timestamp() uint64 {
 	return 0
 }
 
-func (this *EmptyHead) GetDiskSize() int64 {
+func (this *EmptyHead) DiskSize() int64 {
 	return 0
 }
 
@@ -110,34 +120,72 @@ type ProtoHead struct {
 	head  *bbproto.Head
 }
 
-func (this *ProtoHead) GetVersion() uint64 {
+func (this *ProtoHead) Version() uint64 {
 	return this.head.Version
 }
 
-func (this *ProtoHead) GetExpiresAt() uint64 {
+func (this *ProtoHead) ExpiresAt() uint64 {
 	return this.head.ExpiresAt
 }
 
-func (this *ProtoHead) GetTimestamp() uint64 {
+func (this *ProtoHead) Timestamp() uint64 {
 	return this.head.Timestamp
 }
 
-func (this *ProtoHead) GetDiskSize() int64 {
+func (this *ProtoHead) DiskSize() int64 {
 	return this.head.DiskSize
 }
 
-type HeadOp struct {
+var emptyRecord = EmptyRecord{}
 
-	Key     bbproto.Key
-	Head    bbproto.HeadOperation
+var emptyRecords = []IRecord{&emptyRecord}
 
+type EmptyRecord struct {
 }
 
+func (this *EmptyRecord) Head() IHead {
+	return &emptyHead
+}
+
+func (this *EmptyRecord) Value() []byte {
+	return emptyValue
+}
+
+type ProtoRecord struct {
+	record  *bbproto.Record
+}
+
+func (this *ProtoRecord) Head() IHead {
+	return &ProtoHead{this.record.Head}
+}
+
+func (this *ProtoRecord) Value() []byte {
+	return this.record.Value
+}
+
+type HeadOnlyRecord struct {
+	head   IHead
+}
+
+func (this *HeadOnlyRecord) Head() IHead {
+	return this.head
+}
+
+func (this *HeadOnlyRecord) Value() []byte {
+	return emptyValue
+}
 
 type GetOp struct {
 
 	Key    bbproto.Key
 	Get    bbproto.GetOperation
+
+}
+
+type RangeOp struct {
+
+	Key      bbproto.Key
+	Range    bbproto.RangeOperation
 
 }
 
@@ -162,21 +210,23 @@ type RemoveOp struct {
 
 }
 
-func Head(regionName string, majorKey []byte) IOperation {
+func Range(regionName string, majorKey []byte, numRecords int) IOperation {
 
-	op := new(HeadOp)
+	op := new(RangeOp)
 
 	op.Key.RegionName = regionName
 	op.Key.MajorKey = majorKey
+	op.Range.NumRecords = uint32(numRecords)
 
 	return op
 }
 
-func HeadReplicated(regionName string) IOperation {
+func RangeReplicated(regionName string, numRecords int) IOperation {
 
-	op := new(HeadOp)
+	op := new(RangeOp)
 
 	op.Key.RegionName = regionName
+	op.Range.NumRecords = uint32(numRecords)
 
 	return op
 }
@@ -261,14 +311,40 @@ func RemoveReplicated(regionName string) IOperation {
 }
 
 //
-//  CompressOnServer
+//  HeadOnly
 //
 
-func (this *HeadOp) CompressOnServer() IOperation {
+func (this *GetOp) HeadOnly() IOperation {
+	this.Get.HeadOnly = true
 	return this
 }
 
+func (this *RangeOp) HeadOnly() IOperation {
+	this.Range.HeadOnly = true
+	return this
+}
+
+func (this *TouchOp) HeadOnly() IOperation {
+	return this
+}
+
+func (this *PutOp) HeadOnly() IOperation {
+	return this
+}
+
+func (this *RemoveOp) HeadOnly() IOperation {
+	return this
+}
+
+//
+//  CompressOnServer
+//
+
 func (this *GetOp) CompressOnServer() IOperation {
+	return this
+}
+
+func (this *RangeOp) CompressOnServer() IOperation {
 	return this
 }
 
@@ -290,11 +366,11 @@ func (this *RemoveOp) CompressOnServer() IOperation {
 //  EncryptOnServer
 //
 
-func (this *HeadOp) EncryptOnServer() IOperation {
+func (this *GetOp) EncryptOnServer() IOperation {
 	return this
 }
 
-func (this *GetOp) EncryptOnServer() IOperation {
+func (this *RangeOp) EncryptOnServer() IOperation {
 	return this
 }
 
@@ -315,12 +391,12 @@ func (this *RemoveOp) EncryptOnServer() IOperation {
 //  WithMinorKey
 //
 
-func (this *HeadOp) WithMinorKey(minorKey []byte) IOperation {
+func (this *GetOp) WithMinorKey(minorKey []byte) IOperation {
 	this.Key.MinorKey = minorKey
 	return this
 }
 
-func (this *GetOp) WithMinorKey(minorKey []byte) IOperation {
+func (this *RangeOp) WithMinorKey(minorKey []byte) IOperation {
 	this.Key.MinorKey = minorKey
 	return this
 }
@@ -344,12 +420,12 @@ func (this *RemoveOp) WithMinorKey(minorKey []byte) IOperation {
 //  WithTimestamp
 //
 
-func (this *HeadOp) WithTimestamp(timestamp uint64) IOperation {
+func (this *GetOp) WithTimestamp(timestamp uint64) IOperation {
 	this.Key.Timestamp = timestamp
 	return this
 }
 
-func (this *GetOp) WithTimestamp(timestamp uint64) IOperation {
+func (this *RangeOp) WithTimestamp(timestamp uint64) IOperation {
 	this.Key.Timestamp = timestamp
 	return this
 }
@@ -370,30 +446,30 @@ func (this *RemoveOp) WithTimestamp(timestamp uint64) IOperation {
 }
 
 //
-//  WithTtl
+//  OverrideTtl
 //
 
-func (this *HeadOp) WithTtl(ttlSeconds uint32) IOperation {
+func (this *GetOp) OverrideTtl(ttlSeconds uint32) IOperation {
 	return this
 }
 
-func (this *GetOp) WithTtl(ttlSeconds uint32) IOperation {
+func (this *RangeOp) OverrideTtl(ttlSeconds uint32) IOperation {
 	return this
 }
 
-func (this *TouchOp) WithTtl(ttlSeconds uint32) IOperation {
+func (this *TouchOp) OverrideTtl(ttlSeconds uint32) IOperation {
 	this.Touch.OverrideTtl = true
 	this.Touch.TtlSeconds = ttlSeconds
 	return this
 }
 
-func (this *PutOp) WithTtl(ttlSeconds uint32) IOperation {
+func (this *PutOp) OverrideTtl(ttlSeconds uint32) IOperation {
 	this.Put.OverrideTtl = true
 	this.Put.TtlSeconds = ttlSeconds
 	return this
 }
 
-func (this *RemoveOp) WithTtl(ttlSeconds uint32) IOperation {
+func (this *RemoveOp) OverrideTtl(ttlSeconds uint32) IOperation {
 	return this
 }
 
@@ -401,11 +477,11 @@ func (this *RemoveOp) WithTtl(ttlSeconds uint32) IOperation {
 //  CompareAndSet
 //
 
-func (this *HeadOp) CompareAndSet(version uint64) IOperation {
+func (this *GetOp) CompareAndSet(version uint64) IOperation {
 	return this
 }
 
-func (this *GetOp) CompareAndSet(version uint64) IOperation {
+func (this *RangeOp) CompareAndSet(version uint64) IOperation {
 	return this
 }
 
@@ -427,52 +503,51 @@ func (this *RemoveOp) CompareAndSet(version uint64) IOperation {
 //  ToProto
 //
 
+func (this* GetOp) toProto() *bbproto.TxOperation {
 
-func (this* HeadOp) toProto() *bbproto.RecordOperation {
-
-	op := new(bbproto.RecordOperation)
+	op := new(bbproto.TxOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.RecordOperation_Head{&this.Head}
+	op.Operation = &bbproto.TxOperation_Get{&this.Get}
 
 	return op
 
 }
 
-func (this* GetOp) toProto() *bbproto.RecordOperation {
+func (this* RangeOp) toProto() *bbproto.TxOperation {
 
-	op := new(bbproto.RecordOperation)
+	op := new(bbproto.TxOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.RecordOperation_Get{&this.Get}
+	op.Operation = &bbproto.TxOperation_Range{&this.Range}
 
 	return op
 
 }
 
-func (this* TouchOp) toProto() *bbproto.RecordOperation {
+func (this* TouchOp) toProto() *bbproto.TxOperation {
 
-	op := new(bbproto.RecordOperation)
+	op := new(bbproto.TxOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.RecordOperation_Touch{&this.Touch}
+	op.Operation = &bbproto.TxOperation_Touch{&this.Touch}
 
 	return op
 
 }
 
-func (this* PutOp) toProto() *bbproto.RecordOperation {
+func (this* PutOp) toProto() *bbproto.TxOperation {
 
-	op := new(bbproto.RecordOperation)
+	op := new(bbproto.TxOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.RecordOperation_Put{&this.Put}
+	op.Operation = &bbproto.TxOperation_Put{&this.Put}
 
 	return op
 
 }
 
-func (this* RemoveOp) toProto() *bbproto.RecordOperation {
+func (this* RemoveOp) toProto() *bbproto.TxOperation {
 
-	op := new(bbproto.RecordOperation)
+	op := new(bbproto.TxOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.RecordOperation_Remove{ &this.Remove}
+	op.Operation = &bbproto.TxOperation_Remove{ &this.Remove}
 
 	return op
 
@@ -485,38 +560,36 @@ func (this* RemoveOp) toProto() *bbproto.RecordOperation {
 //
 //
 
-
-type HeadResult struct {
-	Exist       bool
-	Head        IHead
-}
-
 type GetResult struct {
 	Exist       bool
-	Head        IHead
-	Value       []byte
+	Record      IRecord
+}
+
+type RangeResult struct {
+	Exist         bool
+	Records       []IRecord
 }
 
 type TouchResult struct {
-	Status      bbproto.StatusCode
-	Exist       bool
-	Head        IHead
+	StatusCode      bbproto.StatusCode
+	Exist           bool
+	Head            IHead
 }
 
 type PutResult struct {
-	Status      bbproto.StatusCode
+	StatusCode      bbproto.StatusCode
 }
 
 type RemoveResult struct {
-	Status      bbproto.StatusCode
+	StatusCode      bbproto.StatusCode
 }
 
 type ErrorResult struct {
-	Status      bbproto.StatusCode
-	Message     string
+	StatusCode      bbproto.StatusCode
+	Message         string
 }
 
-func ParseResult(result *bbproto.RecordResult) IResult {
+func ParseResult(result *bbproto.TxOperationResult) IResult {
 
 	if result.Status == bbproto.StatusCode_SUCCESS || result.Status == bbproto.StatusCode_SUCCESS_NOT_UPDATED  {
 		return ParseSuccessResult(result)
@@ -526,24 +599,32 @@ func ParseResult(result *bbproto.RecordResult) IResult {
 
 }
 
-func ParseHeadResult(result *bbproto.HeadResult) IResult {
+func ParseGetResult(result *bbproto.GetResult) IResult {
 
-	head := result.GetHead()
-	if head != nil {
-		return &HeadResult{Exist: true, Head: &ProtoHead{head}}
+	record := result.GetRecord()
+	if record != nil {
+		return &GetResult{Exist: true, Record: &ProtoRecord{record}}
 	} else {
-		return &HeadResult{Exist: false, Head: &emptyHead}
+		return &GetResult{Exist: false, Record: &emptyRecord}
 	}
 
 }
 
-func ParseGetResult(result *bbproto.GetResult) IResult {
+func ParseRangeResult(result *bbproto.RangeResult) IResult {
 
-	head := result.GetHead()
-	if head != nil {
-		return &GetResult{Exist: true, Head: &ProtoHead{head}, Value: result.GetValue()}
+	records := result.GetRecords()
+	if records != nil {
+
+		size := len(records)
+		protoRecords := make([]IRecord, 0, size)
+
+		for i := 0; i < size; i = i + 1 {
+			protoRecords = append(protoRecords, &ProtoRecord{records[i]})
+		}
+
+		return &RangeResult{Exist: true, Records: protoRecords}
 	} else {
-		return &GetResult{Exist: false, Head: &emptyHead}
+		return &RangeResult{Exist: false, Records: emptyRecords}
 	}
 
 }
@@ -552,71 +633,36 @@ func ParseTouchResult(status bbproto.StatusCode, result *bbproto.TouchResult) IR
 
 	head := result.GetHead()
 	if head != nil {
-		return &TouchResult{Status: status, Exist: true, Head: &ProtoHead{head}}
+		return &TouchResult{StatusCode: status, Exist: true, Head: &ProtoHead{head}}
 	} else {
-		return &TouchResult{Status: status, Exist: false, Head: &emptyHead}
+		return &TouchResult{StatusCode: status, Exist: false, Head: &emptyHead}
 	}
 
 }
 
-func ParseSuccessResult(result *bbproto.RecordResult) IResult {
+func ParseSuccessResult(result *bbproto.TxOperationResult) IResult {
 
 	switch result.Result.(type) {
 
-	case *bbproto.RecordResult_Head:
-		return ParseHeadResult(result.GetHead())
-
-	case *bbproto.RecordResult_Get:
+	case *bbproto.TxOperationResult_Get:
 		return ParseGetResult(result.GetGet())
 
-	case *bbproto.RecordResult_Touch:
+	case *bbproto.TxOperationResult_Range:
+		return ParseRangeResult(result.GetRange())
+
+	case *bbproto.TxOperationResult_Touch:
 		return ParseTouchResult(result.GetStatus(), result.GetTouch())
 
-	case *bbproto.RecordResult_Put:
+	case *bbproto.TxOperationResult_Put:
 		return &PutResult{result.Status}
 
-	case *bbproto.RecordResult_Remove:
+	case *bbproto.TxOperationResult_Remove:
 		return &RemoveResult{result.Status}
 	}
 
 	return &ErrorResult{bbproto.StatusCode_ERROR_UNSUPPORTED, "client received wrong result type"}
 }
 
-//
-// HeadResult implements IResult
-//
-
-func (this *HeadResult) GetStatus() int32 {
-	return int32(bbproto.StatusCode_SUCCESS)
-}
-
-func (this *HeadResult) Updated() bool {
-	return false
-}
-
-func (this *HeadResult) Exists() bool {
-	return this.Exist
-}
-
-func (this *HeadResult) GetHead() IHead {
-	return this.Head
-}
-
-func (this *HeadResult) GetValue() []byte {
-	return emptyValue
-}
-
-func (this *HeadResult) IsError() bool {
-	return false
-}
-
-func (this *HeadResult) GetError() error {
-	return &emptyError
-}
-
-func (this *HeadResult) GetMessage() string {
-	return ""
-}
 
 //
 // GetResult implements IResult
@@ -634,12 +680,12 @@ func (this *GetResult) Exists() bool {
 	return this.Exist
 }
 
-func (this *GetResult) GetHead() IHead {
-	return this.Head
+func (this *GetResult) GetRecord() IRecord {
+	return this.Record
 }
 
-func (this *GetResult) GetValue() []byte {
-	return this.Value
+func (this *GetResult) GetRecords() []IRecord {
+	return []IRecord{this.Record}
 }
 
 func (this *GetResult) IsError() bool {
@@ -656,27 +702,64 @@ func (this *GetResult) GetMessage() string {
 
 
 //
+// RangeResult implements IResult
+//
+
+func (this *RangeResult) GetStatus() int32 {
+	return int32(bbproto.StatusCode_SUCCESS)
+}
+
+func (this *RangeResult) Updated() bool {
+	return false
+}
+
+func (this *RangeResult) Exists() bool {
+	return this.Exist
+}
+
+func (this *RangeResult) GetRecord() IRecord {
+	return this.Records[0]
+}
+
+func (this *RangeResult) GetRecords() []IRecord {
+	return this.Records
+}
+
+func (this *RangeResult) IsError() bool {
+	return false
+}
+
+func (this *RangeResult) GetError() error {
+	return &emptyError
+}
+
+func (this *RangeResult) GetMessage() string {
+	return ""
+}
+
+
+//
 // TouchResult implements IResult
 //
 
 func (this *TouchResult) GetStatus() int32 {
-	return int32(this.Status)
+	return int32(this.StatusCode)
 }
 
 func (this *TouchResult) Updated() bool {
-	return this.Status == bbproto.StatusCode_SUCCESS
+	return this.StatusCode == bbproto.StatusCode_SUCCESS
 }
 
 func (this *TouchResult) Exists() bool {
 	return this.Exist
 }
 
-func (this *TouchResult) GetHead() IHead {
-	return this.Head
+func (this *TouchResult) GetRecord() IRecord {
+	return &HeadOnlyRecord{this.Head}
 }
 
-func (this *TouchResult) GetValue() []byte {
-	return emptyValue
+func (this *TouchResult) GetRecords() []IRecord {
+	return []IRecord{this.GetRecord()}
 }
 
 func (this *TouchResult) IsError() bool {
@@ -696,23 +779,23 @@ func (this *TouchResult) GetMessage() string {
 //
 
 func (this *PutResult) GetStatus() int32 {
-	return int32(this.Status)
+	return int32(this.StatusCode)
 }
 
 func (this *PutResult) Updated() bool {
-	return this.Status == bbproto.StatusCode_SUCCESS
+	return this.StatusCode == bbproto.StatusCode_SUCCESS
 }
 
 func (this *PutResult) Exists() bool {
 	return true
 }
 
-func (this *PutResult) GetHead() IHead {
-	return &emptyHead
+func (this *PutResult) GetRecord() IRecord {
+	return &emptyRecord
 }
 
-func (this *PutResult) GetValue() []byte {
-	return emptyValue
+func (this *PutResult) GetRecords() []IRecord {
+	return emptyRecords
 }
 
 func (this *PutResult) IsError() bool {
@@ -732,23 +815,23 @@ func (this *PutResult) GetMessage() string {
 //
 
 func (this *RemoveResult) GetStatus() int32 {
-	return int32(this.Status)
+	return int32(this.StatusCode)
 }
 
 func (this *RemoveResult) Updated() bool {
-	return this.Status == bbproto.StatusCode_SUCCESS
+	return this.StatusCode == bbproto.StatusCode_SUCCESS
 }
 
 func (this *RemoveResult) Exists() bool {
 	return false
 }
 
-func (this *RemoveResult) GetHead() IHead {
-	return &emptyHead
+func (this *RemoveResult) GetRecord() IRecord {
+	return &emptyRecord
 }
 
-func (this *RemoveResult) GetValue() []byte {
-	return emptyValue
+func (this *RemoveResult) GetRecords() []IRecord {
+	return emptyRecords
 }
 
 func (this *RemoveResult) IsError() bool {
@@ -768,7 +851,7 @@ func (this *RemoveResult) GetMessage() string {
 //
 
 func (this *ErrorResult) GetStatus() int32 {
-	return int32(this.Status)
+	return int32(this.StatusCode)
 }
 
 func (this *ErrorResult) Updated() bool {
@@ -779,12 +862,12 @@ func (this *ErrorResult) Exists() bool {
 	return false
 }
 
-func (this *ErrorResult) GetHead() IHead {
-	return &emptyHead
+func (this *ErrorResult) GetRecord() IRecord {
+	return &emptyRecord
 }
 
-func (this *ErrorResult) GetValue() []byte {
-	return emptyValue
+func (this *ErrorResult) GetRecords() []IRecord {
+	return emptyRecords
 }
 
 func (this *ErrorResult) IsError() bool {
@@ -792,7 +875,7 @@ func (this *ErrorResult) IsError() bool {
 }
 
 func (this *ErrorResult) GetError() error {
-	return errors.New(this.Status.String())
+	return errors.New(this.StatusCode.String())
 }
 
 func (this *ErrorResult) GetMessage() string {

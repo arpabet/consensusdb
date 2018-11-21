@@ -27,101 +27,105 @@ func HeadOf(timestamp uint64, item *bagger.Item) *bbproto.Head {
 	return &bbproto.Head{Version: item.Version(), ExpiresAt:item.ExpiresAt(), Timestamp: timestamp, DiskSize: item.EstimatedSize()}
 }
 
-func SuccessHeadNotFoundResult() *bbproto.RecordResult {
-
-	head := new(bbproto.HeadResult)
-
-	result := new(bbproto.RecordResult)
-	result.Status = bbproto.StatusCode_SUCCESS
-	result.Result =  &bbproto.RecordResult_Head{ head }
-
-	return result
+func RecordOf(timestamp uint64, item *bagger.Item, data []byte) *bbproto.Record {
+	return &bbproto.Record{Head: HeadOf(timestamp, item), Value: data}
 }
 
-func SuccessHeadResult(timestamp uint64, item *bagger.Item) *bbproto.RecordResult {
-
-	head := new(bbproto.HeadResult)
-	head.Head = HeadOf(timestamp, item)
-
-	result := new(bbproto.RecordResult)
-	result.Status = bbproto.StatusCode_SUCCESS
-	result.Result =  &bbproto.RecordResult_Head{ head }
-
-	return result
-}
-
-func SuccessGetNotFoundResult() *bbproto.RecordResult {
+func SuccessGetNotFoundResult() *bbproto.TxOperationResult {
 
 	get := new(bbproto.GetResult)
 
-	result := new(bbproto.RecordResult)
+	result := new(bbproto.TxOperationResult)
 	result.Status = bbproto.StatusCode_SUCCESS
-	result.Result =  &bbproto.RecordResult_Get{get}
+	result.Result =  &bbproto.TxOperationResult_Get{get}
 
 	return result
 }
 
-func SuccessGetResult(timestamp uint64, data []byte, item *bagger.Item) *bbproto.RecordResult {
+func SuccessHeadResult(timestamp uint64, item *bagger.Item) *bbproto.TxOperationResult {
 
 	get := new(bbproto.GetResult)
-	get.Head = HeadOf(timestamp, item)
-	get.Value = data
+	get.Record = &bbproto.Record{Head: HeadOf(timestamp, item)}
 
-	result := new(bbproto.RecordResult)
+	result := new(bbproto.TxOperationResult)
 	result.Status = bbproto.StatusCode_SUCCESS
-	result.Result =  &bbproto.RecordResult_Get{get}
+	result.Result =  &bbproto.TxOperationResult_Get{ Get: get }
 
 	return result
 }
 
-func SuccessTouchNotFoundResult() *bbproto.RecordResult {
+func SuccessGetResult(timestamp uint64, item *bagger.Item, data []byte) *bbproto.TxOperationResult {
+
+	get := new(bbproto.GetResult)
+	get.Record = RecordOf(timestamp, item, data)
+
+	result := new(bbproto.TxOperationResult)
+	result.Status = bbproto.StatusCode_SUCCESS
+	result.Result =  &bbproto.TxOperationResult_Get{Get: get}
+
+	return result
+}
+
+func SuccessRangeResult(records []*bbproto.Record) *bbproto.TxOperationResult {
+
+	rang := new(bbproto.RangeResult)
+	rang.Records = records
+
+	result := new(bbproto.TxOperationResult)
+	result.Status = bbproto.StatusCode_SUCCESS
+	result.Result =  &bbproto.TxOperationResult_Range{Range: rang}
+
+	return result
+}
+
+func SuccessTouchNotFoundResult() *bbproto.TxOperationResult {
 
 	touch := new(bbproto.TouchResult)
 
-	result := new(bbproto.RecordResult)
+	result := new(bbproto.TxOperationResult)
 	result.Status = bbproto.StatusCode_SUCCESS_NOT_UPDATED
 
-	result.Result = &bbproto.RecordResult_Touch{ touch }
+	result.Result = &bbproto.TxOperationResult_Touch{ touch }
 
 	return result
 }
 
-func SuccessTouchResult(timestamp uint64, item *bagger.Item, expiresAt uint64) *bbproto.RecordResult {
+func SuccessTouchResult(timestamp uint64, item *bagger.Item, expiresAt uint64) *bbproto.TxOperationResult {
 
 	touch := new(bbproto.TouchResult)
 	touch.Head = HeadOf(timestamp, item)
 	touch.Head.ExpiresAt = expiresAt
 
-	result := new(bbproto.RecordResult)
+	result := new(bbproto.TxOperationResult)
 	result.Status = bbproto.StatusCode_SUCCESS
 
-	result.Result = &bbproto.RecordResult_Touch{ touch }
+	result.Result = &bbproto.TxOperationResult_Touch{ touch }
 
 	return result
 }
 
-func SuccessPutResult(updated bool) *bbproto.RecordResult {
+func SuccessPutResult(updated bool) *bbproto.TxOperationResult {
 
-	result := new(bbproto.RecordResult)
+	result := new(bbproto.TxOperationResult)
 	if updated {
 		result.Status = bbproto.StatusCode_SUCCESS
 	} else {
 		result.Status = bbproto.StatusCode_SUCCESS_NOT_UPDATED
 	}
-	result.Result =  &bbproto.RecordResult_Put{ &bbproto.PutResult{} }
+	result.Result =  &bbproto.TxOperationResult_Put{ &bbproto.PutResult{} }
 
 	return result
 }
 
-func SuccessRemoveResult(updated bool) *bbproto.RecordResult {
+func SuccessRemoveResult(updated bool) *bbproto.TxOperationResult {
 
-	result := new(bbproto.RecordResult)
+	result := new(bbproto.TxOperationResult)
 	if updated {
 		result.Status = bbproto.StatusCode_SUCCESS
 	} else {
 		result.Status = bbproto.StatusCode_SUCCESS_NOT_UPDATED
 	}
-	result.Result =  &bbproto.RecordResult_Remove{&bbproto.RemoveResult{}}
+	result.Result =  &bbproto.TxOperationResult_Remove{&bbproto.RemoveResult{}}
 
 	return result
 }
