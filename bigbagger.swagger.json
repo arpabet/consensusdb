@@ -270,6 +270,14 @@
           "type": "string",
           "format": "byte"
         },
+        "compressOnServer": {
+          "type": "boolean",
+          "format": "boolean"
+        },
+        "encryptOnServer": {
+          "type": "boolean",
+          "format": "boolean"
+        },
         "overrideTtl": {
           "type": "boolean",
           "format": "boolean"

@@ -403,7 +403,7 @@ func (this *BaggerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbpro
 		entry.ExpiresAt = uint64(expire)
 	}
 
-	if this.conf.CompressionEnabled && len(operation.Value) >= this.conf.CompressionThreshold {
+	if this.conf.CompressionEnabled && operation.CompressOnServer && len(operation.Value) >= this.conf.CompressionThreshold {
 
 		if compressedValue, err := this.conf.Compressor.Compress(entry.Value, this.conf.CompressionLevel); err == nil {
 			entry.Value = compressedValue
@@ -414,7 +414,7 @@ func (this *BaggerDriver) ProcessPutOperation(key *bbproto.Key, operation *bbpro
 
 	}
 
-	if this.conf.EncryptionEnabled {
+	if this.conf.EncryptionEnabled && operation.EncryptOnServer {
 
 		if encryptedValue, err := this.Encrypt(entry.Value); err == nil {
 			entry.Value = encryptedValue
