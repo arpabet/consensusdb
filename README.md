@@ -17,6 +17,18 @@ This project started on Halloween!
 
 # Quick start
 
+### Dependencies
+
+```
+go get "gopkg.in/ini.v1"
+go get "github.com/dsnet/compress/bzip2"
+go get "github.com/pierrec/lz4"
+go get "github.com/gobwas/glob"
+go get "google.golang.org/grpc"
+go get "github.com/grpc-ecosystem/grpc-gateway/runtime"
+go get "github.com/golang/protobuf/jsonpb"
+```
+
 ### Build
 ```
 go build
@@ -97,3 +109,4 @@ data := res.GetValue()
 ### Bagger
 
 Bagger - is the touring motorcycle for long trips (for large baggage). BMW K1600B for example.
+
