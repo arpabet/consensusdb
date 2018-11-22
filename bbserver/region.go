@@ -18,7 +18,9 @@
 
 package bbserver
 
-import "github.com/bigbagger/bigbagger/proto/bbproto"
+import (
+	"github.com/bigbagger/bigbagger/proto/bbproto"
+)
 
 const (
 	REGION_JSON = "region.json"
@@ -26,12 +28,73 @@ const (
 
 type IRegionStore interface {
 
+	GetName() string
+
 	GetRegion() *bbproto.Region
 
-	ProcessOperation(operation *bbproto.TxOperation) *bbproto.TxOperationResult
+	NewTransaction() IRegionTnx
 
 	Close() error
 
 }
 
+type IRegionTnx interface {
 
+	Update(bool)
+
+	Begin()
+
+	ProcessOperation(operation *bbproto.TxOperation) *bbproto.TxOperationResult
+
+	Rollback()
+
+    Commit() error
+
+}
+
+type ErrorStore struct {
+	regionName   string
+	result       *bbproto.TxOperationResult
+}
+
+type ErrorTxn struct {
+	store        *ErrorStore
+}
+
+func (this *ErrorStore) GetName() string {
+	return this.regionName
+}
+
+func (this *ErrorStore) GetRegion() *bbproto.Region {
+	return &bbproto.Region{Name: this.regionName}
+}
+
+func (this *ErrorStore) NewTransaction() IRegionTnx {
+	return &ErrorTxn{store: this}
+}
+
+func (this *ErrorStore) Close() error {
+	return nil
+}
+
+func (this *ErrorTxn) Update(update bool) {
+}
+
+func (this *ErrorTxn) Begin() {
+}
+
+func (this *ErrorTxn) ProcessOperation(operation *bbproto.TxOperation) *bbproto.TxOperationResult {
+	return this.store.result
+}
+
+func (this *ErrorTxn) Rollback() {
+}
+
+func (this *ErrorTxn) Commit() error {
+	return nil
+}
+
+
+func NewErrorStore(regionName string, result  *bbproto.TxOperationResult) IRegionStore {
+	return &ErrorStore{regionName, result}
+}
