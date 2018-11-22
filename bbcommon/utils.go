@@ -22,6 +22,7 @@ import (
 	"time"
 	"strconv"
 	"github.com/pkg/errors"
+	"github.com/bigbagger/bigbagger/proto/bbproto"
 )
 
 const (
@@ -75,5 +76,31 @@ func ParseTtlExpr(ttlExpr string) (ttl time.Duration, err error) {
 	}
 
 	return 0, errors.New("unknown term: " + ttlExpr)
+
+}
+
+
+func IsUpdateOperation(operation *bbproto.TxOperation) bool {
+
+	switch operation.Operation.(type) {
+
+	case *bbproto.TxOperation_Get:
+		return false
+
+	case *bbproto.TxOperation_Range:
+		return false
+
+	case *bbproto.TxOperation_Touch:
+		return true
+
+	case *bbproto.TxOperation_Put:
+		return true
+
+	case *bbproto.TxOperation_Remove:
+		return true
+
+	}
+
+	return false
 
 }

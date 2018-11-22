@@ -199,6 +199,31 @@ func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto
 	return nil
 }
 
+func (this *BigBaggerServer) FindRegionStore(operation *bbproto.TxOperation) IRegionStore {
+
+	if operation.Key == nil {
+		return NewErrorStore("", bbcommon.ErrorBadRequest("empty Key"))
+	}
+
+	key := operation.Key
+
+	if key.RegionName == "" {
+		return NewErrorStore("", bbcommon.ErrorBadRequest("empty Key.RegionName"))
+	}
+
+	if len(key.MajorKey) == 0 {
+		return NewErrorStore(key.RegionName, bbcommon.ErrorBadRequest("replicated empty MajorKey not supported yet"))
+	}
+
+	store, ok := this.regionStoreMap.Get(key.RegionName)
+
+	if !ok {
+		return NewErrorStore(key.RegionName, bbcommon.ErrorRegionNotFound(key.RegionName))
+	}
+
+	return store
+}
+
 
 //
 //
@@ -206,43 +231,46 @@ func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto
 //
 //
 
-func (this *BigBaggerServer) ExecuteOperation(operation *bbproto.TxOperation) *bbproto.TxOperationResult {
+func (this *BigBaggerServer) Execute(context context.Context, tx *bbproto.Transaction) (response *bbproto.TransactionResult, err error) {
 
-	if operation.Key == nil {
-		return bbcommon.ErrorBadRequest("empty Key")
-	}
-
-	key := operation.Key
-
-	if key.RegionName == "" {
-		return bbcommon.ErrorBadRequest("empty Key.RegionName")
-	}
-
-	if len(key.MajorKey) == 0 {
-		return bbcommon.ErrorBadRequest("replicated empty MajorKey not supported yet")
-	}
-
-	driver, ok := this.regionStoreMap.Get(key.RegionName)
-
-	if !ok {
-		return bbcommon.ErrorRegionNotFound(key.RegionName)
-	}
-
-	return driver.ProcessOperation(operation)
-
-}
-
-func (this *BigBaggerServer) Execute(context context.Context, tnx *bbproto.Transaction) (response *bbproto.TransactionResult, err error) {
+	size := len(tx.Operations)
 
 	response = new(bbproto.TransactionResult)
-	response.Results = make([]*bbproto.TxOperationResult, 0, len(tnx.Operations))
+	response.Results = make([]*bbproto.TxOperationResult, 0, size)
 
-	if len(tnx.Operations) == 0 {
+	if size == 0 {
 		return response, nil
 	}
 
-	for _, op := range tnx.Operations {
-		response.Results = append(response.Results, this.ExecuteOperation(op))
+	txlist := make([]IRegionTnx, 0, size)
+	txmap := make(map[string]IRegionTnx)
+
+	for _, op := range tx.Operations {
+
+		store := this.FindRegionStore(op)
+
+		tx, ok := txmap[store.GetName()]
+
+		if !ok {
+			tx = store.NewTransaction()
+			txmap[store.GetName()] = tx
+		}
+
+		tx.Update(bbcommon.IsUpdateOperation(op))
+		txlist = append(txlist, tx)
+
+	}
+
+	for _, tx := range txmap {
+		tx.Begin()
+	}
+
+	for i := 0; i != size; i = i + 1 {
+		response.Results = append(response.Results, txlist[i].ProcessOperation(tx.Operations[i]))
+	}
+
+	for _, c := range txmap {
+		c.Commit()
 	}
 
 	return response, nil

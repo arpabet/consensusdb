@@ -44,17 +44,53 @@ type BaggerStore struct {
 
 }
 
+type BaggerTxn struct {
+	store   *BaggerStore
+	update  bool
+	txn     *bagger.Txn
+}
+
+//
+// IRegionTnx
+//
+
+func (this *BaggerTxn) Update(update bool) {
+	this.update = update
+}
+
+func (this *BaggerTxn) Begin() {
+	this.txn = this.store.db.NewTransaction(this.update)
+}
+
+func (this *BaggerTxn) ProcessOperation(op *bbproto.TxOperation) *bbproto.TxOperationResult {
+	return this.store.ProcessOperation(this.txn, op)
+}
+
+func (this *BaggerTxn) Rollback() {
+	this.txn.Discard()
+}
+
+func (this *BaggerTxn) Commit() error {
+	return this.txn.Commit()
+}
+
+
 //
 // IRegionStore
 //
+
+func (this *BaggerStore) GetName() string {
+	return this.region.Name
+}
 
 func (this *BaggerStore) GetRegion() *bbproto.Region {
 	return this.region
 }
 
-//
-// IRegionStore
-//
+func (this *BaggerStore) NewTransaction() IRegionTnx {
+	return &BaggerTxn{store:this}
+}
+
 
 func (this *BaggerStore) Close() error {
 	if this != nil && this.db != nil {
@@ -63,6 +99,10 @@ func (this *BaggerStore) Close() error {
 	}
 	return nil
 }
+
+//
+// Other methods
+//
 
 func (this *BaggerStore) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefixKey []byte, err error) {
 
@@ -150,10 +190,7 @@ func LoadBaggerDriver(dbDir string, conf *Configuration) (context *BaggerStore, 
 
 }
 
-func (this *BaggerStore) ProcessGetOperation(key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.TxOperationResult {
-
-	txn := this.db.NewTransaction(false)
-	defer txn.Discard()
+func (this *BaggerStore) ProcessGetOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.TxOperationResult {
 
 	lookupKey, _, err := this.GetEntryKey(key)
 
@@ -186,10 +223,7 @@ func (this *BaggerStore) ProcessGetOperation(key *bbproto.Key, operation *bbprot
 
 }
 
-func (this *BaggerStore) ProcessRangeOperation(key *bbproto.Key, operation *bbproto.RangeOperation) *bbproto.TxOperationResult {
-
-	txn := this.db.NewTransaction(false)
-	defer txn.Discard()
+func (this *BaggerStore) ProcessRangeOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.RangeOperation) *bbproto.TxOperationResult {
 
 	lookupKey, prefixKey, err := this.GetEntryKey(key)
 
@@ -240,10 +274,7 @@ func (this *BaggerStore) ProcessRangeOperation(key *bbproto.Key, operation *bbpr
 
 }
 
-func (this *BaggerStore) ProcessTouchOperation(key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.TxOperationResult {
-
-	txn := this.db.NewTransaction(true)
-	defer txn.Discard()
+func (this *BaggerStore) ProcessTouchOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.TxOperationResult {
 
 	lookupKey, _, err := this.GetEntryKey(key)
 	entryKey := lookupKey
@@ -283,20 +314,11 @@ func (this *BaggerStore) ProcessTouchOperation(key *bbproto.Key, operation *bbpr
 		return bbcommon.ErrorDriver(fmt.Sprint("touch set entry failed: ", err))
 	}
 
-	err = txn.Commit()
-
-	if err != nil {
-		return bbcommon.ErrorDriver(fmt.Sprint("touch commit failed: ", err))
-	}
-
 	return SuccessTouchResult(timestamp, item, entry.ExpiresAt)
 
 }
 
-func (this *BaggerStore) ProcessPutOperation(key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.TxOperationResult {
-
-	txn := this.db.NewTransaction(true)
-    defer txn.Discard()
+func (this *BaggerStore) ProcessPutOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.TxOperationResult {
 
 	entryKey, _, err := this.GetEntryKey(key)
 
@@ -336,20 +358,11 @@ func (this *BaggerStore) ProcessPutOperation(key *bbproto.Key, operation *bbprot
 		return bbcommon.ErrorDriver(fmt.Sprint("put failed: ", err))
 	}
 
-	err = txn.Commit()
-
-	if err != nil {
-		return bbcommon.ErrorDriver(fmt.Sprint("put commit failed: ", err))
-	}
-
 	return SuccessPutResult(true)
 
 }
 
-func (this *BaggerStore) ProcessRemoveOperation(key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.TxOperationResult {
-
-	txn := this.db.NewTransaction(true)
-    defer txn.Discard()
+func (this *BaggerStore) ProcessRemoveOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.TxOperationResult {
 
 	entryKey, _, err := this.GetEntryKey(key)
 
@@ -363,12 +376,6 @@ func (this *BaggerStore) ProcessRemoveOperation(key *bbproto.Key, operation *bbp
 		return bbcommon.ErrorDriver(fmt.Sprint("remove failed: ", err))
 	}
 
-	err = txn.Commit()
-
-	if err != nil {
-		return bbcommon.ErrorDriver(fmt.Sprint("remove commit failed: ", err))
-	}
-
 	return SuccessRemoveResult(true)
 
 }
@@ -378,24 +385,24 @@ func (this *BaggerStore) ProcessRemoveOperation(key *bbproto.Key, operation *bbp
 //
 
 
-func (this *BaggerStore) ProcessOperation(operation *bbproto.TxOperation) *bbproto.TxOperationResult {
+func (this *BaggerStore) ProcessOperation(txn *bagger.Txn, operation *bbproto.TxOperation) *bbproto.TxOperationResult {
 
 	switch operation.Operation.(type) {
 
 		case *bbproto.TxOperation_Get:
-			return this.ProcessGetOperation(operation.Key, operation.GetGet())
+			return this.ProcessGetOperation(txn, operation.Key, operation.GetGet())
 
 		case *bbproto.TxOperation_Range:
-			return this.ProcessRangeOperation(operation.Key, operation.GetRange())
+			return this.ProcessRangeOperation(txn, operation.Key, operation.GetRange())
 
 		case *bbproto.TxOperation_Touch:
-			return this.ProcessTouchOperation(operation.Key, operation.GetTouch())
+			return this.ProcessTouchOperation(txn, operation.Key, operation.GetTouch())
 
 		case *bbproto.TxOperation_Put:
-			return this.ProcessPutOperation(operation.Key, operation.GetPut())
+			return this.ProcessPutOperation(txn, operation.Key, operation.GetPut())
 
 		case *bbproto.TxOperation_Remove:
-			return this.ProcessRemoveOperation(operation.Key, operation.GetRemove())
+			return this.ProcessRemoveOperation(txn, operation.Key, operation.GetRemove())
 
 	}
 
