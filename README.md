@@ -123,6 +123,40 @@ if res.Exists() {
 
 ```
 
+### Configuration
+
+Simple configuration example
+
+```
+
+[server]
+httpAddress=:4481
+grpcAddress=:4482
+
+[database]
+dataDir=/tmp/bigbagger
+
+[compression]
+# supported compressors:  NO, FLATE, GZIP, LZW, ZLIB, BZIP2, LZ4
+compressor=LZ4
+# supported levels: 0, 1, 6, 9 (whereas 6 is default)
+level=9
+
+[encryption]
+# supported ciphers: NO, AES
+cipher=AES
+# supported modes:  NO, GCM, CFB
+mode=CFB
+# supported key size in bits:  0, 128, 192, 256
+keySize=256
+# key will be retrieved from security context
+topo=password
+
+[security]
+password=PUT_YOUR_PASSWORD
+
+```
+
 ### Bagger
 
 Bagger - is the touring motorcycle for long trips (for large baggage). BMW K1600B for example.
