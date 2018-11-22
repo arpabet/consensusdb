@@ -111,8 +111,6 @@ op = bbclient.Put("TEST", []byte("key"), []byte("value")).WithTimestamp(15147648
 
 res = client.Execute(op)
 
-```
-
 // Get Last PIT Value
 
 op = bbclient.Range("TEST", []byte("key"), 1).WithTimestamp(math.MaxUint64)
@@ -122,6 +120,8 @@ res = client.Execute(op)
 if res.Exists() {
    data = res.GetRecord().Value()
 }
+
+```
 
 ### Bagger
 
