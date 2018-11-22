@@ -33,13 +33,6 @@ import (
 	"github.com/bigbagger/bagger"
 )
 
-var ReverseIteratorOptions = bagger.IteratorOptions{
-	PrefetchValues: true,
-	PrefetchSize:   1,
-	Reverse:        true,
-	AllVersions:    false,
-}
-
 
 type BaggerStore struct {
 	db                     *bagger.DB
@@ -206,11 +199,18 @@ func (this *BaggerStore) ProcessRangeOperation(key *bbproto.Key, operation *bbpr
 
 	fmt.Print("Range LookupKey=", lookupKey, ", PrefixKey=", prefixKey, ", WithTimestamp=", key.Timestamp, ", NumRecords=", operation.NumRecords,  "\n")
 
-	iter := txn.NewIterator(ReverseIteratorOptions)
-	iter.Seek(lookupKey)
-
 	size := int(operation.NumRecords)
 	records := make([]*bbproto.Record, 0, size)
+
+	reverseIteratorOptions := bagger.IteratorOptions{
+		PrefetchValues: true,
+		PrefetchSize:   size,
+		Reverse:        true,
+		AllVersions:    false,
+	}
+
+	iter := txn.NewIterator(reverseIteratorOptions)
+	iter.Seek(lookupKey)
 
 	for i := 0; i < size && iter.Valid() && iter.ValidForPrefix(prefixKey); i = i + 1 {
 
