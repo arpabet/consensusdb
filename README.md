@@ -50,7 +50,7 @@ open http://localhost:4481/
 ```
 mkdir /tmp/bigbagger
 ./bigbagger
-curl -d "@create.json" -H "Content-Type: application/json" -X POST http://localhost:4481/v1/table
+curl -d "@create.json" -H "Content-Type: application/json" -X POST http://localhost:4481/v1/region
 ```
 
 ### Check
