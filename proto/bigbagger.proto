@@ -237,6 +237,7 @@ message RemoveResult {
 message Transaction {
 
    repeated TxOperation operations = 1;
+   bool    allOrNothing = 2;
 
 }
 

@@ -37,7 +37,7 @@ type IBigBagger interface {
 
 	Execute(IOperation) IResult
 
-	ExecuteTransaction([]IOperation) ([]IResult, error)
+	ExecuteTxn(operations []IOperation, allOrNothing bool) ([]IResult, error)
 }
 
 type BigBaggerClient struct {
@@ -136,12 +136,13 @@ func (this *BigBaggerClient) Execute(op IOperation) (res IResult) {
 
 }
 
-func (this *BigBaggerClient) ExecuteTransaction(ops []IOperation) (res []IResult, err error) {
+func (this *BigBaggerClient) ExecuteTxn(ops []IOperation, allOrNothing bool) (res []IResult, err error) {
 
 	size := len(ops)
 
 	request := new(bbproto.Transaction)
 	request.Operations = make([]*bbproto.TxOperation, size)
+	request.AllOrNothing = allOrNothing
 
 	for i, op := range ops {
 		request.Operations[i] = op.toProto()

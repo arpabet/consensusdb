@@ -265,12 +265,35 @@ func (this *BigBaggerServer) Execute(context context.Context, tx *bbproto.Transa
 		tx.Begin()
 	}
 
-	for i := 0; i != size; i = i + 1 {
-		response.Results = append(response.Results, txlist[i].ProcessOperation(tx.Operations[i]))
+	rollbackAll := false
+
+	for i := 0; i < size; i = i + 1 {
+		result := txlist[i].ProcessOperation(tx.Operations[i])
+		response.Results = append(response.Results, result)
+
+		if tx.AllOrNothing && !bbcommon.IsSuccessResult(result) {
+			rollbackAll = true
+			for i = i + 1; i < size; i = i + 1 {
+				response.Results = append(response.Results, bbcommon.ErrorDriver("rollback"))
+			}
+			break
+		}
+
+
 	}
 
-	for _, c := range txmap {
-		c.Commit()
+	if rollbackAll {
+
+		for _, c := range txmap {
+			c.Rollback()
+		}
+
+	} else {
+
+		for _, c := range txmap {
+			c.Commit()
+		}
+
 	}
 
 	return response, nil
