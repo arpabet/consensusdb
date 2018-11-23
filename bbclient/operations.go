@@ -22,6 +22,7 @@ import (
 	"github.com/bigbagger/bigbagger/proto/bbproto"
 	"github.com/pkg/errors"
 	"fmt"
+	"github.com/bigbagger/bigbagger/bbcommon"
 )
 
 type IOperation interface {
@@ -591,7 +592,7 @@ type ErrorResult struct {
 
 func ParseResult(result *bbproto.TxOperationResult) IResult {
 
-	if result.Status == bbproto.StatusCode_SUCCESS || result.Status == bbproto.StatusCode_SUCCESS_NOT_UPDATED  {
+	if bbcommon.IsSuccessResult(result)  {
 		return ParseSuccessResult(result)
 	} else {
 		return &ErrorResult{result.Status, result.Message}

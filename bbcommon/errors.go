@@ -57,3 +57,7 @@ func ErrorDriver(message string) *bbproto.TxOperationResult {
 
 	return res
 }
+
+func IsSuccessResult(result *bbproto.TxOperationResult) bool {
+	return result.Status == bbproto.StatusCode_SUCCESS || result.Status == bbproto.StatusCode_SUCCESS_NOT_UPDATED
+}

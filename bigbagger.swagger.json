@@ -358,6 +358,10 @@
           "items": {
             "$ref": "#/definitions/bbTxOperation"
           }
+        },
+        "allOrNothing": {
+          "type": "boolean",
+          "format": "boolean"
         }
       }
     },
