@@ -33,6 +33,7 @@ import (
 	"github.com/bigbagger/bigbagger/bbserver"
 	"os/signal"
 	"flag"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 var (
@@ -135,6 +136,7 @@ func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string) (*http.
 	mux.Handle("/v1/transaction", gwTnx)
 	mux.HandleFunc("/swagger/", serveSwagger)
 	mux.HandleFunc("/", serveWelcome)
+	mux.Handle("/metrics", promhttp.Handler())
 
 	curdir, _ := os.Getwd()
 	log.Println("cur dir", curdir)

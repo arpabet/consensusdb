@@ -29,6 +29,13 @@ go get "github.com/grpc-ecosystem/grpc-gateway/runtime"
 go get "github.com/golang/protobuf/jsonpb"
 ```
 
+Init submodules
+
+```
+git submodule update --init --recursive
+rm -rf vendor/go.etcd.io/etcd/vendor/go.uber.org/zap/
+```
+
 ### Build
 ```
 go build
