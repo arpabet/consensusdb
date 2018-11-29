@@ -1,0 +1,9 @@
+[submodule "vendor/go.etcd.io/etcd"]
+	path = vendor/go.etcd.io/etcd
+	url = https://github.com/etcd-io/etcd
+[submodule "vendor/go.etcd.io/bbolt"]
+	path = vendor/go.etcd.io/bbolt
+	url = https://github.com/etcd-io/bbolt
+[submodule "vendor/go.uber.go/zap"]
+	path = vendor/go.uber.go/zap
+	url = https://github.com/uber-go/zap

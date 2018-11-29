@@ -12,3 +12,5 @@
 
 # Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
 .glide/
+
+vendor/go.etcd.io/etcd/vendor/go.uber.org/zap/
