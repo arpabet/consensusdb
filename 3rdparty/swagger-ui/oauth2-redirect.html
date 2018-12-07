@@ -36,7 +36,7 @@
                     authId: oauth2.auth.name,
                     source: "auth",
                     level: "warning",
-                    message: "Authorization may be unsafe, passed state was changed in bbserver Passed state wasn't returned from auth bbserver"
+                    message: "Authorization may be unsafe, passed state was changed in cserver Passed state wasn't returned from auth cserver"
                 });
             }
 
@@ -49,7 +49,7 @@
                     authId: oauth2.auth.name,
                     source: "auth",
                     level: "error",
-                    message: "Authorization failed: no accessCode received from the bbserver"
+                    message: "Authorization failed: no accessCode received from the cserver"
                 });
             }
         } else {

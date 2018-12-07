@@ -30,7 +30,7 @@ import (
 	"strings"
 	"text/template"
 	"github.com/consensusdb/consensusdb/proto/bbproto"
-	"github.com/consensusdb/consensusdb/bbserver"
+	"github.com/consensusdb/consensusdb/cserver"
 	"os/signal"
 	"flag"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -58,12 +58,12 @@ func run() error {
 
 	log.Println("Loaded configuration from: " + *iniFile)
 
-	conf, err := bbserver.LoadConfiguration(cfg)
+	conf, err := cserver.LoadConfiguration(cfg)
 	if err != nil {
 		return err
 	}
 
-	server, err := bbserver.NewServer(conf)
+	server, err := cserver.NewServer(conf)
 	defer server.Close()
 
 	if err != nil {
