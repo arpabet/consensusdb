@@ -34,7 +34,7 @@ import (
 )
 
 
-type BaggerStore struct {
+type DefaultStore struct {
 
 	regionName          string
 
@@ -47,8 +47,8 @@ type BaggerStore struct {
 
 }
 
-type BaggerTxn struct {
-	store   *BaggerStore
+type DefaultStoreTxn struct {
+	store   *DefaultStore
 	update  bool
 	txn     *bagger.Txn
 }
@@ -57,23 +57,23 @@ type BaggerTxn struct {
 // IRegionTnx
 //
 
-func (this *BaggerTxn) Update(update bool) {
+func (this *DefaultStoreTxn) Update(update bool) {
 	this.update = update
 }
 
-func (this *BaggerTxn) Begin() {
+func (this *DefaultStoreTxn) Begin() {
 	this.txn = this.store.db.NewTransaction(this.update)
 }
 
-func (this *BaggerTxn) ProcessOperation(op *bbproto.TxOperation) *bbproto.TxOperationResult {
+func (this *DefaultStoreTxn) ProcessOperation(op *bbproto.TxOperation) *bbproto.TxOperationResult {
 	return this.store.ProcessOperation(this.txn, op)
 }
 
-func (this *BaggerTxn) Rollback() {
+func (this *DefaultStoreTxn) Rollback() {
 	this.txn.Discard()
 }
 
-func (this *BaggerTxn) Commit() error {
+func (this *DefaultStoreTxn) Commit() error {
 	return this.txn.Commit()
 }
 
@@ -82,19 +82,19 @@ func (this *BaggerTxn) Commit() error {
 // IRegionStore
 //
 
-func (this *BaggerStore) GetName() string {
+func (this *DefaultStore) GetName() string {
 	return this.regionName
 }
 
-func (this *BaggerStore) GetRegion() *bbproto.Region {
+func (this *DefaultStore) GetRegion() *bbproto.Region {
 	return this.region
 }
 
-func (this *BaggerStore) NewTransaction() IRegionTnx {
-	return &BaggerTxn{store:this}
+func (this *DefaultStore) NewTransaction() IRegionTnx {
+	return &DefaultStoreTxn{store:this}
 }
 
-func (this *BaggerStore) GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawRecord) error {
+func (this *DefaultStore) GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawRecord) error {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
@@ -163,7 +163,7 @@ func (this *BaggerStore) GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawRe
 
 
 
-func (this *BaggerStore) Close() error {
+func (this *DefaultStore) Close() error {
 	if this != nil && this.db != nil {
 		log.Println("region closing: ", this.region.Name)
 		return this.db.Close()
@@ -175,7 +175,7 @@ func (this *BaggerStore) Close() error {
 // Other methods
 //
 
-func (this *BaggerStore) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefixKey []byte, err error) {
+func (this *DefaultStore) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefixKey []byte, err error) {
 
 	k := &Key{MajorKey: key.MajorKey, MinorKey: key.MinorKey, Timestamp: key.Timestamp}
 
@@ -192,7 +192,7 @@ func (this *BaggerStore) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefixK
 
 }
 
-func NewBaggerStore(regionDir string, region *bbproto.Region, conf *Configuration) (context *BaggerStore, err error) {
+func NewDefaultStore(regionDir string, region *bbproto.Region, conf *Configuration) (context *DefaultStore, err error) {
 
 	if _, err := os.Stat(regionDir); os.IsNotExist(err) {
 		err = os.Mkdir(regionDir, 0755)
@@ -213,13 +213,13 @@ func NewBaggerStore(regionDir string, region *bbproto.Region, conf *Configuratio
 
 	}
 
-	return OpenBaggerStore(regionDir, region, conf)
+	return OpenDefaultStore(regionDir, region, conf)
 
 }
 
-func OpenBaggerStore(regionDir string, region *bbproto.Region, conf *Configuration) (context *BaggerStore, err error) {
+func OpenDefaultStore(regionDir string, region *bbproto.Region, conf *Configuration) (context *DefaultStore, err error) {
 
-	context = &BaggerStore{regionName: region.Name, regionDir: regionDir, region: region, conf: conf}
+	context = &DefaultStore{regionName: region.Name, regionDir: regionDir, region: region, conf: conf}
 
 	opts := bagger.DefaultOptions
 	opts.Dir = regionDir + "/key"
@@ -242,7 +242,7 @@ func OpenBaggerStore(regionDir string, region *bbproto.Region, conf *Configurati
 
 }
 
-func LoadBaggerDriver(regionDir string, conf *Configuration) (context *BaggerStore, err error) {
+func LoadBaggerDriver(regionDir string, conf *Configuration) (context *DefaultStore, err error) {
 
 	data, err := ioutil.ReadFile(filepath.Join(regionDir, REGION_JSON))
 
@@ -257,11 +257,11 @@ func LoadBaggerDriver(regionDir string, conf *Configuration) (context *BaggerSto
 		return nil, err
 	}
 
-	return OpenBaggerStore(regionDir, region, conf)
+	return OpenDefaultStore(regionDir, region, conf)
 
 }
 
-func (this *BaggerStore) ProcessGetOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessGetOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.TxOperationResult {
 
 	lookupKey, _, err := this.GetEntryKey(key)
 
@@ -294,7 +294,7 @@ func (this *BaggerStore) ProcessGetOperation(txn *bagger.Txn, key *bbproto.Key, 
 
 }
 
-func (this *BaggerStore) ProcessRangeOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.RangeOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessRangeOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.RangeOperation) *bbproto.TxOperationResult {
 
 	lookupKey, prefixKey, err := this.GetEntryKey(key)
 
@@ -345,7 +345,7 @@ func (this *BaggerStore) ProcessRangeOperation(txn *bagger.Txn, key *bbproto.Key
 
 }
 
-func (this *BaggerStore) ProcessTouchOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessTouchOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.TxOperationResult {
 
 	lookupKey, _, err := this.GetEntryKey(key)
 	entryKey := lookupKey
@@ -389,7 +389,7 @@ func (this *BaggerStore) ProcessTouchOperation(txn *bagger.Txn, key *bbproto.Key
 
 }
 
-func (this *BaggerStore) ProcessPutOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessPutOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.TxOperationResult {
 
 	entryKey, _, err := this.GetEntryKey(key)
 
@@ -433,7 +433,7 @@ func (this *BaggerStore) ProcessPutOperation(txn *bagger.Txn, key *bbproto.Key, 
 
 }
 
-func (this *BaggerStore) ProcessRemoveOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessRemoveOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.TxOperationResult {
 
 	entryKey, _, err := this.GetEntryKey(key)
 
@@ -456,7 +456,7 @@ func (this *BaggerStore) ProcessRemoveOperation(txn *bagger.Txn, key *bbproto.Ke
 //
 
 
-func (this *BaggerStore) ProcessOperation(txn *bagger.Txn, operation *bbproto.TxOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessOperation(txn *bagger.Txn, operation *bbproto.TxOperation) *bbproto.TxOperationResult {
 
 	switch operation.Operation.(type) {
 
@@ -484,7 +484,7 @@ func (this *BaggerStore) ProcessOperation(txn *bagger.Txn, operation *bbproto.Tx
 //  Value I/O
 //
 
-func (this *BaggerStore) NewEntry(entryKey, value []byte, ttl time.Duration, compressOnServer, encryptOnServer bool) (*bagger.Entry, *bbproto.TxOperationResult) {
+func (this *DefaultStore) NewEntry(entryKey, value []byte, ttl time.Duration, compressOnServer, encryptOnServer bool) (*bagger.Entry, *bbproto.TxOperationResult) {
 
 	entry := &bagger.Entry{ Key: entryKey, Value: value }
 
@@ -520,7 +520,7 @@ func (this *BaggerStore) NewEntry(entryKey, value []byte, ttl time.Duration, com
 }
 
 
-func (this *BaggerStore) FetchValue(item *bagger.Item) ([]byte, *bbproto.TxOperationResult) {
+func (this *DefaultStore) FetchValue(item *bagger.Item) ([]byte, *bbproto.TxOperationResult) {
 
 	data, err := item.ValueCopy(nil)
 	if err != nil {
@@ -554,7 +554,7 @@ func (this *BaggerStore) FetchValue(item *bagger.Item) ([]byte, *bbproto.TxOpera
 //  Encryption
 //
 
-func (this* BaggerStore) Encrypt(plaintext []byte) ([]byte, error) {
+func (this* DefaultStore) Encrypt(plaintext []byte) ([]byte, error) {
 
 	key, err := this.conf.SecurityContext.GetEncryptionKey(this.conf.EncryptionTopo, 0, this.conf.EncryptionKeyLen)
 
@@ -572,7 +572,7 @@ func (this* BaggerStore) Encrypt(plaintext []byte) ([]byte, error) {
 
 }
 
-func (this* BaggerStore) Decrypt(ciphertext []byte) ([]byte, error) {
+func (this* DefaultStore) Decrypt(ciphertext []byte) ([]byte, error) {
 
 	key, err := this.conf.SecurityContext.GetEncryptionKey(this.conf.EncryptionTopo, 0, this.conf.EncryptionKeyLen)
 
