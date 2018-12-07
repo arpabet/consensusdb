@@ -23,7 +23,7 @@ import (
 	"gopkg.in/ini.v1"
 	"strconv"
 	"path/filepath"
-	"github.com/bigbagger/bigbagger/bbcommon"
+	"github.com/consensusdb/consensusdb/bbcommon"
 )
 
 type Configuration struct {

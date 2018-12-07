@@ -21,10 +21,10 @@ package main_test
 import (
 	"testing"
 	"io/ioutil"
-	"github.com/bigbagger/bigbagger/bbserver"
+	"github.com/consensusdb/consensusdb/bbserver"
 	"time"
-	"github.com/bigbagger/bigbagger/bbclient"
-	"github.com/bigbagger/bigbagger/proto/bbproto"
+	"github.com/consensusdb/consensusdb/bbclient"
+	"github.com/consensusdb/consensusdb/proto/bbproto"
 	"os"
 	"bytes"
 	"fmt"
@@ -40,7 +40,7 @@ func TestSuit(t *testing.T) {
 
 	println("DatasetTest executed")
 
-	rootDir, err := ioutil.TempDir("/tmp", "bigbagger_test")
+	rootDir, err := ioutil.TempDir("/tmp", "consensusdb_test")
 
 	if err != nil {
 		t.Fatal("fail to create tmp dir ", err)
@@ -133,7 +133,7 @@ func TestSuit(t *testing.T) {
 
 }
 
-func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
+func RunCRUIDTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 
 	//
 	//  Test Not Exists
@@ -221,7 +221,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.IBigBagger, set string) {
 }
 
 
-func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string) {
+func RunCompareAndSetTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 
 	//
 	//  Test Not Exists
@@ -345,7 +345,7 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.IBigBagger, set string)
 }
 
 
-func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
+func RunWithTtlTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 
 	//
 	//  Test Not Exists
@@ -450,7 +450,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.IBigBagger, set string) {
 }
 
 
-func RunCompressionTests(t *testing.T, client bbclient.IBigBagger, set string) {
+func RunCompressionTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 
 	//
 	//  Create Payload
@@ -521,7 +521,7 @@ func RunCompressionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 }
 
 
-func RunEncryptionTests(t *testing.T, client bbclient.IBigBagger, set string) {
+func RunEncryptionTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 
 	//
 	//  One letter with no padding is very good test
@@ -579,7 +579,7 @@ func RunEncryptionTests(t *testing.T, client bbclient.IBigBagger, set string) {
 
 }
 
-func RunPitOneTests(t *testing.T, client bbclient.IBigBagger, set string) {
+func RunPitOneTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 
 
 	//

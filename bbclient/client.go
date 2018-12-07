@@ -22,11 +22,11 @@ package bbclient
 import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"github.com/bigbagger/bigbagger/proto/bbproto"
+	"github.com/consensusdb/consensusdb/proto/bbproto"
 	"github.com/pkg/errors"
 )
 
-type IBigBagger interface {
+type IConsensusDB interface {
 	CreateRegion(region *bbproto.Region) error
 
 	UpdateRegion(region *bbproto.Region) error
@@ -40,14 +40,14 @@ type IBigBagger interface {
 	ExecuteTxn(operations []IOperation, allOrNothing bool) ([]IResult, error)
 }
 
-type BigBaggerClient struct {
+type DefaultClient struct {
 	conn                 *grpc.ClientConn
 	regionService        bbproto.RegionServiceClient
 	transactionService   bbproto.TransactionServiceClient
 
 }
 
-func (cli *BigBaggerClient) Close() error {
+func (cli *DefaultClient) Close() error {
 	if conn := cli.conn; conn != nil {
 		cli.conn = nil
 		return conn.Close()
@@ -55,7 +55,7 @@ func (cli *BigBaggerClient) Close() error {
 	return nil
 }
 
-func (this *BigBaggerClient) CreateRegion(region *bbproto.Region) (err error) {
+func (this *DefaultClient) CreateRegion(region *bbproto.Region) (err error) {
 
 	_, err = this.regionService.Create(context.Background(), region)
 
@@ -67,7 +67,7 @@ func (this *BigBaggerClient) CreateRegion(region *bbproto.Region) (err error) {
 
 }
 
-func (this *BigBaggerClient) UpdateRegion(region *bbproto.Region) (err error) {
+func (this *consensusdbClient) UpdateRegion(region *bbproto.Region) (err error) {
 
 	_, err = this.regionService.Update(context.Background(), region)
 
@@ -79,7 +79,7 @@ func (this *BigBaggerClient) UpdateRegion(region *bbproto.Region) (err error) {
 
 }
 
-func (this *BigBaggerClient) DeleteRegion(name string) error {
+func (this *DefaultClient) DeleteRegion(name string) error {
 
 	request := new(bbproto.String)
 	request.Value = name
@@ -94,7 +94,7 @@ func (this *BigBaggerClient) DeleteRegion(name string) error {
 
 }
 
-func (this *BigBaggerClient) GetRegions(pattern string) (result []*bbproto.Region, err error) {
+func (this *DefaultClient) GetRegions(pattern string) (result []*bbproto.Region, err error) {
 
 	request := new(bbproto.String)
 	request.Value = pattern
@@ -115,7 +115,7 @@ func (this *BigBaggerClient) GetRegions(pattern string) (result []*bbproto.Regio
 
 }
 
-func (this *BigBaggerClient) Execute(op IOperation) (res IResult) {
+func (this *DefaultClient) Execute(op IOperation) (res IResult) {
 
 	request := new(bbproto.Transaction)
 	request.Operations = make([]*bbproto.TxOperation, 1)
@@ -136,7 +136,7 @@ func (this *BigBaggerClient) Execute(op IOperation) (res IResult) {
 
 }
 
-func (this *BigBaggerClient) ExecuteTxn(ops []IOperation, allOrNothing bool) (res []IResult, err error) {
+func (this *DefaultClient) ExecuteTxn(ops []IOperation, allOrNothing bool) (res []IResult, err error) {
 
 	size := len(ops)
 
@@ -168,17 +168,16 @@ func (this *BigBaggerClient) ExecuteTxn(ops []IOperation, allOrNothing bool) (re
 
 }
 
-func NewClient(grpcAddress string) (*BigBaggerClient, error) {
+func NewClient(grpcAddress string) (*DefaultClient, error) {
 
 	conn, err := grpc.Dial(grpcAddress, grpc.WithInsecure())
 	if err != nil {
 		return nil, err
 	}
 
-	var cli = &BigBaggerClient{conn,
+	var cli = &DefaultClient{conn,
 	bbproto.NewRegionServiceClient(conn),
 	 bbproto.NewTransactionServiceClient(conn)}
 
 	return cli, nil
 }
-
