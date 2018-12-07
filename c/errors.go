@@ -58,6 +58,6 @@ func ErrorDriver(message string) *cserverpb.TxOperationResult {
 	return res
 }
 
-func IsSuccessResult(result *cserverpb.TxOperationResult) bool {
-	return result.Status == cserverpb.StatusCode_SUCCESS || result.Status == cserverpb.StatusCode_SUCCESS_NOT_UPDATED
+func IsSuccessCode(status cserverpb.StatusCode) bool {
+	return status == cserverpb.StatusCode_SUCCESS || status == cserverpb.StatusCode_SUCCESS_NOT_UPDATED
 }

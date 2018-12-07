@@ -21,7 +21,6 @@ package cdb
 import (
 	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"github.com/pkg/errors"
-	"fmt"
 	"github.com/consensusdb/consensusdb/c"
 )
 
@@ -37,7 +36,7 @@ type IOperation interface {
 
 	WithTimestamp(timestamp uint64) IOperation
 
-	OverrideTtl(ttlSeconds uint32) IOperation
+	WithTtl(ttlSeconds uint32) IOperation
 
 	CompareAndSet(version uint64) IOperation
 
@@ -164,18 +163,6 @@ func (this *ProtoRecord) Value() []byte {
 	return this.record.Value
 }
 
-type HeadOnlyRecord struct {
-	head   IHead
-}
-
-func (this *HeadOnlyRecord) Head() IHead {
-	return this.head
-}
-
-func (this *HeadOnlyRecord) Value() []byte {
-	return emptyValue
-}
-
 type GetOp struct {
 
 	Key cserverpb.Key
@@ -211,23 +198,25 @@ type RemoveOp struct {
 
 }
 
-func Range(regionName string, majorKey []byte, numRecords int) IOperation {
+func Range(regionName string, majorKey, startMinorKey, endMinorKey []byte) IOperation {
 
 	op := new(RangeOp)
 
 	op.Key.RegionName = regionName
 	op.Key.MajorKey = majorKey
-	op.Range.NumRecords = uint32(numRecords)
+	op.Key.MinorKey = startMinorKey
+	op.Range.EndMinorKey = endMinorKey
 
 	return op
 }
 
-func RangeReplicated(regionName string, numRecords int) IOperation {
+func RangeReplicated(regionName string, startMinorKey, endMinorKey []byte) IOperation {
 
 	op := new(RangeOp)
 
 	op.Key.RegionName = regionName
-	op.Range.NumRecords = uint32(numRecords)
+	op.Key.MinorKey = startMinorKey
+	op.Range.EndMinorKey = endMinorKey
 
 	return op
 }
@@ -242,11 +231,32 @@ func Get(regionName string, majorKey []byte) IOperation {
 	return op
 }
 
+func GetEarly(regionName string, majorKey []byte, earlyRecords int) IOperation {
+
+	op := new(GetOp)
+
+	op.Key.RegionName = regionName
+	op.Key.MajorKey = majorKey
+	op.Get.EarlyRecords = uint32(earlyRecords)
+
+	return op
+}
+
 func GetReplicated(regionName string) IOperation {
 
 	op := new(GetOp)
 
 	op.Key.RegionName = regionName
+
+	return op
+}
+
+func GetEarlyReplicated(regionName string, earlyRecords int) IOperation {
+
+	op := new(GetOp)
+
+	op.Key.RegionName = regionName
+	op.Get.EarlyRecords = uint32(earlyRecords)
 
 	return op
 }
@@ -447,30 +457,28 @@ func (this *RemoveOp) WithTimestamp(timestamp uint64) IOperation {
 }
 
 //
-//  OverrideTtl
+//  WithTtl
 //
 
-func (this *GetOp) OverrideTtl(ttlSeconds uint32) IOperation {
+func (this *GetOp) WithTtl(ttlSeconds uint32) IOperation {
 	return this
 }
 
-func (this *RangeOp) OverrideTtl(ttlSeconds uint32) IOperation {
+func (this *RangeOp) WithTtl(ttlSeconds uint32) IOperation {
 	return this
 }
 
-func (this *TouchOp) OverrideTtl(ttlSeconds uint32) IOperation {
-	this.Touch.OverrideTtl = true
+func (this *TouchOp) WithTtl(ttlSeconds uint32) IOperation {
 	this.Touch.TtlSeconds = ttlSeconds
 	return this
 }
 
-func (this *PutOp) OverrideTtl(ttlSeconds uint32) IOperation {
-	this.Put.OverrideTtl = true
+func (this *PutOp) WithTtl(ttlSeconds uint32) IOperation {
 	this.Put.TtlSeconds = ttlSeconds
 	return this
 }
 
-func (this *RemoveOp) OverrideTtl(ttlSeconds uint32) IOperation {
+func (this *RemoveOp) WithTtl(ttlSeconds uint32) IOperation {
 	return this
 }
 
@@ -561,328 +569,78 @@ func (this* RemoveOp) toProto() *cserverpb.TxOperation {
 //
 //
 
-type GetResult struct {
-	Exist       bool
-	Record      IRecord
-}
 
-type RangeResult struct {
-	Exist         bool
+type OperationResult struct {
+	StatusCode    cserverpb.StatusCode
+	Message       string
 	Records       []IRecord
 }
 
-type TouchResult struct {
-	StatusCode cserverpb.StatusCode
-	Exist      bool
-	Head       IHead
+//
+// OperationResult implements IResult
+//
+
+func (this *OperationResult) GetStatus() int32 {
+	return int32(this.StatusCode)
 }
 
-type PutResult struct {
-	StatusCode cserverpb.StatusCode
+func (this *OperationResult) Updated() bool {
+	return this.StatusCode == cserverpb.StatusCode_SUCCESS
 }
 
-type RemoveResult struct {
-	StatusCode cserverpb.StatusCode
+func (this *OperationResult) Exists() bool {
+	return len(this.Records) > 0
 }
 
-type ErrorResult struct {
-	StatusCode cserverpb.StatusCode
-	Message    string
+func (this *OperationResult) GetRecord() IRecord {
+	if len(this.Records) > 0 {
+		return this.Records[0]
+	} else {
+		return &emptyRecord
+	}
+}
+
+func (this *OperationResult) GetRecords() []IRecord {
+	return this.Records
+}
+
+func (this *OperationResult) IsError() bool {
+	return !c.IsSuccessCode(this.StatusCode)
+}
+
+func (this *OperationResult) GetError() error {
+	if c.IsSuccessCode(this.StatusCode) {
+		return nil
+	} else {
+		return errors.New(this.StatusCode.String())
+	}
+}
+
+func (this *OperationResult) GetMessage() string {
+	return this.Message
 }
 
 func ParseResult(result *cserverpb.TxOperationResult) IResult {
 
-	if c.IsSuccessResult(result)  {
-		return ParseSuccessResult(result)
-	} else {
-		return &ErrorResult{result.Status, result.Message}
-	}
+	records := result.Records
+	size := len(records)
 
-}
+	if size > 0 {
 
-func ParseGetResult(result *cserverpb.GetResult) IResult {
-
-	record := result.GetRecord()
-	if record != nil {
-		return &GetResult{Exist: true, Record: &ProtoRecord{record}}
-	} else {
-		return &GetResult{Exist: false, Record: &emptyRecord}
-	}
-
-}
-
-func ParseRangeResult(result *cserverpb.RangeResult) IResult {
-
-	records := result.GetRecords()
-	if records != nil {
-
-		size := len(records)
 		protoRecords := make([]IRecord, 0, size)
 
 		for i := 0; i < size; i = i + 1 {
 			protoRecords = append(protoRecords, &ProtoRecord{records[i]})
 		}
 
-		return &RangeResult{Exist: true, Records: protoRecords}
+		return &OperationResult{StatusCode: result.Status, Message: result.Message, Records: protoRecords}
+
 	} else {
-		return &RangeResult{Exist: false, Records: emptyRecords}
+		return &OperationResult{StatusCode: result.Status, Message: result.Message, Records: emptyRecords}
 	}
 
 }
 
-func ParseTouchResult(status cserverpb.StatusCode, result *cserverpb.TouchResult) IResult {
-
-	head := result.GetHead()
-	if head != nil {
-		return &TouchResult{StatusCode: status, Exist: true, Head: &ProtoHead{head}}
-	} else {
-		return &TouchResult{StatusCode: status, Exist: false, Head: &emptyHead}
-	}
-
-}
-
-func ParseSuccessResult(result *cserverpb.TxOperationResult) IResult {
-
-	switch result.Result.(type) {
-
-	case *cserverpb.TxOperationResult_Get:
-		return ParseGetResult(result.GetGet())
-
-	case *cserverpb.TxOperationResult_Range:
-		return ParseRangeResult(result.GetRange())
-
-	case *cserverpb.TxOperationResult_Touch:
-		return ParseTouchResult(result.GetStatus(), result.GetTouch())
-
-	case *cserverpb.TxOperationResult_Put:
-		return &PutResult{result.Status}
-
-	case *cserverpb.TxOperationResult_Remove:
-		return &RemoveResult{result.Status}
-	}
-
-	return &ErrorResult{cserverpb.StatusCode_ERROR_UNSUPPORTED, "client received wrong result type"}
-}
-
-
-//
-// GetResult implements IResult
-//
-
-func (this *GetResult) GetStatus() int32 {
-	return int32(cserverpb.StatusCode_SUCCESS)
-}
-
-func (this *GetResult) Updated() bool {
-	return false
-}
-
-func (this *GetResult) Exists() bool {
-	return this.Exist
-}
-
-func (this *GetResult) GetRecord() IRecord {
-	return this.Record
-}
-
-func (this *GetResult) GetRecords() []IRecord {
-	return []IRecord{this.Record}
-}
-
-func (this *GetResult) IsError() bool {
-	return false
-}
-
-func (this *GetResult) GetError() error {
-	return &emptyError
-}
-
-func (this *GetResult) GetMessage() string {
-	return ""
-}
-
-
-//
-// RangeResult implements IResult
-//
-
-func (this *RangeResult) GetStatus() int32 {
-	return int32(cserverpb.StatusCode_SUCCESS)
-}
-
-func (this *RangeResult) Updated() bool {
-	return false
-}
-
-func (this *RangeResult) Exists() bool {
-	return this.Exist
-}
-
-func (this *RangeResult) GetRecord() IRecord {
-	return this.Records[0]
-}
-
-func (this *RangeResult) GetRecords() []IRecord {
-	return this.Records
-}
-
-func (this *RangeResult) IsError() bool {
-	return false
-}
-
-func (this *RangeResult) GetError() error {
-	return &emptyError
-}
-
-func (this *RangeResult) GetMessage() string {
-	return ""
-}
-
-
-//
-// TouchResult implements IResult
-//
-
-func (this *TouchResult) GetStatus() int32 {
-	return int32(this.StatusCode)
-}
-
-func (this *TouchResult) Updated() bool {
-	return this.StatusCode == cserverpb.StatusCode_SUCCESS
-}
-
-func (this *TouchResult) Exists() bool {
-	return this.Exist
-}
-
-func (this *TouchResult) GetRecord() IRecord {
-	return &HeadOnlyRecord{this.Head}
-}
-
-func (this *TouchResult) GetRecords() []IRecord {
-	return []IRecord{this.GetRecord()}
-}
-
-func (this *TouchResult) IsError() bool {
-	return false
-}
-
-func (this *TouchResult) GetError() error {
-	return &emptyError
-}
-
-func (this *TouchResult) GetMessage() string {
-	return ""
-}
-
-//
-// PutResult implements IResult
-//
-
-func (this *PutResult) GetStatus() int32 {
-	return int32(this.StatusCode)
-}
-
-func (this *PutResult) Updated() bool {
-	return this.StatusCode == cserverpb.StatusCode_SUCCESS
-}
-
-func (this *PutResult) Exists() bool {
-	return true
-}
-
-func (this *PutResult) GetRecord() IRecord {
-	return &emptyRecord
-}
-
-func (this *PutResult) GetRecords() []IRecord {
-	return emptyRecords
-}
-
-func (this *PutResult) IsError() bool {
-	return false
-}
-
-func (this *PutResult) GetError() error {
-	return &emptyError
-}
-
-func (this *PutResult) GetMessage() string {
-	return ""
-}
-
-//
-// RemoveResult implements IResult
-//
-
-func (this *RemoveResult) GetStatus() int32 {
-	return int32(this.StatusCode)
-}
-
-func (this *RemoveResult) Updated() bool {
-	return this.StatusCode == cserverpb.StatusCode_SUCCESS
-}
-
-func (this *RemoveResult) Exists() bool {
-	return false
-}
-
-func (this *RemoveResult) GetRecord() IRecord {
-	return &emptyRecord
-}
-
-func (this *RemoveResult) GetRecords() []IRecord {
-	return emptyRecords
-}
-
-func (this *RemoveResult) IsError() bool {
-	return false
-}
-
-func (this *RemoveResult) GetError() error {
-	return &emptyError
-}
-
-func (this *RemoveResult) GetMessage() string {
-	return ""
-}
-
-//
-// ErrorResult implements IResult
-//
-
-func (this *ErrorResult) GetStatus() int32 {
-	return int32(this.StatusCode)
-}
-
-func (this *ErrorResult) Updated() bool {
-	return false
-}
-
-func (this *ErrorResult) Exists() bool {
-	return false
-}
-
-func (this *ErrorResult) GetRecord() IRecord {
-	return &emptyRecord
-}
-
-func (this *ErrorResult) GetRecords() []IRecord {
-	return emptyRecords
-}
-
-func (this *ErrorResult) IsError() bool {
-	return true
-}
-
-func (this *ErrorResult) GetError() error {
-	return errors.New(this.StatusCode.String())
-}
-
-func (this *ErrorResult) GetMessage() string {
-	return this.Message
-}
-
-func NewNetworkError(err error) IResult {
-	return &ErrorResult{cserverpb.StatusCode_ERROR_NETWORK, fmt.Sprint("remote error: ", err)}
+func NewErrorResult(status cserverpb.StatusCode, message string) IResult {
+	return &OperationResult{StatusCode: status, Message: message, Records: emptyRecords}
 }

@@ -494,7 +494,7 @@ func (this *DefaultServer) Execute(context context.Context, tx *cserverpb.Transa
 		result := txlist[i].ProcessOperation(tx.Operations[i])
 		response.Results = append(response.Results, result)
 
-		if tx.AllOrNothing && !c.IsSuccessResult(result) {
+		if !c.IsSuccessCode(result.Status) {
 			rollbackAll = true
 			for i = i + 1; i < size; i = i + 1 {
 				response.Results = append(response.Results, c.ErrorDriver("rollback"))

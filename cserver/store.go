@@ -43,8 +43,6 @@ type DefaultStore struct {
 	regionDir 			string
 	conf      			*Configuration
 
-	ttl                 time.Duration    // 0 - for eternal
-
 }
 
 type DefaultStoreTxn struct {
@@ -226,18 +224,6 @@ func OpenDefaultStore(regionDir string, region *cserverpb.Region, conf *Configur
 	opts.ValueDir = regionDir + "/value"
 	context.db, err = badger.Open(opts)
 
-	if len(region.Ttl) == 0 || region.Ttl == "eternal" {
-		context.ttl = 0
-	} else {
-
-		context.ttl, err = c.ParseTtlExpr(region.Ttl)
-
-		if err != nil {
-			return nil, err
-		}
-
-	}
-
 	return context, err
 
 }
@@ -263,35 +249,79 @@ func LoadBaggerDriver(regionDir string, conf *Configuration) (context *DefaultSt
 
 func (this *DefaultStore) ProcessGetOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.GetOperation) *cserverpb.TxOperationResult {
 
-	lookupKey, _, err := this.GetEntryKey(key)
+	lookupKey, prefixKey, err := this.GetEntryKey(key)
 
 	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
+		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
 	}
 
-	timestamp := key.Timestamp
+	size := 1 + int(operation.EarlyRecords)
+	records := make([]*cserverpb.Record, 0, size)
 
-	item, err := txn.Get(lookupKey)
-	if err != nil {
-		return SuccessGetNotFoundResult()
-	}
+	if size > 1 {
 
-	if operation.HeadOnly {
+		reverseIteratorOptions := badger.IteratorOptions{
+			PrefetchValues: true,
+			PrefetchSize:   size,
+			Reverse:        true,
+			AllVersions:    false,
+		}
 
-		return SuccessHeadResult(timestamp, item)
+		iter := txn.NewIterator(reverseIteratorOptions)
+		iter.Seek(lookupKey)
+
+		for i := 0; i < size && iter.Valid() && iter.ValidForPrefix(prefixKey); i = i + 1 {
+
+			item := iter.Item()
+			timestamp := GetKeyTimestamp(item.Key())
+
+			if operation.HeadOnly {
+				records = append(records, RecordHeadOf(timestamp, item))
+
+			} else {
+
+				data, resp := this.FetchValue(item)
+				if resp != nil {
+					iter.Close()
+					return resp
+				}
+
+				records = append(records, RecordOf(timestamp, item, data))
+			}
+
+			iter.Next()
+
+		}
+
+		iter.Close()
+
 
 	} else {
 
-		data, resp := this.FetchValue(item)
-		if resp != nil {
-			return resp
+		item, err := txn.Get(lookupKey)
+		if err != nil {
+			return SuccessResultOf(records)
 		}
 
-		return SuccessGetResult(timestamp, item, data)
+		timestamp := key.Timestamp
+
+		if operation.HeadOnly {
+			records = append(records, RecordHeadOf(timestamp, item))
+
+		} else {
+
+			data, resp := this.FetchValue(item)
+			if resp != nil {
+				return resp
+			}
+
+			records = append(records, RecordOf(timestamp, item, data))
+
+		}
 
 	}
 
-
+	return SuccessResultOf(records)
 }
 
 func (this *DefaultStore) ProcessRangeOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.RangeOperation) *cserverpb.TxOperationResult {
@@ -299,36 +329,47 @@ func (this *DefaultStore) ProcessRangeOperation(txn *badger.Txn, key *cserverpb.
 	lookupKey, prefixKey, err := this.GetEntryKey(key)
 
 	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
+		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
 	}
 
-	fmt.Print("Range LookupKey=", lookupKey, ", PrefixKey=", prefixKey, ", WithTimestamp=", key.Timestamp, ", NumRecords=", operation.NumRecords,  "\n")
+	fmt.Print("Range LookupKey=", lookupKey, ", PrefixKey=", prefixKey, ", WithTimestamp=", key.Timestamp, ", EndMinorKey=", operation.EndMinorKey,  "\n")
 
-	size := int(operation.NumRecords)
-	records := make([]*cserverpb.Record, 0, size)
+	endKey := &cserverpb.Key{RegionName: key.RegionName,
+							MajorKey: key.MajorKey,
+							MinorKey: operation.EndMinorKey,
+							Timestamp: key.Timestamp}
+
+	_, endPrefixKey, err := this.GetEntryKey(endKey)
+
+	if err != nil {
+		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
+	}
+
+	records := make([]*cserverpb.Record, 0, 100)
 
 	reverseIteratorOptions := badger.IteratorOptions{
 		PrefetchValues: true,
-		PrefetchSize:   size,
-		Reverse:        true,
+		PrefetchSize:   100,
+		Reverse:        false,
 		AllVersions:    false,
 	}
 
 	iter := txn.NewIterator(reverseIteratorOptions)
 	iter.Seek(lookupKey)
 
-	for i := 0; i < size && iter.Valid() && iter.ValidForPrefix(prefixKey); i = i + 1 {
+	for i := 0; iter.Valid() && !iter.ValidForPrefix(endPrefixKey); i = i + 1 {
 
 		item := iter.Item()
 		timestamp := GetKeyTimestamp(item.Key())
 
 		if operation.HeadOnly {
-			records = append(records, &cserverpb.Record{Head: HeadOf(timestamp, item)})
+			records = append(records, RecordHeadOf(timestamp, item))
 
 		} else {
 
 			data, resp := this.FetchValue(item)
 			if resp != nil {
+				iter.Close()
 				return resp
 			}
 
@@ -341,7 +382,7 @@ func (this *DefaultStore) ProcessRangeOperation(txn *badger.Txn, key *cserverpb.
 
 	iter.Close()
 
-	return SuccessRangeResult(records)
+	return SuccessResultOf(records)
 
 }
 
@@ -351,7 +392,7 @@ func (this *DefaultStore) ProcessTouchOperation(txn *badger.Txn, key *cserverpb.
 	entryKey := lookupKey
 
 	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
+		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
 	}
 
 	timestamp := key.Timestamp
@@ -359,7 +400,7 @@ func (this *DefaultStore) ProcessTouchOperation(txn *badger.Txn, key *cserverpb.
 	item, err := txn.Get(lookupKey)
 
 	if err != nil {
-		return SuccessTouchNotFoundResult()
+		return SuccessNotUpdatedResult()
 	}
 
 	data, err := item.ValueCopy(nil)
@@ -367,14 +408,10 @@ func (this *DefaultStore) ProcessTouchOperation(txn *badger.Txn, key *cserverpb.
 		return c.ErrorDriver(fmt.Sprint("touch failed: ", err))
 	}
 
-	ttl := this.ttl
-	if operation.OverrideTtl {
-		ttl = time.Duration(operation.TtlSeconds) * time.Second
-	}
-
 	entry := &badger.Entry{ Key: entryKey, Value:data, UserMeta: item.UserMeta()  }
 
-	if ttl > 0 {
+	if operation.TtlSeconds > 0 {
+		ttl := time.Duration(operation.TtlSeconds) * time.Second
 		expire := time.Now().Add(ttl).Unix()
 		entry.ExpiresAt = uint64(expire)
 	}
@@ -385,7 +422,9 @@ func (this *DefaultStore) ProcessTouchOperation(txn *badger.Txn, key *cserverpb.
 		return c.ErrorDriver(fmt.Sprint("touch set entry failed: ", err))
 	}
 
-	return SuccessTouchResult(timestamp, item, entry.ExpiresAt)
+	record := RecordHeadOf(timestamp, item)
+
+	return SuccessResultOf([]*cserverpb.Record{record})
 
 }
 
@@ -394,7 +433,7 @@ func (this *DefaultStore) ProcessPutOperation(txn *badger.Txn, key *cserverpb.Ke
 	entryKey, _, err := this.GetEntryKey(key)
 
 	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
+		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
 	}
 
 	fmt.Print("Put entryKey=", entryKey, ", len=", len(entryKey), "\n")
@@ -405,20 +444,15 @@ func (this *DefaultStore) ProcessPutOperation(txn *badger.Txn, key *cserverpb.Ke
 
 		if err != nil {
 			if operation.Version != 0 {
-				return SuccessPutResult(false)
+				return SuccessNotUpdatedResult()
 			}
 		} else if operation.Version != item.Version() {
-			return SuccessPutResult(false)
+			return SuccessNotUpdatedResult()
 		}
 
 	}
 
-	ttl := this.ttl
-	if operation.OverrideTtl {
-		ttl = time.Duration(operation.TtlSeconds) * time.Second
-	}
-
-	entry, resp := this.NewEntry(entryKey, operation.Value, ttl, operation.CompressOnServer, operation.EncryptOnServer)
+	entry, resp := this.NewEntry(entryKey, operation.Value, operation.TtlSeconds, operation.CompressOnServer, operation.EncryptOnServer)
 	if resp != nil {
 		return resp
 	}
@@ -429,7 +463,7 @@ func (this *DefaultStore) ProcessPutOperation(txn *badger.Txn, key *cserverpb.Ke
 		return c.ErrorDriver(fmt.Sprint("put failed: ", err))
 	}
 
-	return SuccessPutResult(true)
+	return SuccessResult()
 
 }
 
@@ -447,7 +481,7 @@ func (this *DefaultStore) ProcessRemoveOperation(txn *badger.Txn, key *cserverpb
 		return c.ErrorDriver(fmt.Sprint("remove failed: ", err))
 	}
 
-	return SuccessRemoveResult(true)
+	return SuccessResult()
 
 }
 
@@ -484,11 +518,12 @@ func (this *DefaultStore) ProcessOperation(txn *badger.Txn, operation *cserverpb
 //  Value I/O
 //
 
-func (this *DefaultStore) NewEntry(entryKey, value []byte, ttl time.Duration, compressOnServer, encryptOnServer bool) (*badger.Entry, *cserverpb.TxOperationResult) {
+func (this *DefaultStore) NewEntry(entryKey, value []byte, ttlSeconds uint32, compressOnServer, encryptOnServer bool) (*badger.Entry, *cserverpb.TxOperationResult) {
 
 	entry := &badger.Entry{ Key: entryKey, Value: value }
 
-	if ttl > 0 {
+	if ttlSeconds > 0 {
+		ttl := time.Duration(ttlSeconds) * time.Second
 		expire := time.Now().Add(ttl).Unix()
 		entry.ExpiresAt = uint64(expire)
 	}

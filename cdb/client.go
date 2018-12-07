@@ -37,7 +37,7 @@ type IConsensusDB interface {
 
 	Execute(IOperation) IResult
 
-	ExecuteTxn(operations []IOperation, allOrNothing bool) ([]IResult, error)
+	ExecuteTxn(operations []IOperation) ([]IResult, error)
 }
 
 type DefaultClient struct {
@@ -125,24 +125,23 @@ func (this *DefaultClient) Execute(op IOperation) (res IResult) {
 	response, err := this.transactionService.Execute(context.Background(), request)
 
 	if err != nil {
-		return NewNetworkError(err)
+		return NewErrorResult(cserverpb.StatusCode_ERROR_NETWORK, err.Error())
 	}
 
 	if len(response.Results) != 1 {
-		return &ErrorResult{cserverpb.StatusCode_ERROR_NETWORK, "expected single result"}
+		return NewErrorResult(cserverpb.StatusCode_ERROR_NETWORK, "expected single result")
 	}
 
 	return ParseResult(response.Results[0])
 
 }
 
-func (this *DefaultClient) ExecuteTxn(ops []IOperation, allOrNothing bool) (res []IResult, err error) {
+func (this *DefaultClient) ExecuteTxn(ops []IOperation) (res []IResult, err error) {
 
 	size := len(ops)
 
 	request := new(cserverpb.Transaction)
 	request.Operations = make([]*cserverpb.TxOperation, size)
-	request.AllOrNothing = allOrNothing
 
 	for i, op := range ops {
 		request.Operations[i] = op.toProto()

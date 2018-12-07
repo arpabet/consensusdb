@@ -39,7 +39,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bbRegion"
+              "$ref": "#/definitions/cdbRegion"
             }
           }
         ],
@@ -71,7 +71,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bbRegion"
+              "$ref": "#/definitions/cdbRegion"
             }
           }
         ],
@@ -87,7 +87,7 @@
           "200": {
             "description": "(streaming responses)",
             "schema": {
-              "$ref": "#/definitions/bbRegion"
+              "$ref": "#/definitions/cdbRegion"
             }
           }
         },
@@ -133,7 +133,7 @@
           "200": {
             "description": "",
             "schema": {
-              "$ref": "#/definitions/bbTransactionResult"
+              "$ref": "#/definitions/cdbTransactionResult"
             }
           }
         },
@@ -143,7 +143,7 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/bbTransaction"
+              "$ref": "#/definitions/cdbTransaction"
             }
           }
         ],
@@ -154,24 +154,20 @@
     }
   },
   "definitions": {
-    "bbGetOperation": {
+    "cdbGetOperation": {
       "type": "object",
       "properties": {
         "headOnly": {
           "type": "boolean",
           "format": "boolean"
+        },
+        "earlyRecords": {
+          "type": "integer",
+          "format": "int64"
         }
       }
     },
-    "bbGetResult": {
-      "type": "object",
-      "properties": {
-        "record": {
-          "$ref": "#/definitions/bbRecord"
-        }
-      }
-    },
-    "bbHead": {
+    "cdbHead": {
       "type": "object",
       "properties": {
         "version": {
@@ -192,7 +188,7 @@
         }
       }
     },
-    "bbKey": {
+    "cdbKey": {
       "type": "object",
       "properties": {
         "regionName": {
@@ -212,7 +208,7 @@
         }
       }
     },
-    "bbPutOperation": {
+    "cdbPutOperation": {
       "type": "object",
       "properties": {
         "value": {
@@ -224,10 +220,6 @@
           "format": "boolean"
         },
         "encryptOnServer": {
-          "type": "boolean",
-          "format": "boolean"
-        },
-        "overrideTtl": {
           "type": "boolean",
           "format": "boolean"
         },
@@ -245,38 +237,24 @@
         }
       }
     },
-    "bbPutResult": {
-      "type": "object"
-    },
-    "bbRangeOperation": {
+    "cdbRangeOperation": {
       "type": "object",
       "properties": {
         "headOnly": {
           "type": "boolean",
           "format": "boolean"
         },
-        "numRecords": {
-          "type": "integer",
-          "format": "int64"
+        "endMinorKey": {
+          "type": "string",
+          "format": "byte"
         }
       }
     },
-    "bbRangeResult": {
-      "type": "object",
-      "properties": {
-        "records": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/bbRecord"
-          }
-        }
-      }
-    },
-    "bbRecord": {
+    "cdbRecord": {
       "type": "object",
       "properties": {
         "head": {
-          "$ref": "#/definitions/bbHead"
+          "$ref": "#/definitions/cdbHead"
         },
         "value": {
           "type": "string",
@@ -284,7 +262,7 @@
         }
       }
     },
-    "bbRegion": {
+    "cdbRegion": {
       "type": "object",
       "properties": {
         "version": {
@@ -292,19 +270,13 @@
         },
         "name": {
           "type": "string"
-        },
-        "ttl": {
-          "type": "string"
         }
       }
     },
-    "bbRemoveOperation": {
+    "cdbRemoveOperation": {
       "type": "object"
     },
-    "bbRemoveResult": {
-      "type": "object"
-    },
-    "bbStatusCode": {
+    "cdbStatusCode": {
       "type": "string",
       "enum": [
         "SUCCESS",
@@ -329,99 +301,74 @@
       ],
       "default": "SUCCESS"
     },
-    "bbTouchOperation": {
+    "cdbTouchOperation": {
       "type": "object",
       "properties": {
-        "overrideTtl": {
-          "type": "boolean",
-          "format": "boolean"
-        },
         "ttlSeconds": {
           "type": "integer",
           "format": "int64"
         }
       }
     },
-    "bbTouchResult": {
-      "type": "object",
-      "properties": {
-        "head": {
-          "$ref": "#/definitions/bbHead"
-        }
-      }
-    },
-    "bbTransaction": {
+    "cdbTransaction": {
       "type": "object",
       "properties": {
         "operations": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bbTxOperation"
+            "$ref": "#/definitions/cdbTxOperation"
           }
-        },
-        "allOrNothing": {
-          "type": "boolean",
-          "format": "boolean"
         }
       }
     },
-    "bbTransactionResult": {
+    "cdbTransactionResult": {
       "type": "object",
       "properties": {
         "results": {
           "type": "array",
           "items": {
-            "$ref": "#/definitions/bbTxOperationResult"
+            "$ref": "#/definitions/cdbTxOperationResult"
           }
         }
       }
     },
-    "bbTxOperation": {
+    "cdbTxOperation": {
       "type": "object",
       "properties": {
         "key": {
-          "$ref": "#/definitions/bbKey"
+          "$ref": "#/definitions/cdbKey"
         },
         "get": {
-          "$ref": "#/definitions/bbGetOperation"
+          "$ref": "#/definitions/cdbGetOperation"
         },
         "range": {
-          "$ref": "#/definitions/bbRangeOperation"
+          "$ref": "#/definitions/cdbRangeOperation"
         },
         "touch": {
-          "$ref": "#/definitions/bbTouchOperation"
+          "$ref": "#/definitions/cdbTouchOperation"
         },
         "put": {
-          "$ref": "#/definitions/bbPutOperation"
+          "$ref": "#/definitions/cdbPutOperation"
         },
         "remove": {
-          "$ref": "#/definitions/bbRemoveOperation"
+          "$ref": "#/definitions/cdbRemoveOperation"
         }
       }
     },
-    "bbTxOperationResult": {
+    "cdbTxOperationResult": {
       "type": "object",
       "properties": {
         "status": {
-          "$ref": "#/definitions/bbStatusCode"
+          "$ref": "#/definitions/cdbStatusCode"
         },
         "message": {
           "type": "string"
         },
-        "get": {
-          "$ref": "#/definitions/bbGetResult"
-        },
-        "range": {
-          "$ref": "#/definitions/bbRangeResult"
-        },
-        "touch": {
-          "$ref": "#/definitions/bbTouchResult"
-        },
-        "put": {
-          "$ref": "#/definitions/bbPutResult"
-        },
-        "remove": {
-          "$ref": "#/definitions/bbRemoveResult"
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/cdbRecord"
+          }
         }
       }
     },
