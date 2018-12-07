@@ -20,11 +20,11 @@ package bbserver_test
 
 import (
 	"testing"
-	"github.com/bigbagger/bigbagger/bbserver"
+	"github.com/consensusdb/consensusdb/bbserver"
 	"bytes"
 	"reflect"
 	"crypto/cipher"
-	"github.com/bigbagger/bigbagger/bbcommon"
+	"github.com/consensusdb/consensusdb/bbcommon"
 )
 
 var KeySizes = [...]int{128, 192, 256}

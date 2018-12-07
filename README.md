@@ -1,6 +1,6 @@
-# bigbagger
+# consensusdb
 
-BigBagger Database
+ConsensusDB Database
 
 This project started on Halloween!
 

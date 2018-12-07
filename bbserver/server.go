@@ -26,13 +26,13 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
-	"github.com/bigbagger/bigbagger/proto/bbproto"
+	"github.com/consensusdb/consensusdb/proto/bbproto"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"path/filepath"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gobwas/glob"
-	"github.com/bigbagger/bigbagger/bbcommon"
+	"github.com/consensusdb/consensusdb/bbcommon"
 	"net/http"
 	"go.etcd.io/etcd/raft"
 	"go.etcd.io/etcd/raft/raftpb"
@@ -75,7 +75,7 @@ func (this *DefaultServer) Close() {
 
 	this.shuttingDown = true
 
-	log.Println("BigBagger shutting down...")
+	log.Println("consensusdb shutting down...")
 
 	this.raftStopC <- true
 	this.ticker.Stop()

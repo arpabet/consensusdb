@@ -20,7 +20,7 @@ package bbserver_test
 
 import (
 	"testing"
-	"github.com/bigbagger/bigbagger/bbserver"
+	"github.com/consensusdb/consensusdb/bbserver"
 	"bytes"
 	"fmt"
 	"reflect"

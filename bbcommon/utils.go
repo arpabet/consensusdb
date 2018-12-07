@@ -22,7 +22,7 @@ import (
 	"time"
 	"strconv"
 	"github.com/pkg/errors"
-	"github.com/bigbagger/bigbagger/proto/bbproto"
+	"github.com/consensusdb/consensusdb/proto/bbproto"
 	"os"
 	"io/ioutil"
 	"strings"

@@ -19,12 +19,12 @@
 package bbserver
 
 import (
-	"github.com/bigbagger/bigbagger/proto/bbproto"
+	"github.com/consensusdb/consensusdb/proto/bbproto"
 	"os"
 	"io/ioutil"
 	"path/filepath"
 	"github.com/golang/protobuf/jsonpb"
-	"github.com/bigbagger/bigbagger/bbcommon"
+	"github.com/consensusdb/consensusdb/bbcommon"
 	"fmt"
 	"time"
 	"log"

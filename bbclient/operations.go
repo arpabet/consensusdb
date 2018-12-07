@@ -19,10 +19,10 @@
 package bbclient
 
 import (
-	"github.com/bigbagger/bigbagger/proto/bbproto"
+	"github.com/consensusdb/consensusdb/proto/bbproto"
 	"github.com/pkg/errors"
 	"fmt"
-	"github.com/bigbagger/bigbagger/bbcommon"
+	"github.com/consensusdb/consensusdb/bbcommon"
 )
 
 type IOperation interface {

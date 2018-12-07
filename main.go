@@ -29,8 +29,8 @@ import (
 	"path"
 	"strings"
 	"text/template"
-	"github.com/bigbagger/bigbagger/proto/bbproto"
-	"github.com/bigbagger/bigbagger/bbserver"
+	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/consensusdb/consensusdb/bbserver"
 	"os/signal"
 	"flag"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	iniFile = flag.String("ini", "bigbagger.ini", "ini file for initialization")
+	iniFile = flag.String("ini", "consensus.ini", "ini file for initialization")
 )
 
 func run() error {
@@ -97,7 +97,7 @@ func run() error {
 		}
 	}()
 
-	log.Println("BigBagger is ready.")
+	log.Println("consensusdb is ready.")
 
 	err = httpServer.ListenAndServe()
 	if err != nil {

@@ -19,7 +19,7 @@
 package bbcommon
 
 import (
-	"github.com/bigbagger/bigbagger/proto/bbproto"
+	"github.com/consensusdb/consensusdb/proto/bbproto"
 )
 
 func ErrorRegionNotFound(name string) *bbproto.TxOperationResult {
