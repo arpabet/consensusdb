@@ -47,7 +47,7 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
     produces: "application/octet-stream";
 };
 
-package bb;
+package cdb;
 
 service RegionService {
 
@@ -82,7 +82,6 @@ service RegionService {
 message Region {
     string           version      = 1;     // version of the data structure, 1.0 - the first one
     string           name         = 2;     // can not be changed
-    string           ttl          = 3;     // "" or "eternal" for no TTL and supported formats: "1Y", "1M", "1D", "1h", "1m", "1s"
 }
 
 message String {
@@ -105,7 +104,7 @@ message Key {
     string    regionName    = 1;
     bytes     majorKey      = 2;   // used as a partition key, good candidate is accountId, if empty - data replicated in all partitions
     bytes     minorKey      = 3;   // used as a record key in the partition
-    fixed64   timestamp     = 4;   // PIT enabled if not 0, search/store entries before or equal to this timestamp
+    fixed64   timestamp     = 4;   // find records with timestamp LESS_OR_EQ
 
 }
 
@@ -124,31 +123,30 @@ message TxOperation {
 }
 
 message GetOperation {
-    bool     headOnly     = 1;
+    bool     headOnly      = 1;
+    uint32   earlyRecords  = 2;    // goes to early records starts from Key.timestamp, but with last versions
 }
 
 message RangeOperation {
     bool     headOnly     = 1;
-    uint32   numRecords   = 2;
+    bytes    endMinorKey  = 2;     // finds all records in the range of [minorKey, minorKeyEnd) with timestamp LESS_OR_EQ with last versions
 }
 
 message TouchOperation {
-    bool     overrideTtl   = 1;
-    uint32   ttlSeconds    = 2;   // overrides dataset TTL
+    uint32   ttlSeconds     = 1;   // add TTL in seconds in not 0, zero means no TTL
 }
 
 message PutOperation {
 
-    bytes    value         = 1;
+    bytes    value          = 1;
 
     bool     compressOnServer = 2;
     bool     encryptOnServer  = 3;
 
-    bool     overrideTtl   = 5;
-    uint32   ttlSeconds    = 6;   // overrides dataset TTL
+    uint32   ttlSeconds     = 5;   // add TTL in seconds in not 0, zero means no TTL
 
-    bool     compareAndSet = 7;
-    uint64   version       = 8;   // if 0 then putIfAbsent
+    bool     compareAndSet  = 7;
+    uint64   version        = 8;   // if 0 then putIfAbsent
 
 }
 
@@ -182,16 +180,10 @@ enum StatusCode {
 
 message TxOperationResult {
 
-  StatusCode    status   = 1;
-  string        message  = 2;   // for error it is error message, for success additional information about execution
+  StatusCode      status   = 1;
+  string          message  = 2;   // for error it is error message, for success additional information about execution
 
-  oneof result {
-    GetResult       get     = 11;
-    RangeResult     range   = 12;
-    TouchResult     touch   = 13;
-    PutResult       put     = 14;
-    RemoveResult    remove  = 15;
-  }
+  repeated Record records  = 3;
 
 }
 
@@ -213,42 +205,17 @@ message Record {
 
 message RawRecord {
 
-   Key     key      = 1;
-   Head    head     = 2;
-   bytes   value    = 3;
-   bool    deleted  = 4;
-   bytes   userMeta = 5;
+   Key     key       = 1;
+   Head    head      = 2;
+   bytes   value     = 3;
+   bool    deleted   = 4;
+   bytes   userMeta  = 5;
 
-}
-
-
-message GetResult {
-
-   Record  record  = 1;
-
-}
-
-message RangeResult {
-
-   repeated Record records = 1;
-}
-
-message TouchResult {
-
-   Head    head   = 1;
-
-}
-
-message PutResult {
-}
-
-message RemoveResult {
 }
 
 message Transaction {
 
    repeated TxOperation operations = 1;
-   bool    allOrNothing = 2;
 
 }
 

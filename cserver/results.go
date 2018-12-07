@@ -23,109 +23,32 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
+
+var emptyRecords = []*cserverpb.Record{}
+var emptyValue = []byte{}
+
 func HeadOf(timestamp uint64, item *badger.Item) *cserverpb.Head {
 	return &cserverpb.Head{Version: item.Version(), ExpiresAt:item.ExpiresAt(), Timestamp: timestamp, DiskSize: item.EstimatedSize()}
+}
+
+func RecordHeadOf(timestamp uint64, item *badger.Item) *cserverpb.Record {
+	return RecordOf(timestamp, item, emptyValue)
 }
 
 func RecordOf(timestamp uint64, item *badger.Item, data []byte) *cserverpb.Record {
 	return &cserverpb.Record{Head: HeadOf(timestamp, item), Value: data}
 }
 
-func SuccessGetNotFoundResult() *cserverpb.TxOperationResult {
-
-	get := new(cserverpb.GetResult)
-
-	result := new(cserverpb.TxOperationResult)
-	result.Status = cserverpb.StatusCode_SUCCESS
-	result.Result =  &cserverpb.TxOperationResult_Get{get}
-
-	return result
+func SuccessResultOf(records []*cserverpb.Record) *cserverpb.TxOperationResult  {
+	return &cserverpb.TxOperationResult{Status:cserverpb.StatusCode_SUCCESS, Records: records}
 }
 
-func SuccessHeadResult(timestamp uint64, item *badger.Item) *cserverpb.TxOperationResult {
-
-	get := new(cserverpb.GetResult)
-	get.Record = &cserverpb.Record{Head: HeadOf(timestamp, item)}
-
-	result := new(cserverpb.TxOperationResult)
-	result.Status = cserverpb.StatusCode_SUCCESS
-	result.Result =  &cserverpb.TxOperationResult_Get{ Get: get }
-
-	return result
+func SuccessResult() *cserverpb.TxOperationResult  {
+	return &cserverpb.TxOperationResult{Status:cserverpb.StatusCode_SUCCESS, Records: emptyRecords}
 }
 
-func SuccessGetResult(timestamp uint64, item *badger.Item, data []byte) *cserverpb.TxOperationResult {
-
-	get := new(cserverpb.GetResult)
-	get.Record = RecordOf(timestamp, item, data)
-
-	result := new(cserverpb.TxOperationResult)
-	result.Status = cserverpb.StatusCode_SUCCESS
-	result.Result =  &cserverpb.TxOperationResult_Get{Get: get}
-
-	return result
+func SuccessNotUpdatedResult() *cserverpb.TxOperationResult  {
+	return &cserverpb.TxOperationResult{Status:cserverpb.StatusCode_SUCCESS_NOT_UPDATED, Records: emptyRecords}
 }
 
-func SuccessRangeResult(records []*cserverpb.Record) *cserverpb.TxOperationResult {
 
-	rang := new(cserverpb.RangeResult)
-	rang.Records = records
-
-	result := new(cserverpb.TxOperationResult)
-	result.Status = cserverpb.StatusCode_SUCCESS
-	result.Result =  &cserverpb.TxOperationResult_Range{Range: rang}
-
-	return result
-}
-
-func SuccessTouchNotFoundResult() *cserverpb.TxOperationResult {
-
-	touch := new(cserverpb.TouchResult)
-
-	result := new(cserverpb.TxOperationResult)
-	result.Status = cserverpb.StatusCode_SUCCESS_NOT_UPDATED
-
-	result.Result = &cserverpb.TxOperationResult_Touch{ touch }
-
-	return result
-}
-
-func SuccessTouchResult(timestamp uint64, item *badger.Item, expiresAt uint64) *cserverpb.TxOperationResult {
-
-	touch := new(cserverpb.TouchResult)
-	touch.Head = HeadOf(timestamp, item)
-	touch.Head.ExpiresAt = expiresAt
-
-	result := new(cserverpb.TxOperationResult)
-	result.Status = cserverpb.StatusCode_SUCCESS
-
-	result.Result = &cserverpb.TxOperationResult_Touch{ touch }
-
-	return result
-}
-
-func SuccessPutResult(updated bool) *cserverpb.TxOperationResult {
-
-	result := new(cserverpb.TxOperationResult)
-	if updated {
-		result.Status = cserverpb.StatusCode_SUCCESS
-	} else {
-		result.Status = cserverpb.StatusCode_SUCCESS_NOT_UPDATED
-	}
-	result.Result =  &cserverpb.TxOperationResult_Put{ &cserverpb.PutResult{} }
-
-	return result
-}
-
-func SuccessRemoveResult(updated bool) *cserverpb.TxOperationResult {
-
-	result := new(cserverpb.TxOperationResult)
-	if updated {
-		result.Status = cserverpb.StatusCode_SUCCESS
-	} else {
-		result.Status = cserverpb.StatusCode_SUCCESS_NOT_UPDATED
-	}
-	result.Result =  &cserverpb.TxOperationResult_Remove{&cserverpb.RemoveResult{}}
-
-	return result
-}
