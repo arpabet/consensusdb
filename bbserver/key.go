@@ -78,6 +78,18 @@ func GetKeyTimestamp(b []byte) uint64 {
 
 }
 
+func GetMajorKeyPrefix(majorKey []byte) []byte {
+
+	majorKeyLen := binary.BigEndian.Uint16(majorKey)
+
+	prefix := make([]byte, 2 + int(majorKeyLen))
+
+	binary.BigEndian.PutUint16(prefix, uint16(majorKeyLen))
+	copy(prefix[2:], majorKey)
+
+	return prefix
+}
+
 func ReplaceKeyTimestamp(b []byte, timestamp uint64) []byte {
 
 	majorKeyLen := binary.BigEndian.Uint16(b)

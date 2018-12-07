@@ -19,25 +19,52 @@
 package bbserver
 
 import (
+	stats "go.etcd.io/etcd/etcdserver/api/v2stats"
+	"go.etcd.io/etcd/etcdserver/api/rafthttp"
+	"go.etcd.io/etcd/etcdserver/api/snap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"log"
 	"net"
 	"github.com/bigbagger/bigbagger/proto/bbproto"
-	"os"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"path/filepath"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gobwas/glob"
 	"github.com/bigbagger/bigbagger/bbcommon"
+	"net/http"
+	"go.etcd.io/etcd/raft"
+	"go.etcd.io/etcd/raft/raftpb"
+	"strconv"
+	"go.uber.org/zap"
+	"go.etcd.io/etcd/pkg/types"
+	"go.etcd.io/etcd/wal"
+	"go.etcd.io/etcd/wal/walpb"
+	"time"
 )
 
 type BigBaggerServer struct {
+
 	grpcServer       *grpc.Server
 	conf             *Configuration
 	regionStoreMap   *RegionStoreMap
+
 	shuttingDown     bool
+
+	logger           *zap.Logger
+
+	wal              *wal.WAL
+	snapshotter      *snap.Snapshotter
+
+	ticker 			*time.Ticker
+
+	raftStorage      *raft.MemoryStorage
+	raftNode         raft.Node
+	raftTransport    *rafthttp.Transport
+
+	raftErrorC 		 chan error
+	raftStopC  		 chan bool
 }
 
 func (this *BigBaggerServer) Close() {
@@ -48,7 +75,10 @@ func (this *BigBaggerServer) Close() {
 
 	this.shuttingDown = true
 
-	log.Println("gRPC server shutting down")
+	log.Println("BigBagger shutting down...")
+
+	this.raftStopC <- true
+	this.ticker.Stop()
 
 	if this.grpcServer != nil {
 		this.grpcServer.Stop()
@@ -63,33 +93,38 @@ func (this *BigBaggerServer) Close() {
 		e.Value.Close();
 	}
 
+	close(this.raftErrorC)
+
+	this.wal.Close()
 }
 
 func NewServer(conf *Configuration) (server *BigBaggerServer, err error) {
 
 	server = &BigBaggerServer{
-		conf: conf,
-		regionStoreMap: NewRegionStoreMap()}
-
-	log.Printf("init dataDir=%s\n", server.conf.DataDir)
-
-	if _, err := os.Stat(server.conf.DataDir); os.IsNotExist(err) {
-		return nil, err;
+		conf:           conf,
+		regionStoreMap: NewRegionStoreMap(),
+		logger:         zap.NewExample(),
+		ticker:         time.NewTicker(100 * time.Millisecond),
+		raftStorage:    raft.NewMemoryStorage(),
+		raftErrorC:     make(chan error),
+		raftStopC:      make(chan bool, 1),
 	}
 
-	subDirs, err := ioutil.ReadDir(server.conf.DataDir)
+	log.Printf("Data path: %s\n", server.conf.RootDir)
+
+	regionDirs, err := ioutil.ReadDir(server.conf.DataDir)
 
 	if err != nil {
 		return nil, err
 	}
 
-	for _, dbDir := range subDirs {
+	for _, regionName := range regionDirs {
 
-		if dbDir.IsDir() {
+		if regionName.IsDir() {
 
-			log.Printf("load dbDir=%s\n", dbDir.Name())
+			log.Printf("Load region: %s\n", regionName.Name())
 
-			store, err := LoadBaggerDriver(filepath.Join(server.conf.DataDir, dbDir.Name()), conf)
+			store, err := LoadBaggerDriver(filepath.Join(server.conf.DataDir, regionName.Name()), conf)
 			if err != nil {
 				return nil, err
 			}
@@ -100,8 +135,196 @@ func NewServer(conf *Configuration) (server *BigBaggerServer, err error) {
 
 	}
 
-	return server, nil
+	server.snapshotter = snap.New(server.logger, conf.SnapDir)
+
+	walExist := wal.Exist(conf.WalDir)
+
+	if !walExist {
+
+		w, err := wal.Create(server.logger, conf.WalDir, nil)
+		if err != nil {
+			return nil, err
+		}
+		w.Close()
+
+	}
+
+	snapshot, err := server.snapshotter.Load()
+	walSnapshot := walpb.Snapshot{}
+	if err != nil {
+		if err != snap.ErrNoSnapshot {
+			log.Fatal("error loading raft snapshot", err)
+		}
+	} else {
+		walSnapshot.Index, walSnapshot.Term = snapshot.Metadata.Index, snapshot.Metadata.Term
+		server.raftStorage.ApplySnapshot(*snapshot)
+	}
+
+	log.Printf("Loading WAL at term %d and index %d", walSnapshot.Term, walSnapshot.Index)
+	server.wal, err = wal.Open(server.logger, conf.WalDir, walSnapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	_, st, ents, err := server.wal.ReadAll()
+	if err != nil {
+		log.Fatal("failed to read WAL", err)
+	}
+	server.raftStorage.SetHardState(st)
+	server.raftStorage.Append(ents)
+
+	if len(ents) > 0 {
+		lastIndex := ents[len(ents)-1].Index
+		log.Print("raft started from lastIndex=", lastIndex, "\n")
+	}
+
+	raftConf := &raft.Config{
+		ID:                        uint64(conf.PeerId),
+		ElectionTick:              10,
+		HeartbeatTick:             1,
+		Storage:                   server.raftStorage,
+		MaxSizePerMsg:             1024 * 1024,
+		MaxInflightMsgs:           256,
+		MaxUncommittedEntriesSize: 1 << 30,
+	}
+
+	raftPeers := make([]raft.Peer, 0, len(conf.Peers))
+	for k, _ := range conf.Peers {
+		raftPeers = append(raftPeers, raft.Peer{ID: uint64(k)})
+	}
+
+	if walExist {
+		server.raftNode = raft.RestartNode(raftConf)
+	} else {
+		server.raftNode = raft.StartNode(raftConf, raftPeers)
+	}
+
+	peerIdStr := strconv.Itoa(conf.PeerId)
+
+	server.raftTransport = &rafthttp.Transport{
+		Logger:      zap.NewExample(),
+		ID:          types.ID(conf.PeerId),
+		ClusterID:   types.ID(conf.ClusterId),
+		Raft:        server,
+		ServerStats: stats.NewServerStats(conf.PeerName, peerIdStr),
+		LeaderStats: stats.NewLeaderStats(peerIdStr),
+		ErrorC:      server.raftErrorC,
+	}
+
+	err = server.raftTransport.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range conf.Peers {
+		if k != conf.PeerId {
+			server.raftTransport.AddPeer(types.ID(k), []string{v})
+		}
+	}
+
+	return server,nil
 }
+
+
+func (this *BigBaggerServer) GetRaftMux()  *http.ServeMux {
+	handler := this.raftTransport.Handler()
+	return handler.(*http.ServeMux)
+}
+
+func (this *BigBaggerServer) saveToStorage() {
+
+}
+
+func (this *BigBaggerServer) RaftLoop() error {
+
+	// event loop on raft state machine updates
+	for {
+		select {
+		case <-this.ticker.C:
+			this.raftNode.Tick()
+
+			// store raft entries to wal, then publish over commit channel
+		case rd := <-this.raftNode.Ready():
+			this.wal.Save(rd.HardState, rd.Entries)
+
+			if !raft.IsEmptySnap(rd.Snapshot) {
+				log.Print("Received snapshot")
+				this.saveSnapshot(rd.Snapshot)
+				this.raftStorage.ApplySnapshot(rd.Snapshot)
+				//this.publishSnapshot(rd.Snapshot)
+			}
+
+			this.raftStorage.Append(rd.Entries)
+			this.raftTransport.Send(rd.Messages)
+
+
+			this.raftNode.Advance()
+
+		case err := <-this.raftTransport.ErrorC:
+			log.Fatal("raft transport error", err)
+			return err
+
+		case <-this.raftStopC:
+			return nil
+		}
+	}
+}
+
+func (this *BigBaggerServer) saveSnapshot(snap raftpb.Snapshot) error {
+	// must save the snapshot index to the WAL before saving the
+	// snapshot to maintain the invariant that we only Open the
+	// wal at previously-saved snapshot indexes.
+	walSnapshot := walpb.Snapshot{
+		Index: snap.Metadata.Index,
+		Term:  snap.Metadata.Term,
+	}
+	if err := this.wal.SaveSnapshot(walSnapshot); err != nil {
+		return err
+	}
+	if err := this.snapshotter.SaveSnap(snap); err != nil {
+		return err
+	}
+	return this.wal.ReleaseLockTo(snap.Metadata.Index)
+}
+
+//
+//  Raft
+//
+
+func (this *BigBaggerServer) Process(ctx context.Context, m raftpb.Message) error {
+	return this.raftNode.Step(ctx, m)
+}
+
+func (this *BigBaggerServer) IsIDRemoved(id uint64) bool                           {
+	return false
+}
+
+func (this *BigBaggerServer) ReportUnreachable(id uint64)                          {
+
+}
+
+func (this *BigBaggerServer) ReportSnapshot(id uint64, status raft.SnapshotStatus) {
+
+}
+
+func (this *BigBaggerServer) propogateChanges(msg *bbproto.RawRecord) {
+}
+
+func (this *BigBaggerServer) getSnapshot() ([]byte, error) {
+
+	majorKey := []byte{}
+
+	var outC chan *bbproto.RawRecord
+
+	for _, regionStore := range this.regionStoreMap.List() {
+
+		go regionStore.Value.GetSnapshot(majorKey, outC)
+
+	}
+
+	return []byte{}, nil
+}
+
 
 //
 //
@@ -112,27 +335,27 @@ func NewServer(conf *Configuration) (server *BigBaggerServer, err error) {
 
 func (this *BigBaggerServer) Create(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
 
-	name := region.Name
+	regionName := region.Name
 
-	log.Printf("Create region: %s\n", name)
+	log.Printf("Create region: %s\n", regionName)
 
-	if name == "" {
-		return nil, errors.New("empty name")
+	if regionName == "" {
+		return nil, errors.New("empty regionName")
 	}
 
-	store, ok := this.regionStoreMap.Get(name)
+	store, ok := this.regionStoreMap.Get(regionName)
 
 	if ok {
 		return new(empty.Empty), nil
 	}
 
-	store, err = NewBaggerStore(filepath.Join(this.conf.DataDir, name), region, this.conf)
+	store, err = NewBaggerStore(filepath.Join(this.conf.DataDir, regionName), region, this.conf)
 
 	if err != nil {
 		return nil, err
 	}
 
-	this.regionStoreMap.Put(name, store)
+	this.regionStoreMap.Put(regionName, store)
 
 	return new(empty.Empty), nil
 
@@ -301,7 +524,7 @@ func (this *BigBaggerServer) Execute(context context.Context, tx *bbproto.Transa
 }
 
 
-func (this *BigBaggerServer) StartServer() error {
+func (this *BigBaggerServer) ServeGRPC() error {
 
 	// start listening for grpc
 	listen, err := net.Listen("tcp4", this.conf.GrpcAddress)

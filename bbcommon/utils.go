@@ -23,6 +23,9 @@ import (
 	"strconv"
 	"github.com/pkg/errors"
 	"github.com/bigbagger/bigbagger/proto/bbproto"
+	"os"
+	"io/ioutil"
+	"strings"
 )
 
 const (
@@ -102,5 +105,43 @@ func IsUpdateOperation(operation *bbproto.TxOperation) bool {
 	}
 
 	return false
+
+}
+
+func CreateDirsIfNotExist(dirs ...string) error {
+
+	for _, dir := range dirs {
+
+		if _, err := os.Stat(dir); os.IsNotExist(err) {
+			err = os.Mkdir(dir, 0755)
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+
+	return nil
+
+}
+
+func CountFilesInDir(dir, ext string) int {
+
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return 0
+	}
+
+	cnt := 0
+
+	for _, file := range files {
+
+		if !file.IsDir() && strings.HasSuffix(file.Name(), ext)  {
+			cnt = cnt + 1
+		}
+
+	}
+
+	return cnt
 
 }

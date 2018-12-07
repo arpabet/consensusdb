@@ -34,6 +34,8 @@ import (
 	"os/signal"
 	"flag"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"math/rand"
+	"time"
 )
 
 var (
@@ -42,12 +44,19 @@ var (
 
 func run() error {
 
-	log.Println("BigBagger DataNode started from " + *iniFile)
+	log.Println("Starting...")
+
+	rand.Seed(time.Now().UnixNano())
 
 	cfg, err := ini.Load(*iniFile)
 	if err != nil {
 		return err
 	}
+
+	curdir, _ := os.Getwd()
+	log.Println("Current dir: " + curdir)
+
+	log.Println("Loaded configuration from: " + *iniFile)
 
 	conf, err := bbserver.LoadConfiguration(cfg)
 	if err != nil {
@@ -61,15 +70,17 @@ func run() error {
 		return err
 	}
 
-	log.Println("Starting gRPC server on " + conf.GrpcAddress)
-	go server.StartServer()
+	log.Println("GRPC Address: " + conf.GrpcAddress)
+	go server.ServeGRPC()
+
+	log.Println("HTTP Address: " + conf.HttpAddress)
+	go server.RaftLoop()
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	log.Println("Starting HTTP server on " + conf.HttpAddress)
-	httpServer, err := NewHttpServer(ctx, conf.HttpAddress, conf.GrpcAddress)
+	httpServer, err := NewHttpServer(ctx, conf.HttpAddress, conf.GrpcAddress, server.GetRaftMux())
 	defer httpServer.Close()
 
 	if err != nil {
@@ -85,6 +96,8 @@ func run() error {
 			server.Close()
 		}
 	}()
+
+	log.Println("BigBagger is ready.")
 
 	err = httpServer.ListenAndServe()
 	if err != nil {
@@ -118,7 +131,7 @@ func serveSwagger(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string) (*http.Server, error) {
+func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string, mux *http.ServeMux) (*http.Server, error) {
 
 	gwRegion := runtime.NewServeMux()
 	gwTnx := runtime.NewServeMux()
@@ -131,15 +144,11 @@ func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string) (*http.
 	if err != nil {
 		return nil, err
 	}
-	mux := http.NewServeMux()
 	mux.Handle("/v1/region", gwRegion)
 	mux.Handle("/v1/transaction", gwTnx)
 	mux.HandleFunc("/swagger/", serveSwagger)
 	mux.HandleFunc("/", serveWelcome)
 	mux.Handle("/metrics", promhttp.Handler())
-
-	curdir, _ := os.Getwd()
-	log.Println("cur dir", curdir)
 
 	return &http.Server{Addr: httpAddress, Handler: mux}, nil
 

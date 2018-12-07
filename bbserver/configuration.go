@@ -21,14 +21,25 @@ package bbserver
 
 import (
 	"gopkg.in/ini.v1"
+	"strconv"
+	"path/filepath"
+	"github.com/bigbagger/bigbagger/bbcommon"
 )
 
 type Configuration struct {
 
+	Peers                  map[int]string
+	PeerId                 int
+	ClusterId              int
+	PeerName			   string
+
 	HttpAddress            string
 	GrpcAddress            string
 
+	RootDir                string
 	DataDir                string
+	WalDir                 string
+	SnapDir                string
 
 	SecurityContext        ISecurityContext
 
@@ -46,12 +57,82 @@ type Configuration struct {
 
 func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 
+	networkSection := cfg.Section("network")
+
+	peers := make(map[int]string)
+
+	for _, k := range networkSection.KeyStrings() {
+
+		if len(k) > 5 && "peer." == k[:5] {
+
+			id, err := strconv.Atoi(k[5:])
+			if err != nil {
+				return nil, err
+			}
+
+			peers[id] = networkSection.Key(k).String()
+
+		}
+
+	}
+
+	peerId, err := networkSection.Key("peerId").Int()
+	if err != nil {
+		return nil, err
+	}
+
+	clusterId, err := networkSection.Key("clusterId").Int()
+	if err != nil {
+		return nil, err
+	}
+
+	var peerName string
+	if networkSection.HasKey("peerName") {
+		peerName = networkSection.Key("peerName").String()
+	} else {
+		peerName = networkSection.Key("peer." +  strconv.Itoa(peerId)).String()
+	}
+
 	serverSection := cfg.Section("server")
 
 	httpAddress := serverSection.Key("httpAddress").String()
 	grpcAddress := serverSection.Key("grpcAddress").String()
 
-	dataDir := cfg.Section("database").Key("dataDir").String()
+	databaseSection := cfg.Section("database")
+
+	rootDir := databaseSection.Key("rootDir").String()
+
+	var dataDir string
+	var walDir  string
+	var snapDir string
+
+	if databaseSection.HasKey("dataDir") {
+		dataDir = databaseSection.Key("dataDir").String()
+	} else {
+		dataDir = filepath.Join(rootDir, "data")
+	}
+
+	if databaseSection.HasKey("walDir") {
+		walDir = databaseSection.Key("walDir").String()
+	} else {
+		walDir = filepath.Join(rootDir, "WAL")
+	}
+
+	if databaseSection.HasKey("snapDir") {
+		snapDir = databaseSection.Key("snapDir").String()
+	} else {
+		snapDir = filepath.Join(rootDir, "snap")
+	}
+
+	if databaseSection.HasKey("createIfNotExist") {
+		b, err := databaseSection.Key("createIfNotExist").Bool()
+		if err != nil {
+			return nil, err
+		}
+		if b {
+			bbcommon.CreateDirsIfNotExist(rootDir, dataDir, walDir, snapDir)
+		}
+	}
 
 	securityContext, err := NewSimpleSecurityContext(cfg.Section("security").KeysHash())
 
@@ -97,10 +178,18 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 
 	return &Configuration{
 
+		Peers: 		peers,
+		PeerId: 	peerId,
+		ClusterId: 	clusterId,
+		PeerName: 	peerName,
+
 		HttpAddress: httpAddress,
 		GrpcAddress: grpcAddress,
 
-		DataDir: dataDir,
+		RootDir: 	rootDir,
+		DataDir: 	dataDir,
+		WalDir: 	walDir,
+		SnapDir: 	snapDir,
 
 		CompressionEnabled: compressionEnabled,
 		Compressor: compressor,
@@ -162,7 +251,7 @@ func FindCipherMode(name string) (mode ICipherMode, err error) {
 	return mode, nil
 }
 
-func NewDefaultConfiguration(httpAddress, grpcAddress, dataDir string) (*Configuration, error) {
+func NewDefaultConfiguration(httpAddress, grpcAddress, rootDir string) (*Configuration, error) {
 
 	passwordMap := map[string]string {
 		"password" : "De6*u1tPassw0rd!",
@@ -173,16 +262,24 @@ func NewDefaultConfiguration(httpAddress, grpcAddress, dataDir string) (*Configu
 		return nil, err
 	}
 
-	return &Configuration{
+	conf := &Configuration{
+
+		Peers: map[int]string{1: httpAddress},
+		PeerId: 	1,
+		ClusterId: 	1,
+		PeerName: 	httpAddress,
 
 		HttpAddress: httpAddress,
 		GrpcAddress: grpcAddress,
 
-		DataDir: dataDir,
+		RootDir: 	 rootDir,
+		DataDir: 	 filepath.Join(rootDir, "data"),
+		WalDir: 	 filepath.Join(rootDir, "WAL"),
+		SnapDir: 	 filepath.Join(rootDir, "snap"),
 
 		CompressionEnabled: true,
-		Compressor: &LZ4Compressor{},
-		CompressionLevel: 9,
+		Compressor: 		&LZ4Compressor{},
+		CompressionLevel: 	9,
 
 		EncryptionEnabled: true,
 		EncryptionCipher: &AESCipher{},
@@ -192,6 +289,9 @@ func NewDefaultConfiguration(httpAddress, grpcAddress, dataDir string) (*Configu
 
 		SecurityContext: securityContext,
 
-	}, nil
+	}
 
+	bbcommon.CreateDirsIfNotExist(conf.RootDir, conf.DataDir, conf.WalDir, conf.SnapDir)
+
+	return conf, nil
 }

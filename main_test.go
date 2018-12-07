@@ -40,15 +40,15 @@ func TestSuit(t *testing.T) {
 
 	println("DatasetTest executed")
 
-	dataDir, err := ioutil.TempDir("/tmp", "bigbagger_test")
+	rootDir, err := ioutil.TempDir("/tmp", "bigbagger_test")
 
 	if err != nil {
 		t.Fatal("fail to create tmp dir ", err)
 	}
 
-	defer os.RemoveAll(dataDir)
+	defer os.RemoveAll(rootDir)
 
-	conf, err := bbserver.NewDefaultConfiguration(httpAddress, grpcAddress, dataDir)
+	conf, err := bbserver.NewDefaultConfiguration(httpAddress, grpcAddress, rootDir)
 	if err != nil {
 		t.Fatal("fail to create configuration", err)
 	}
@@ -61,7 +61,8 @@ func TestSuit(t *testing.T) {
 		return
 	}
 
-	go server.StartServer()
+	go server.ServeGRPC()
+	go server.RaftLoop()
 
 	time.Sleep(time.Second)
 
