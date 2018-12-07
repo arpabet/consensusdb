@@ -35,12 +35,15 @@ import (
 
 
 type BaggerStore struct {
-	db                     *bagger.DB
-	region                 *bbproto.Region
-	dbDir                  string
-	conf                   *Configuration
 
-	ttl                    time.Duration    // 0 - for eternal
+	regionName          string
+
+	db        			*bagger.DB
+	region    			*bbproto.Region
+	regionDir 			string
+	conf      			*Configuration
+
+	ttl                 time.Duration    // 0 - for eternal
 
 }
 
@@ -80,7 +83,7 @@ func (this *BaggerTxn) Commit() error {
 //
 
 func (this *BaggerStore) GetName() string {
-	return this.region.Name
+	return this.regionName
 }
 
 func (this *BaggerStore) GetRegion() *bbproto.Region {
@@ -90,6 +93,74 @@ func (this *BaggerStore) GetRegion() *bbproto.Region {
 func (this *BaggerStore) NewTransaction() IRegionTnx {
 	return &BaggerTxn{store:this}
 }
+
+func (this *BaggerStore) GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawRecord) error {
+
+	txn := this.db.NewTransaction(false)
+	defer txn.Discard()
+
+	prefixKey := GetMajorKeyPrefix(majorKey)
+	regionName := this.GetName()
+
+	iteratorOptions := bagger.IteratorOptions{
+		PrefetchValues: true,
+		PrefetchSize:   100,
+		Reverse:        false,
+		AllVersions:    true,
+	}
+
+	iter := txn.NewIterator(iteratorOptions)
+	iter.Seek(prefixKey)
+
+	for i := 0; iter.Valid() && iter.ValidForPrefix(prefixKey); i = i + 1 {
+
+		item := iter.Item()
+
+		var key Key
+		key.Decode(item.Key())
+
+		msg := new(bbproto.RawRecord)
+
+		msg.Key = new(bbproto.Key)
+		msg.Key.RegionName = regionName
+		msg.Key.MajorKey = key.MajorKey
+		msg.Key.MinorKey = key.MinorKey
+		msg.Key.Timestamp = key.Timestamp
+
+		msg.Head = new(bbproto.Head)
+		msg.Head.ExpiresAt = item.ExpiresAt()
+		msg.Head.Timestamp = key.Timestamp
+		msg.Head.Version = item.Version()
+
+		msg.UserMeta = []byte{item.UserMeta()}
+
+		if item.IsDeletedOrExpired() {
+			msg.Deleted = true
+		} else {
+			msg.Deleted = false
+
+			data, err := item.ValueCopy(nil)
+			if err != nil {
+				log.Print("Error: ", err)
+			} else {
+				msg.Value = data
+			}
+
+		}
+
+		outC <- msg
+
+		iter.Next()
+
+	}
+
+	iter.Close()
+
+	return nil
+
+}
+
+
 
 
 func (this *BaggerStore) Close() error {
@@ -121,10 +192,10 @@ func (this *BaggerStore) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefixK
 
 }
 
-func NewBaggerStore(dbDir string, region *bbproto.Region, conf *Configuration) (context *BaggerStore, err error) {
+func NewBaggerStore(regionDir string, region *bbproto.Region, conf *Configuration) (context *BaggerStore, err error) {
 
-	if _, err := os.Stat(dbDir); os.IsNotExist(err) {
-		err = os.Mkdir(dbDir, 0755)
+	if _, err := os.Stat(regionDir); os.IsNotExist(err) {
+		err = os.Mkdir(regionDir, 0755)
 		if err != nil {
 			return nil, err
 		}
@@ -134,7 +205,7 @@ func NewBaggerStore(dbDir string, region *bbproto.Region, conf *Configuration) (
 			return nil, err
 		}
 
-		err = ioutil.WriteFile(filepath.Join(dbDir, REGION_JSON), []byte(str), 0755)
+		err = ioutil.WriteFile(filepath.Join(regionDir, REGION_JSON), []byte(str), 0755)
 
 		if err != nil {
 			return nil, err
@@ -142,17 +213,17 @@ func NewBaggerStore(dbDir string, region *bbproto.Region, conf *Configuration) (
 
 	}
 
-	return OpenBaggerStore(dbDir, region, conf)
+	return OpenBaggerStore(regionDir, region, conf)
 
 }
 
-func OpenBaggerStore(dbDir string, region *bbproto.Region, conf *Configuration) (context *BaggerStore, err error) {
+func OpenBaggerStore(regionDir string, region *bbproto.Region, conf *Configuration) (context *BaggerStore, err error) {
 
-	context = &BaggerStore{dbDir: dbDir, region: region, conf: conf}
+	context = &BaggerStore{regionName: region.Name, regionDir: regionDir, region: region, conf: conf}
 
 	opts := bagger.DefaultOptions
-	opts.Dir = dbDir + "/key"
-	opts.ValueDir = dbDir + "/value"
+	opts.Dir = regionDir + "/key"
+	opts.ValueDir = regionDir + "/value"
 	context.db, err = bagger.Open(opts)
 
 	if len(region.Ttl) == 0 || region.Ttl == "eternal" {
@@ -171,9 +242,9 @@ func OpenBaggerStore(dbDir string, region *bbproto.Region, conf *Configuration) 
 
 }
 
-func LoadBaggerDriver(dbDir string, conf *Configuration) (context *BaggerStore, err error) {
+func LoadBaggerDriver(regionDir string, conf *Configuration) (context *BaggerStore, err error) {
 
-	data, err := ioutil.ReadFile(filepath.Join(dbDir, REGION_JSON))
+	data, err := ioutil.ReadFile(filepath.Join(regionDir, REGION_JSON))
 
 	if err != nil {
 		return nil, err
@@ -186,7 +257,7 @@ func LoadBaggerDriver(dbDir string, conf *Configuration) (context *BaggerStore, 
 		return nil, err
 	}
 
-	return OpenBaggerStore(dbDir, region, conf)
+	return OpenBaggerStore(regionDir, region, conf)
 
 }
 

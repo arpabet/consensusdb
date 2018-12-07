@@ -211,6 +211,17 @@ message Record {
 
 }
 
+message RawRecord {
+
+   Key     key      = 1;
+   Head    head     = 2;
+   bytes   value    = 3;
+   bool    deleted  = 4;
+   bytes   userMeta = 5;
+
+}
+
+
 message GetResult {
 
    Record  record  = 1;

@@ -36,6 +36,8 @@ type IRegionStore interface {
 
 	Close() error
 
+	GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawRecord) (error)
+
 }
 
 type IRegionTnx interface {
@@ -77,6 +79,10 @@ func (this *ErrorStore) Close() error {
 	return nil
 }
 
+func (this *ErrorStore)  GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawRecord) error {
+	return nil
+}
+
 func (this *ErrorTxn) Update(update bool) {
 }
 
@@ -93,7 +99,6 @@ func (this *ErrorTxn) Rollback() {
 func (this *ErrorTxn) Commit() error {
 	return nil
 }
-
 
 func NewErrorStore(regionName string, result  *bbproto.TxOperationResult) IRegionStore {
 	return &ErrorStore{regionName, result}
