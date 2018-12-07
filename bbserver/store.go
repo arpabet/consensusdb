@@ -30,7 +30,7 @@ import (
 	"log"
 	"github.com/pkg/errors"
 	"math"
-	"github.com/bigbagger/bagger"
+	"github.com/dgraph-io/badger"
 )
 
 
@@ -38,7 +38,7 @@ type DefaultStore struct {
 
 	regionName          string
 
-	db        			*bagger.DB
+	db        			*badger.DB
 	region    			*bbproto.Region
 	regionDir 			string
 	conf      			*Configuration
@@ -50,7 +50,7 @@ type DefaultStore struct {
 type DefaultStoreTxn struct {
 	store   *DefaultStore
 	update  bool
-	txn     *bagger.Txn
+	txn     *badger.Txn
 }
 
 //
@@ -74,7 +74,7 @@ func (this *DefaultStoreTxn) Rollback() {
 }
 
 func (this *DefaultStoreTxn) Commit() error {
-	return this.txn.Commit()
+	return this.txn.Commit(nil)
 }
 
 
@@ -102,7 +102,7 @@ func (this *DefaultStore) GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawR
 	prefixKey := GetMajorKeyPrefix(majorKey)
 	regionName := this.GetName()
 
-	iteratorOptions := bagger.IteratorOptions{
+	iteratorOptions := badger.IteratorOptions{
 		PrefetchValues: true,
 		PrefetchSize:   100,
 		Reverse:        false,
@@ -221,10 +221,10 @@ func OpenDefaultStore(regionDir string, region *bbproto.Region, conf *Configurat
 
 	context = &DefaultStore{regionName: region.Name, regionDir: regionDir, region: region, conf: conf}
 
-	opts := bagger.DefaultOptions
+	opts := badger.DefaultOptions
 	opts.Dir = regionDir + "/key"
 	opts.ValueDir = regionDir + "/value"
-	context.db, err = bagger.Open(opts)
+	context.db, err = badger.Open(opts)
 
 	if len(region.Ttl) == 0 || region.Ttl == "eternal" {
 		context.ttl = 0
@@ -261,7 +261,7 @@ func LoadBaggerDriver(regionDir string, conf *Configuration) (context *DefaultSt
 
 }
 
-func (this *DefaultStore) ProcessGetOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessGetOperation(txn *badger.Txn, key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.TxOperationResult {
 
 	lookupKey, _, err := this.GetEntryKey(key)
 
@@ -294,7 +294,7 @@ func (this *DefaultStore) ProcessGetOperation(txn *bagger.Txn, key *bbproto.Key,
 
 }
 
-func (this *DefaultStore) ProcessRangeOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.RangeOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessRangeOperation(txn *badger.Txn, key *bbproto.Key, operation *bbproto.RangeOperation) *bbproto.TxOperationResult {
 
 	lookupKey, prefixKey, err := this.GetEntryKey(key)
 
@@ -307,7 +307,7 @@ func (this *DefaultStore) ProcessRangeOperation(txn *bagger.Txn, key *bbproto.Ke
 	size := int(operation.NumRecords)
 	records := make([]*bbproto.Record, 0, size)
 
-	reverseIteratorOptions := bagger.IteratorOptions{
+	reverseIteratorOptions := badger.IteratorOptions{
 		PrefetchValues: true,
 		PrefetchSize:   size,
 		Reverse:        true,
@@ -345,7 +345,7 @@ func (this *DefaultStore) ProcessRangeOperation(txn *bagger.Txn, key *bbproto.Ke
 
 }
 
-func (this *DefaultStore) ProcessTouchOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessTouchOperation(txn *badger.Txn, key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.TxOperationResult {
 
 	lookupKey, _, err := this.GetEntryKey(key)
 	entryKey := lookupKey
@@ -372,7 +372,7 @@ func (this *DefaultStore) ProcessTouchOperation(txn *bagger.Txn, key *bbproto.Ke
 		ttl = time.Duration(operation.TtlSeconds) * time.Second
 	}
 
-	entry := &bagger.Entry{ Key: entryKey, Value:data, UserMeta: item.UserMeta()  }
+	entry := &badger.Entry{ Key: entryKey, Value:data, UserMeta: item.UserMeta()  }
 
 	if ttl > 0 {
 		expire := time.Now().Add(ttl).Unix()
@@ -389,7 +389,7 @@ func (this *DefaultStore) ProcessTouchOperation(txn *bagger.Txn, key *bbproto.Ke
 
 }
 
-func (this *DefaultStore) ProcessPutOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessPutOperation(txn *badger.Txn, key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.TxOperationResult {
 
 	entryKey, _, err := this.GetEntryKey(key)
 
@@ -433,7 +433,7 @@ func (this *DefaultStore) ProcessPutOperation(txn *bagger.Txn, key *bbproto.Key,
 
 }
 
-func (this *DefaultStore) ProcessRemoveOperation(txn *bagger.Txn, key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessRemoveOperation(txn *badger.Txn, key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.TxOperationResult {
 
 	entryKey, _, err := this.GetEntryKey(key)
 
@@ -456,7 +456,7 @@ func (this *DefaultStore) ProcessRemoveOperation(txn *bagger.Txn, key *bbproto.K
 //
 
 
-func (this *DefaultStore) ProcessOperation(txn *bagger.Txn, operation *bbproto.TxOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessOperation(txn *badger.Txn, operation *bbproto.TxOperation) *bbproto.TxOperationResult {
 
 	switch operation.Operation.(type) {
 
@@ -484,9 +484,9 @@ func (this *DefaultStore) ProcessOperation(txn *bagger.Txn, operation *bbproto.T
 //  Value I/O
 //
 
-func (this *DefaultStore) NewEntry(entryKey, value []byte, ttl time.Duration, compressOnServer, encryptOnServer bool) (*bagger.Entry, *bbproto.TxOperationResult) {
+func (this *DefaultStore) NewEntry(entryKey, value []byte, ttl time.Duration, compressOnServer, encryptOnServer bool) (*badger.Entry, *bbproto.TxOperationResult) {
 
-	entry := &bagger.Entry{ Key: entryKey, Value: value }
+	entry := &badger.Entry{ Key: entryKey, Value: value }
 
 	if ttl > 0 {
 		expire := time.Now().Add(ttl).Unix()
@@ -520,7 +520,7 @@ func (this *DefaultStore) NewEntry(entryKey, value []byte, ttl time.Duration, co
 }
 
 
-func (this *DefaultStore) FetchValue(item *bagger.Item) ([]byte, *bbproto.TxOperationResult) {
+func (this *DefaultStore) FetchValue(item *badger.Item) ([]byte, *bbproto.TxOperationResult) {
 
 	data, err := item.ValueCopy(nil)
 	if err != nil {

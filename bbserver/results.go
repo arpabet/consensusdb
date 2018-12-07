@@ -20,14 +20,14 @@ package bbserver
 
 import (
 	"github.com/bigbagger/bigbagger/proto/bbproto"
-	"github.com/bigbagger/bagger"
+	"github.com/dgraph-io/badger"
 )
 
-func HeadOf(timestamp uint64, item *bagger.Item) *bbproto.Head {
+func HeadOf(timestamp uint64, item *badger.Item) *bbproto.Head {
 	return &bbproto.Head{Version: item.Version(), ExpiresAt:item.ExpiresAt(), Timestamp: timestamp, DiskSize: item.EstimatedSize()}
 }
 
-func RecordOf(timestamp uint64, item *bagger.Item, data []byte) *bbproto.Record {
+func RecordOf(timestamp uint64, item *badger.Item, data []byte) *bbproto.Record {
 	return &bbproto.Record{Head: HeadOf(timestamp, item), Value: data}
 }
 
@@ -42,7 +42,7 @@ func SuccessGetNotFoundResult() *bbproto.TxOperationResult {
 	return result
 }
 
-func SuccessHeadResult(timestamp uint64, item *bagger.Item) *bbproto.TxOperationResult {
+func SuccessHeadResult(timestamp uint64, item *badger.Item) *bbproto.TxOperationResult {
 
 	get := new(bbproto.GetResult)
 	get.Record = &bbproto.Record{Head: HeadOf(timestamp, item)}
@@ -54,7 +54,7 @@ func SuccessHeadResult(timestamp uint64, item *bagger.Item) *bbproto.TxOperation
 	return result
 }
 
-func SuccessGetResult(timestamp uint64, item *bagger.Item, data []byte) *bbproto.TxOperationResult {
+func SuccessGetResult(timestamp uint64, item *badger.Item, data []byte) *bbproto.TxOperationResult {
 
 	get := new(bbproto.GetResult)
 	get.Record = RecordOf(timestamp, item, data)
@@ -90,7 +90,7 @@ func SuccessTouchNotFoundResult() *bbproto.TxOperationResult {
 	return result
 }
 
-func SuccessTouchResult(timestamp uint64, item *bagger.Item, expiresAt uint64) *bbproto.TxOperationResult {
+func SuccessTouchResult(timestamp uint64, item *badger.Item, expiresAt uint64) *bbproto.TxOperationResult {
 
 	touch := new(bbproto.TouchResult)
 	touch.Head = HeadOf(timestamp, item)
