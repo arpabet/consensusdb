@@ -19,45 +19,45 @@
 package c
 
 import (
-	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 )
 
-func ErrorRegionNotFound(name string) *bbproto.TxOperationResult {
+func ErrorRegionNotFound(name string) *cserverpb.TxOperationResult {
 
-	res := new(bbproto.TxOperationResult)
-	res.Status = bbproto.StatusCode_ERROR_NO_REGION
+	res := new(cserverpb.TxOperationResult)
+	res.Status = cserverpb.StatusCode_ERROR_NO_REGION
 	res.Message = name
 
 	return res
 }
 
-func ErrorBadRequest(message string) *bbproto.TxOperationResult {
+func ErrorBadRequest(message string) *cserverpb.TxOperationResult {
 
-	res := new(bbproto.TxOperationResult)
-	res.Status = bbproto.StatusCode_ERROR_BAD_REQUEST
+	res := new(cserverpb.TxOperationResult)
+	res.Status = cserverpb.StatusCode_ERROR_BAD_REQUEST
 	res.Message = message
 
 	return res
 }
 
-func ErrorUnsupported(message string) *bbproto.TxOperationResult {
+func ErrorUnsupported(message string) *cserverpb.TxOperationResult {
 
-	res := new(bbproto.TxOperationResult)
-	res.Status = bbproto.StatusCode_ERROR_UNSUPPORTED
+	res := new(cserverpb.TxOperationResult)
+	res.Status = cserverpb.StatusCode_ERROR_UNSUPPORTED
 	res.Message = message
 
 	return res
 }
 
-func ErrorDriver(message string) *bbproto.TxOperationResult {
+func ErrorDriver(message string) *cserverpb.TxOperationResult {
 
-	res := new(bbproto.TxOperationResult)
-	res.Status = bbproto.StatusCode_ERROR_DRIVER
+	res := new(cserverpb.TxOperationResult)
+	res.Status = cserverpb.StatusCode_ERROR_DRIVER
 	res.Message = message
 
 	return res
 }
 
-func IsSuccessResult(result *bbproto.TxOperationResult) bool {
-	return result.Status == bbproto.StatusCode_SUCCESS || result.Status == bbproto.StatusCode_SUCCESS_NOT_UPDATED
+func IsSuccessResult(result *cserverpb.TxOperationResult) bool {
+	return result.Status == cserverpb.StatusCode_SUCCESS || result.Status == cserverpb.StatusCode_SUCCESS_NOT_UPDATED
 }

@@ -19,7 +19,7 @@
 package cserver
 
 import (
-	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 )
 
 const (
@@ -30,13 +30,13 @@ type IRegionStore interface {
 
 	GetName() string
 
-	GetRegion() *bbproto.Region
+	GetRegion() *cserverpb.Region
 
 	NewTransaction() IRegionTnx
 
 	Close() error
 
-	GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawRecord) (error)
+	GetSnapshot(majorKey []byte, outC chan<- *cserverpb.RawRecord) (error)
 
 }
 
@@ -46,7 +46,7 @@ type IRegionTnx interface {
 
 	Begin()
 
-	ProcessOperation(operation *bbproto.TxOperation) *bbproto.TxOperationResult
+	ProcessOperation(operation *cserverpb.TxOperation) *cserverpb.TxOperationResult
 
 	Rollback()
 
@@ -56,7 +56,7 @@ type IRegionTnx interface {
 
 type ErrorStore struct {
 	regionName   string
-	result       *bbproto.TxOperationResult
+	result       *cserverpb.TxOperationResult
 }
 
 type ErrorTxn struct {
@@ -67,8 +67,8 @@ func (this *ErrorStore) GetName() string {
 	return this.regionName
 }
 
-func (this *ErrorStore) GetRegion() *bbproto.Region {
-	return &bbproto.Region{Name: this.regionName}
+func (this *ErrorStore) GetRegion() *cserverpb.Region {
+	return &cserverpb.Region{Name: this.regionName}
 }
 
 func (this *ErrorStore) NewTransaction() IRegionTnx {
@@ -79,7 +79,7 @@ func (this *ErrorStore) Close() error {
 	return nil
 }
 
-func (this *ErrorStore)  GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawRecord) error {
+func (this *ErrorStore)  GetSnapshot(majorKey []byte, outC chan<- *cserverpb.RawRecord) error {
 	return nil
 }
 
@@ -89,7 +89,7 @@ func (this *ErrorTxn) Update(update bool) {
 func (this *ErrorTxn) Begin() {
 }
 
-func (this *ErrorTxn) ProcessOperation(operation *bbproto.TxOperation) *bbproto.TxOperationResult {
+func (this *ErrorTxn) ProcessOperation(operation *cserverpb.TxOperation) *cserverpb.TxOperationResult {
 	return this.store.result
 }
 
@@ -100,6 +100,6 @@ func (this *ErrorTxn) Commit() error {
 	return nil
 }
 
-func NewErrorStore(regionName string, result  *bbproto.TxOperationResult) IRegionStore {
+func NewErrorStore(regionName string, result  *cserverpb.TxOperationResult) IRegionStore {
 	return &ErrorStore{regionName, result}
 }

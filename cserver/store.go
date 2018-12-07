@@ -19,7 +19,7 @@
 package cserver
 
 import (
-	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"os"
 	"io/ioutil"
 	"path/filepath"
@@ -39,7 +39,7 @@ type DefaultStore struct {
 	regionName          string
 
 	db        			*badger.DB
-	region    			*bbproto.Region
+	region    			*cserverpb.Region
 	regionDir 			string
 	conf      			*Configuration
 
@@ -65,7 +65,7 @@ func (this *DefaultStoreTxn) Begin() {
 	this.txn = this.store.db.NewTransaction(this.update)
 }
 
-func (this *DefaultStoreTxn) ProcessOperation(op *bbproto.TxOperation) *bbproto.TxOperationResult {
+func (this *DefaultStoreTxn) ProcessOperation(op *cserverpb.TxOperation) *cserverpb.TxOperationResult {
 	return this.store.ProcessOperation(this.txn, op)
 }
 
@@ -86,7 +86,7 @@ func (this *DefaultStore) GetName() string {
 	return this.regionName
 }
 
-func (this *DefaultStore) GetRegion() *bbproto.Region {
+func (this *DefaultStore) GetRegion() *cserverpb.Region {
 	return this.region
 }
 
@@ -94,7 +94,7 @@ func (this *DefaultStore) NewTransaction() IRegionTnx {
 	return &DefaultStoreTxn{store:this}
 }
 
-func (this *DefaultStore) GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawRecord) error {
+func (this *DefaultStore) GetSnapshot(majorKey []byte, outC chan<- *cserverpb.RawRecord) error {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
@@ -119,15 +119,15 @@ func (this *DefaultStore) GetSnapshot(majorKey []byte, outC chan<- *bbproto.RawR
 		var key Key
 		key.Decode(item.Key())
 
-		msg := new(bbproto.RawRecord)
+		msg := new(cserverpb.RawRecord)
 
-		msg.Key = new(bbproto.Key)
+		msg.Key = new(cserverpb.Key)
 		msg.Key.RegionName = regionName
 		msg.Key.MajorKey = key.MajorKey
 		msg.Key.MinorKey = key.MinorKey
 		msg.Key.Timestamp = key.Timestamp
 
-		msg.Head = new(bbproto.Head)
+		msg.Head = new(cserverpb.Head)
 		msg.Head.ExpiresAt = item.ExpiresAt()
 		msg.Head.Timestamp = key.Timestamp
 		msg.Head.Version = item.Version()
@@ -175,7 +175,7 @@ func (this *DefaultStore) Close() error {
 // Other methods
 //
 
-func (this *DefaultStore) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefixKey []byte, err error) {
+func (this *DefaultStore) GetEntryKey(key *cserverpb.Key) (entryKey []byte, prefixKey []byte, err error) {
 
 	k := &Key{MajorKey: key.MajorKey, MinorKey: key.MinorKey, Timestamp: key.Timestamp}
 
@@ -192,7 +192,7 @@ func (this *DefaultStore) GetEntryKey(key *bbproto.Key) (entryKey []byte, prefix
 
 }
 
-func NewDefaultStore(regionDir string, region *bbproto.Region, conf *Configuration) (context *DefaultStore, err error) {
+func NewDefaultStore(regionDir string, region *cserverpb.Region, conf *Configuration) (context *DefaultStore, err error) {
 
 	if _, err := os.Stat(regionDir); os.IsNotExist(err) {
 		err = os.Mkdir(regionDir, 0755)
@@ -217,7 +217,7 @@ func NewDefaultStore(regionDir string, region *bbproto.Region, conf *Configurati
 
 }
 
-func OpenDefaultStore(regionDir string, region *bbproto.Region, conf *Configuration) (context *DefaultStore, err error) {
+func OpenDefaultStore(regionDir string, region *cserverpb.Region, conf *Configuration) (context *DefaultStore, err error) {
 
 	context = &DefaultStore{regionName: region.Name, regionDir: regionDir, region: region, conf: conf}
 
@@ -250,7 +250,7 @@ func LoadBaggerDriver(regionDir string, conf *Configuration) (context *DefaultSt
 		return nil, err
 	}
 
-	region := new(bbproto.Region)
+	region := new(cserverpb.Region)
 	err = jsonpb.UnmarshalString(string(data), region)
 
 	if err != nil {
@@ -261,7 +261,7 @@ func LoadBaggerDriver(regionDir string, conf *Configuration) (context *DefaultSt
 
 }
 
-func (this *DefaultStore) ProcessGetOperation(txn *badger.Txn, key *bbproto.Key, operation *bbproto.GetOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessGetOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.GetOperation) *cserverpb.TxOperationResult {
 
 	lookupKey, _, err := this.GetEntryKey(key)
 
@@ -294,7 +294,7 @@ func (this *DefaultStore) ProcessGetOperation(txn *badger.Txn, key *bbproto.Key,
 
 }
 
-func (this *DefaultStore) ProcessRangeOperation(txn *badger.Txn, key *bbproto.Key, operation *bbproto.RangeOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessRangeOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.RangeOperation) *cserverpb.TxOperationResult {
 
 	lookupKey, prefixKey, err := this.GetEntryKey(key)
 
@@ -305,7 +305,7 @@ func (this *DefaultStore) ProcessRangeOperation(txn *badger.Txn, key *bbproto.Ke
 	fmt.Print("Range LookupKey=", lookupKey, ", PrefixKey=", prefixKey, ", WithTimestamp=", key.Timestamp, ", NumRecords=", operation.NumRecords,  "\n")
 
 	size := int(operation.NumRecords)
-	records := make([]*bbproto.Record, 0, size)
+	records := make([]*cserverpb.Record, 0, size)
 
 	reverseIteratorOptions := badger.IteratorOptions{
 		PrefetchValues: true,
@@ -323,7 +323,7 @@ func (this *DefaultStore) ProcessRangeOperation(txn *badger.Txn, key *bbproto.Ke
 		timestamp := GetKeyTimestamp(item.Key())
 
 		if operation.HeadOnly {
-			records = append(records, &bbproto.Record{Head: HeadOf(timestamp, item)})
+			records = append(records, &cserverpb.Record{Head: HeadOf(timestamp, item)})
 
 		} else {
 
@@ -345,7 +345,7 @@ func (this *DefaultStore) ProcessRangeOperation(txn *badger.Txn, key *bbproto.Ke
 
 }
 
-func (this *DefaultStore) ProcessTouchOperation(txn *badger.Txn, key *bbproto.Key, operation *bbproto.TouchOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessTouchOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.TouchOperation) *cserverpb.TxOperationResult {
 
 	lookupKey, _, err := this.GetEntryKey(key)
 	entryKey := lookupKey
@@ -389,7 +389,7 @@ func (this *DefaultStore) ProcessTouchOperation(txn *badger.Txn, key *bbproto.Ke
 
 }
 
-func (this *DefaultStore) ProcessPutOperation(txn *badger.Txn, key *bbproto.Key, operation *bbproto.PutOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessPutOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.PutOperation) *cserverpb.TxOperationResult {
 
 	entryKey, _, err := this.GetEntryKey(key)
 
@@ -433,7 +433,7 @@ func (this *DefaultStore) ProcessPutOperation(txn *badger.Txn, key *bbproto.Key,
 
 }
 
-func (this *DefaultStore) ProcessRemoveOperation(txn *badger.Txn, key *bbproto.Key, operation *bbproto.RemoveOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessRemoveOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.RemoveOperation) *cserverpb.TxOperationResult {
 
 	entryKey, _, err := this.GetEntryKey(key)
 
@@ -456,23 +456,23 @@ func (this *DefaultStore) ProcessRemoveOperation(txn *badger.Txn, key *bbproto.K
 //
 
 
-func (this *DefaultStore) ProcessOperation(txn *badger.Txn, operation *bbproto.TxOperation) *bbproto.TxOperationResult {
+func (this *DefaultStore) ProcessOperation(txn *badger.Txn, operation *cserverpb.TxOperation) *cserverpb.TxOperationResult {
 
 	switch operation.Operation.(type) {
 
-		case *bbproto.TxOperation_Get:
+		case *cserverpb.TxOperation_Get:
 			return this.ProcessGetOperation(txn, operation.Key, operation.GetGet())
 
-		case *bbproto.TxOperation_Range:
+		case *cserverpb.TxOperation_Range:
 			return this.ProcessRangeOperation(txn, operation.Key, operation.GetRange())
 
-		case *bbproto.TxOperation_Touch:
+		case *cserverpb.TxOperation_Touch:
 			return this.ProcessTouchOperation(txn, operation.Key, operation.GetTouch())
 
-		case *bbproto.TxOperation_Put:
+		case *cserverpb.TxOperation_Put:
 			return this.ProcessPutOperation(txn, operation.Key, operation.GetPut())
 
-		case *bbproto.TxOperation_Remove:
+		case *cserverpb.TxOperation_Remove:
 			return this.ProcessRemoveOperation(txn, operation.Key, operation.GetRemove())
 
 	}
@@ -484,7 +484,7 @@ func (this *DefaultStore) ProcessOperation(txn *badger.Txn, operation *bbproto.T
 //  Value I/O
 //
 
-func (this *DefaultStore) NewEntry(entryKey, value []byte, ttl time.Duration, compressOnServer, encryptOnServer bool) (*badger.Entry, *bbproto.TxOperationResult) {
+func (this *DefaultStore) NewEntry(entryKey, value []byte, ttl time.Duration, compressOnServer, encryptOnServer bool) (*badger.Entry, *cserverpb.TxOperationResult) {
 
 	entry := &badger.Entry{ Key: entryKey, Value: value }
 
@@ -520,7 +520,7 @@ func (this *DefaultStore) NewEntry(entryKey, value []byte, ttl time.Duration, co
 }
 
 
-func (this *DefaultStore) FetchValue(item *badger.Item) ([]byte, *bbproto.TxOperationResult) {
+func (this *DefaultStore) FetchValue(item *badger.Item) ([]byte, *cserverpb.TxOperationResult) {
 
 	data, err := item.ValueCopy(nil)
 	if err != nil {

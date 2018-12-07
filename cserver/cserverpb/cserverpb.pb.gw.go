@@ -2,11 +2,11 @@
 // source: cserverpb.proto
 
 /*
-Package bbproto is a reverse proxy.
+Package cserverpb is a reverse proxy.
 
 It translates gRPC into RESTful JSON APIs.
 */
-package bbproto
+package cserverpb
 
 import (
 	"io"

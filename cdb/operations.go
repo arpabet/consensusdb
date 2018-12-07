@@ -19,7 +19,7 @@
 package cdb
 
 import (
-	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"github.com/pkg/errors"
 	"fmt"
 	"github.com/consensusdb/consensusdb/c"
@@ -41,7 +41,7 @@ type IOperation interface {
 
 	CompareAndSet(version uint64) IOperation
 
-	toProto() *bbproto.TxOperation
+	toProto() *cserverpb.TxOperation
 
 }
 
@@ -118,7 +118,7 @@ func (this *EmptyHead) DiskSize() int64 {
 }
 
 type ProtoHead struct {
-	head  *bbproto.Head
+	head  *cserverpb.Head
 }
 
 func (this *ProtoHead) Version() uint64 {
@@ -153,7 +153,7 @@ func (this *EmptyRecord) Value() []byte {
 }
 
 type ProtoRecord struct {
-	record  *bbproto.Record
+	record  *cserverpb.Record
 }
 
 func (this *ProtoRecord) Head() IHead {
@@ -178,36 +178,36 @@ func (this *HeadOnlyRecord) Value() []byte {
 
 type GetOp struct {
 
-	Key    bbproto.Key
-	Get    bbproto.GetOperation
+	Key cserverpb.Key
+	Get cserverpb.GetOperation
 
 }
 
 type RangeOp struct {
 
-	Key      bbproto.Key
-	Range    bbproto.RangeOperation
+	Key   cserverpb.Key
+	Range cserverpb.RangeOperation
 
 }
 
 type TouchOp struct {
 
-	Key     bbproto.Key
-	Touch   bbproto.TouchOperation
+	Key   cserverpb.Key
+	Touch cserverpb.TouchOperation
 
 }
 
 type PutOp struct {
 
-	Key     bbproto.Key
-	Put     bbproto.PutOperation
+	Key cserverpb.Key
+	Put cserverpb.PutOperation
 
 }
 
 type RemoveOp struct {
 
-	Key     bbproto.Key
-	Remove  bbproto.RemoveOperation
+	Key    cserverpb.Key
+	Remove cserverpb.RemoveOperation
 
 }
 
@@ -504,51 +504,51 @@ func (this *RemoveOp) CompareAndSet(version uint64) IOperation {
 //  ToProto
 //
 
-func (this* GetOp) toProto() *bbproto.TxOperation {
+func (this* GetOp) toProto() *cserverpb.TxOperation {
 
-	op := new(bbproto.TxOperation)
+	op := new(cserverpb.TxOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.TxOperation_Get{&this.Get}
+	op.Operation = &cserverpb.TxOperation_Get{&this.Get}
 
 	return op
 
 }
 
-func (this* RangeOp) toProto() *bbproto.TxOperation {
+func (this* RangeOp) toProto() *cserverpb.TxOperation {
 
-	op := new(bbproto.TxOperation)
+	op := new(cserverpb.TxOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.TxOperation_Range{&this.Range}
+	op.Operation = &cserverpb.TxOperation_Range{&this.Range}
 
 	return op
 
 }
 
-func (this* TouchOp) toProto() *bbproto.TxOperation {
+func (this* TouchOp) toProto() *cserverpb.TxOperation {
 
-	op := new(bbproto.TxOperation)
+	op := new(cserverpb.TxOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.TxOperation_Touch{&this.Touch}
+	op.Operation = &cserverpb.TxOperation_Touch{&this.Touch}
 
 	return op
 
 }
 
-func (this* PutOp) toProto() *bbproto.TxOperation {
+func (this* PutOp) toProto() *cserverpb.TxOperation {
 
-	op := new(bbproto.TxOperation)
+	op := new(cserverpb.TxOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.TxOperation_Put{&this.Put}
+	op.Operation = &cserverpb.TxOperation_Put{&this.Put}
 
 	return op
 
 }
 
-func (this* RemoveOp) toProto() *bbproto.TxOperation {
+func (this* RemoveOp) toProto() *cserverpb.TxOperation {
 
-	op := new(bbproto.TxOperation)
+	op := new(cserverpb.TxOperation)
 	op.Key = &this.Key
-	op.Operation = &bbproto.TxOperation_Remove{ &this.Remove}
+	op.Operation = &cserverpb.TxOperation_Remove{ &this.Remove}
 
 	return op
 
@@ -572,25 +572,25 @@ type RangeResult struct {
 }
 
 type TouchResult struct {
-	StatusCode      bbproto.StatusCode
-	Exist           bool
-	Head            IHead
+	StatusCode cserverpb.StatusCode
+	Exist      bool
+	Head       IHead
 }
 
 type PutResult struct {
-	StatusCode      bbproto.StatusCode
+	StatusCode cserverpb.StatusCode
 }
 
 type RemoveResult struct {
-	StatusCode      bbproto.StatusCode
+	StatusCode cserverpb.StatusCode
 }
 
 type ErrorResult struct {
-	StatusCode      bbproto.StatusCode
-	Message         string
+	StatusCode cserverpb.StatusCode
+	Message    string
 }
 
-func ParseResult(result *bbproto.TxOperationResult) IResult {
+func ParseResult(result *cserverpb.TxOperationResult) IResult {
 
 	if c.IsSuccessResult(result)  {
 		return ParseSuccessResult(result)
@@ -600,7 +600,7 @@ func ParseResult(result *bbproto.TxOperationResult) IResult {
 
 }
 
-func ParseGetResult(result *bbproto.GetResult) IResult {
+func ParseGetResult(result *cserverpb.GetResult) IResult {
 
 	record := result.GetRecord()
 	if record != nil {
@@ -611,7 +611,7 @@ func ParseGetResult(result *bbproto.GetResult) IResult {
 
 }
 
-func ParseRangeResult(result *bbproto.RangeResult) IResult {
+func ParseRangeResult(result *cserverpb.RangeResult) IResult {
 
 	records := result.GetRecords()
 	if records != nil {
@@ -630,7 +630,7 @@ func ParseRangeResult(result *bbproto.RangeResult) IResult {
 
 }
 
-func ParseTouchResult(status bbproto.StatusCode, result *bbproto.TouchResult) IResult {
+func ParseTouchResult(status cserverpb.StatusCode, result *cserverpb.TouchResult) IResult {
 
 	head := result.GetHead()
 	if head != nil {
@@ -641,27 +641,27 @@ func ParseTouchResult(status bbproto.StatusCode, result *bbproto.TouchResult) IR
 
 }
 
-func ParseSuccessResult(result *bbproto.TxOperationResult) IResult {
+func ParseSuccessResult(result *cserverpb.TxOperationResult) IResult {
 
 	switch result.Result.(type) {
 
-	case *bbproto.TxOperationResult_Get:
+	case *cserverpb.TxOperationResult_Get:
 		return ParseGetResult(result.GetGet())
 
-	case *bbproto.TxOperationResult_Range:
+	case *cserverpb.TxOperationResult_Range:
 		return ParseRangeResult(result.GetRange())
 
-	case *bbproto.TxOperationResult_Touch:
+	case *cserverpb.TxOperationResult_Touch:
 		return ParseTouchResult(result.GetStatus(), result.GetTouch())
 
-	case *bbproto.TxOperationResult_Put:
+	case *cserverpb.TxOperationResult_Put:
 		return &PutResult{result.Status}
 
-	case *bbproto.TxOperationResult_Remove:
+	case *cserverpb.TxOperationResult_Remove:
 		return &RemoveResult{result.Status}
 	}
 
-	return &ErrorResult{bbproto.StatusCode_ERROR_UNSUPPORTED, "client received wrong result type"}
+	return &ErrorResult{cserverpb.StatusCode_ERROR_UNSUPPORTED, "client received wrong result type"}
 }
 
 
@@ -670,7 +670,7 @@ func ParseSuccessResult(result *bbproto.TxOperationResult) IResult {
 //
 
 func (this *GetResult) GetStatus() int32 {
-	return int32(bbproto.StatusCode_SUCCESS)
+	return int32(cserverpb.StatusCode_SUCCESS)
 }
 
 func (this *GetResult) Updated() bool {
@@ -707,7 +707,7 @@ func (this *GetResult) GetMessage() string {
 //
 
 func (this *RangeResult) GetStatus() int32 {
-	return int32(bbproto.StatusCode_SUCCESS)
+	return int32(cserverpb.StatusCode_SUCCESS)
 }
 
 func (this *RangeResult) Updated() bool {
@@ -748,7 +748,7 @@ func (this *TouchResult) GetStatus() int32 {
 }
 
 func (this *TouchResult) Updated() bool {
-	return this.StatusCode == bbproto.StatusCode_SUCCESS
+	return this.StatusCode == cserverpb.StatusCode_SUCCESS
 }
 
 func (this *TouchResult) Exists() bool {
@@ -784,7 +784,7 @@ func (this *PutResult) GetStatus() int32 {
 }
 
 func (this *PutResult) Updated() bool {
-	return this.StatusCode == bbproto.StatusCode_SUCCESS
+	return this.StatusCode == cserverpb.StatusCode_SUCCESS
 }
 
 func (this *PutResult) Exists() bool {
@@ -820,7 +820,7 @@ func (this *RemoveResult) GetStatus() int32 {
 }
 
 func (this *RemoveResult) Updated() bool {
-	return this.StatusCode == bbproto.StatusCode_SUCCESS
+	return this.StatusCode == cserverpb.StatusCode_SUCCESS
 }
 
 func (this *RemoveResult) Exists() bool {
@@ -884,5 +884,5 @@ func (this *ErrorResult) GetMessage() string {
 }
 
 func NewNetworkError(err error) IResult {
-	return &ErrorResult{bbproto.StatusCode_ERROR_NETWORK, fmt.Sprint("remote error: ", err)}
+	return &ErrorResult{cserverpb.StatusCode_ERROR_NETWORK, fmt.Sprint("remote error: ", err)}
 }

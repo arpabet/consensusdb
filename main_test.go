@@ -24,7 +24,7 @@ import (
 	"github.com/consensusdb/consensusdb/cserver"
 	"time"
 	"github.com/consensusdb/consensusdb/cdb"
-	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"os"
 	"bytes"
 	"fmt"
@@ -73,7 +73,7 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create a cdb ", err)
 	}
 
-	region := new(bbproto.Region)
+	region := new(cserverpb.Region)
 	region.Version = "1.0"
 	region.Name = "TEST"
 	region.Ttl = "1D"     // one day
@@ -103,7 +103,7 @@ func TestSuit(t *testing.T) {
 		t.Fatal("expected 2 results in dataset list, but was: ", len(list))
 	}
 
-	m := make(map[string]*bbproto.Region)
+	m := make(map[string]*cserverpb.Region)
 
 	for _, v := range list {
 		m[v.Name] = v

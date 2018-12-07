@@ -26,7 +26,7 @@ import (
 	"google.golang.org/grpc"
 	"log"
 	"net"
-	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"path/filepath"
@@ -307,14 +307,14 @@ func (this *DefaultServer) ReportSnapshot(id uint64, status raft.SnapshotStatus)
 
 }
 
-func (this *DefaultServer) propogateChanges(msg *bbproto.RawRecord) {
+func (this *DefaultServer) propogateChanges(msg *cserverpb.RawRecord) {
 }
 
 func (this *DefaultServer) getSnapshot() ([]byte, error) {
 
 	majorKey := []byte{}
 
-	var outC chan *bbproto.RawRecord
+	var outC chan *cserverpb.RawRecord
 
 	for _, regionStore := range this.regionStoreMap.List() {
 
@@ -333,7 +333,7 @@ func (this *DefaultServer) getSnapshot() ([]byte, error) {
 //
 
 
-func (this *DefaultServer) Create(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
+func (this *DefaultServer) Create(context context.Context, region *cserverpb.Region) (response *empty.Empty, err error) {
 
 	regionName := region.Name
 
@@ -361,7 +361,7 @@ func (this *DefaultServer) Create(context context.Context, region *bbproto.Regio
 
 }
 
-func (this *DefaultServer) Update(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
+func (this *DefaultServer) Update(context context.Context, region *cserverpb.Region) (response *empty.Empty, err error) {
 
 	name := region.Name
 
@@ -375,7 +375,7 @@ func (this *DefaultServer) Update(context context.Context, region *bbproto.Regio
 
 }
 
-func (this *DefaultServer) Delete(context context.Context, request *bbproto.String) (response *empty.Empty, err error) {
+func (this *DefaultServer) Delete(context context.Context, request *cserverpb.String) (response *empty.Empty, err error) {
 
 	name := request.Value
 
@@ -390,7 +390,7 @@ func (this *DefaultServer) Delete(context context.Context, request *bbproto.Stri
 	return new(empty.Empty), nil
 }
 
-func (this *DefaultServer) Get(request *bbproto.String, responseServer bbproto.RegionService_GetServer) error {
+func (this *DefaultServer) Get(request *cserverpb.String, responseServer cserverpb.RegionService_GetServer) error {
 
     pattern := request.Value
 
@@ -422,7 +422,7 @@ func (this *DefaultServer) Get(request *bbproto.String, responseServer bbproto.R
 	return nil
 }
 
-func (this *DefaultServer) FindRegionStore(operation *bbproto.TxOperation) IRegionStore {
+func (this *DefaultServer) FindRegionStore(operation *cserverpb.TxOperation) IRegionStore {
 
 	if operation.Key == nil {
 		return NewErrorStore("", c.ErrorBadRequest("empty Key"))
@@ -454,12 +454,12 @@ func (this *DefaultServer) FindRegionStore(operation *bbproto.TxOperation) IRegi
 //
 //
 
-func (this *DefaultServer) Execute(context context.Context, tx *bbproto.Transaction) (response *bbproto.TransactionResult, err error) {
+func (this *DefaultServer) Execute(context context.Context, tx *cserverpb.Transaction) (response *cserverpb.TransactionResult, err error) {
 
 	size := len(tx.Operations)
 
-	response = new(bbproto.TransactionResult)
-	response.Results = make([]*bbproto.TxOperationResult, 0, size)
+	response = new(cserverpb.TransactionResult)
+	response.Results = make([]*cserverpb.TxOperationResult, 0, size)
 
 	if size == 0 {
 		return response, nil
@@ -537,8 +537,8 @@ func (this *DefaultServer) ServeGRPC() error {
 	this.grpcServer = grpc.NewServer()
 
 	// Register services
-	bbproto.RegisterRegionServiceServer(this.grpcServer, this)
-	bbproto.RegisterTransactionServiceServer(this.grpcServer, this)
+	cserverpb.RegisterRegionServiceServer(this.grpcServer, this)
+	cserverpb.RegisterTransactionServiceServer(this.grpcServer, this)
 
 	// Start serving requests
 	return this.grpcServer.Serve(listen)

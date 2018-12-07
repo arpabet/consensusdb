@@ -22,7 +22,7 @@ import (
 	"time"
 	"strconv"
 	"github.com/pkg/errors"
-	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"os"
 	"io/ioutil"
 	"strings"
@@ -83,23 +83,23 @@ func ParseTtlExpr(ttlExpr string) (ttl time.Duration, err error) {
 }
 
 
-func IsUpdateOperation(operation *bbproto.TxOperation) bool {
+func IsUpdateOperation(operation *cserverpb.TxOperation) bool {
 
 	switch operation.Operation.(type) {
 
-	case *bbproto.TxOperation_Get:
+	case *cserverpb.TxOperation_Get:
 		return false
 
-	case *bbproto.TxOperation_Range:
+	case *cserverpb.TxOperation_Range:
 		return false
 
-	case *bbproto.TxOperation_Touch:
+	case *cserverpb.TxOperation_Touch:
 		return true
 
-	case *bbproto.TxOperation_Put:
+	case *cserverpb.TxOperation_Put:
 		return true
 
-	case *bbproto.TxOperation_Remove:
+	case *cserverpb.TxOperation_Remove:
 		return true
 
 	}
