@@ -15,3 +15,5 @@
 
 vendor/go.etcd.io/etcd/vendor/go.uber.org/zap/
 /bin/
+
+/.idea/
