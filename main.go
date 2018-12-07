@@ -29,7 +29,7 @@ import (
 	"path"
 	"strings"
 	"text/template"
-	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"github.com/consensusdb/consensusdb/cserver"
 	"os/signal"
 	"flag"
@@ -136,11 +136,11 @@ func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string, mux *ht
 	gwRegion := runtime.NewServeMux()
 	gwTnx := runtime.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := bbproto.RegisterRegionServiceHandlerFromEndpoint(ctx, gwRegion, "localhost"+grpcAddress, opts)
+	err := cserverpb.RegisterRegionServiceHandlerFromEndpoint(ctx, gwRegion, "localhost"+grpcAddress, opts)
 	if err != nil {
 		return nil, err
 	}
-	err = bbproto.RegisterTransactionServiceHandlerFromEndpoint(ctx, gwTnx, "localhost"+grpcAddress, opts)
+	err = cserverpb.RegisterTransactionServiceHandlerFromEndpoint(ctx, gwTnx, "localhost"+grpcAddress, opts)
 	if err != nil {
 		return nil, err
 	}

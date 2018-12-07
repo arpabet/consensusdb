@@ -22,18 +22,18 @@ package cdb
 import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"github.com/pkg/errors"
 )
 
 type IConsensusDB interface {
-	CreateRegion(region *bbproto.Region) error
+	CreateRegion(region *cserverpb.Region) error
 
-	UpdateRegion(region *bbproto.Region) error
+	UpdateRegion(region *cserverpb.Region) error
 
 	DeleteRegion(name string) error
 
-	GetRegions(pattern string) ([]*bbproto.Region, error)
+	GetRegions(pattern string) ([]*cserverpb.Region, error)
 
 	Execute(IOperation) IResult
 
@@ -41,9 +41,9 @@ type IConsensusDB interface {
 }
 
 type DefaultClient struct {
-	conn                 *grpc.ClientConn
-	regionService        bbproto.RegionServiceClient
-	transactionService   bbproto.TransactionServiceClient
+	conn               *grpc.ClientConn
+	regionService      cserverpb.RegionServiceClient
+	transactionService cserverpb.TransactionServiceClient
 
 }
 
@@ -55,7 +55,7 @@ func (cli *DefaultClient) Close() error {
 	return nil
 }
 
-func (this *DefaultClient) CreateRegion(region *bbproto.Region) (err error) {
+func (this *DefaultClient) CreateRegion(region *cserverpb.Region) (err error) {
 
 	_, err = this.regionService.Create(context.Background(), region)
 
@@ -67,7 +67,7 @@ func (this *DefaultClient) CreateRegion(region *bbproto.Region) (err error) {
 
 }
 
-func (this *DefaultClient) UpdateRegion(region *bbproto.Region) (err error) {
+func (this *DefaultClient) UpdateRegion(region *cserverpb.Region) (err error) {
 
 	_, err = this.regionService.Update(context.Background(), region)
 
@@ -81,7 +81,7 @@ func (this *DefaultClient) UpdateRegion(region *bbproto.Region) (err error) {
 
 func (this *DefaultClient) DeleteRegion(name string) error {
 
-	request := new(bbproto.String)
+	request := new(cserverpb.String)
 	request.Value = name
 
 	_, err := this.regionService.Delete(context.Background(), request)
@@ -94,9 +94,9 @@ func (this *DefaultClient) DeleteRegion(name string) error {
 
 }
 
-func (this *DefaultClient) GetRegions(pattern string) (result []*bbproto.Region, err error) {
+func (this *DefaultClient) GetRegions(pattern string) (result []*cserverpb.Region, err error) {
 
-	request := new(bbproto.String)
+	request := new(cserverpb.String)
 	request.Value = pattern
 
 	response, err := this.regionService.Get(context.Background(), request)
@@ -105,7 +105,7 @@ func (this *DefaultClient) GetRegions(pattern string) (result []*bbproto.Region,
 		return nil, err
 	}
 
-	result = make([]*bbproto.Region, 0, 10)
+	result = make([]*cserverpb.Region, 0, 10)
 
 	for dataset, e := response.Recv(); e == nil; dataset, e = response.Recv() {
 		result = append(result, dataset)
@@ -117,8 +117,8 @@ func (this *DefaultClient) GetRegions(pattern string) (result []*bbproto.Region,
 
 func (this *DefaultClient) Execute(op IOperation) (res IResult) {
 
-	request := new(bbproto.Transaction)
-	request.Operations = make([]*bbproto.TxOperation, 1)
+	request := new(cserverpb.Transaction)
+	request.Operations = make([]*cserverpb.TxOperation, 1)
 
 	request.Operations[0] = op.toProto()
 
@@ -129,7 +129,7 @@ func (this *DefaultClient) Execute(op IOperation) (res IResult) {
 	}
 
 	if len(response.Results) != 1 {
-		return &ErrorResult{bbproto.StatusCode_ERROR_NETWORK, "expected single result"}
+		return &ErrorResult{cserverpb.StatusCode_ERROR_NETWORK, "expected single result"}
 	}
 
 	return ParseResult(response.Results[0])
@@ -140,8 +140,8 @@ func (this *DefaultClient) ExecuteTxn(ops []IOperation, allOrNothing bool) (res 
 
 	size := len(ops)
 
-	request := new(bbproto.Transaction)
-	request.Operations = make([]*bbproto.TxOperation, size)
+	request := new(cserverpb.Transaction)
+	request.Operations = make([]*cserverpb.TxOperation, size)
 	request.AllOrNothing = allOrNothing
 
 	for i, op := range ops {
@@ -176,8 +176,8 @@ func NewClient(grpcAddress string) (*DefaultClient, error) {
 	}
 
 	var cli = &DefaultClient{conn,
-	bbproto.NewRegionServiceClient(conn),
-	 bbproto.NewTransactionServiceClient(conn)}
+	cserverpb.NewRegionServiceClient(conn),
+	 cserverpb.NewTransactionServiceClient(conn)}
 
 	return cli, nil
 }
