@@ -21,9 +21,9 @@ package main_test
 import (
 	"testing"
 	"io/ioutil"
-	"github.com/consensusdb/consensusdb/bbserver"
+	"github.com/consensusdb/consensusdb/cserver"
 	"time"
-	"github.com/consensusdb/consensusdb/bbclient"
+	"github.com/consensusdb/consensusdb/cdb"
 	"github.com/consensusdb/consensusdb/proto/bbproto"
 	"os"
 	"bytes"
@@ -48,16 +48,16 @@ func TestSuit(t *testing.T) {
 
 	defer os.RemoveAll(rootDir)
 
-	conf, err := bbserver.NewDefaultConfiguration(httpAddress, grpcAddress, rootDir)
+	conf, err := cserver.NewDefaultConfiguration(httpAddress, grpcAddress, rootDir)
 	if err != nil {
 		t.Fatal("fail to create configuration", err)
 	}
 
-	server, err := bbserver.NewServer(conf)
+	server, err := cserver.NewServer(conf)
 	defer server.Close()
 
 	if err != nil {
-		t.Fatal("fail to create a bbserver ", err)
+		t.Fatal("fail to create a cserver ", err)
 		return
 	}
 
@@ -66,11 +66,11 @@ func TestSuit(t *testing.T) {
 
 	time.Sleep(time.Second)
 
-	client, err := bbclient.NewClient(grpcAddress)
+	client, err := cdb.NewClient(grpcAddress)
 	defer client.Close()
 
 	if err != nil {
-		t.Fatal("fail to create a bbclient ", err)
+		t.Fatal("fail to create a cdb ", err)
 	}
 
 	region := new(bbproto.Region)
@@ -133,13 +133,13 @@ func TestSuit(t *testing.T) {
 
 }
 
-func RunCRUIDTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
+func RunCRUIDTests(t *testing.T, client cdb.IConsensusDB, set string) {
 
 	//
 	//  Test Not Exists
 	//
 
-	op := bbclient.Get(set, []byte("key")).HeadOnly()
+	op := cdb.Get(set, []byte("key")).HeadOnly()
 
 	res := client.Execute(op)
 
@@ -151,7 +151,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Test Put
 	//
 
-	op = bbclient.Put(set, []byte("key"), []byte("value"))
+	op = cdb.Put(set, []byte("key"), []byte("value"))
 
 	res = client.Execute(op)
 
@@ -163,7 +163,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Test Exists
 	//
 
-	op = bbclient.Get(set, []byte("key")).HeadOnly()
+	op = cdb.Get(set, []byte("key")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -175,7 +175,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Test Get
 	//
 
-	op = bbclient.Get(set, []byte("key"))
+	op = cdb.Get(set, []byte("key"))
 
 	res = client.Execute(op)
 
@@ -197,7 +197,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Test Remove
 	//
 
-	op = bbclient.Remove(set, []byte("key"))
+	op = cdb.Remove(set, []byte("key"))
 
 	res = client.Execute(op)
 
@@ -209,7 +209,7 @@ func RunCRUIDTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Test Not Exists
 	//
 
-	op = bbclient.Get(set, []byte("key")).HeadOnly()
+	op = cdb.Get(set, []byte("key")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -221,13 +221,13 @@ func RunCRUIDTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 }
 
 
-func RunCompareAndSetTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
+func RunCompareAndSetTests(t *testing.T, client cdb.IConsensusDB, set string) {
 
 	//
 	//  Test Not Exists
 	//
 
-	op := bbclient.Get(set, []byte("cas")).HeadOnly()
+	op := cdb.Get(set, []byte("cas")).HeadOnly()
 
 	res := client.Execute(op)
 
@@ -243,7 +243,7 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.Iconsensusdb, set strin
 	//  Test Put If Absent
 	//
 
-	op = bbclient.Put(set, []byte("cas"), []byte("first"))
+	op = cdb.Put(set, []byte("cas"), []byte("first"))
 	op.CompareAndSet(0)
 
 	res = client.Execute(op)
@@ -260,7 +260,7 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.Iconsensusdb, set strin
 	//  Test Get First
 	//
 
-	op = bbclient.Get(set, []byte("cas"))
+	op = cdb.Get(set, []byte("cas"))
 
 	res = client.Execute(op)
 
@@ -288,7 +288,7 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.Iconsensusdb, set strin
 	//  Test Replace
 	//
 
-	op = bbclient.Put(set, []byte("cas"), []byte("second"))
+	op = cdb.Put(set, []byte("cas"), []byte("second"))
 	op.CompareAndSet(firstVersion)
 
 	res = client.Execute(op)
@@ -305,7 +305,7 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.Iconsensusdb, set strin
 	//  Test Get Second
 	//
 
-	op = bbclient.Get(set, []byte("cas"))
+	op = cdb.Get(set, []byte("cas"))
 
 	res = client.Execute(op)
 
@@ -333,7 +333,7 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.Iconsensusdb, set strin
 	//  Test Remove
 	//
 
-	op = bbclient.Remove(set, []byte("cas"))
+	op = cdb.Remove(set, []byte("cas"))
 
 	res = client.Execute(op)
 
@@ -345,13 +345,13 @@ func RunCompareAndSetTests(t *testing.T, client bbclient.Iconsensusdb, set strin
 }
 
 
-func RunWithTtlTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
+func RunWithTtlTests(t *testing.T, client cdb.IConsensusDB, set string) {
 
 	//
 	//  Test Not Exists
 	//
 
-	op := bbclient.Get(set, []byte("ttl")).HeadOnly()
+	op := cdb.Get(set, []byte("ttl")).HeadOnly()
 
 	res := client.Execute(op)
 
@@ -371,7 +371,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Test Put With TTL
 	//
 
-	op = bbclient.Put(set, []byte("ttl"), []byte("value")).OverrideTtl(100)
+	op = cdb.Put(set, []byte("ttl"), []byte("value")).OverrideTtl(100)
 
 	res = client.Execute(op)
 
@@ -383,7 +383,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Test Exists With TTL
 	//
 
-	op = bbclient.Get(set, []byte("ttl")).HeadOnly()
+	op = cdb.Get(set, []byte("ttl")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -405,7 +405,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Test Get With TTL
 	//
 
-	op = bbclient.Get(set, []byte("ttl"))
+	op = cdb.Get(set, []byte("ttl"))
 
 	res = client.Execute(op)
 
@@ -431,7 +431,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Test Touch
 	//
 
-	op = bbclient.Touch(set, []byte("ttl")).OverrideTtl(1000)
+	op = cdb.Touch(set, []byte("ttl")).OverrideTtl(1000)
 
 	res = client.Execute(op)
 
@@ -450,7 +450,7 @@ func RunWithTtlTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 }
 
 
-func RunCompressionTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
+func RunCompressionTests(t *testing.T, client cdb.IConsensusDB, set string) {
 
 	//
 	//  Create Payload
@@ -466,7 +466,7 @@ func RunCompressionTests(t *testing.T, client bbclient.Iconsensusdb, set string)
 	//  Test Put
 	//
 
-	op := bbclient.Put(set, []byte("compress"), payload).CompressOnServer()
+	op := cdb.Put(set, []byte("compress"), payload).CompressOnServer()
 
 	res := client.Execute(op)
 
@@ -478,7 +478,7 @@ func RunCompressionTests(t *testing.T, client bbclient.Iconsensusdb, set string)
 	//  Test Size
 	//
 
-	op = bbclient.Get(set, []byte("compress")).HeadOnly()
+	op = cdb.Get(set, []byte("compress")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -498,7 +498,7 @@ func RunCompressionTests(t *testing.T, client bbclient.Iconsensusdb, set string)
 	//  Test Get
 	//
 
-	op = bbclient.Get(set, []byte("compress"))
+	op = cdb.Get(set, []byte("compress"))
 
 	res = client.Execute(op)
 
@@ -521,7 +521,7 @@ func RunCompressionTests(t *testing.T, client bbclient.Iconsensusdb, set string)
 }
 
 
-func RunEncryptionTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
+func RunEncryptionTests(t *testing.T, client cdb.IConsensusDB, set string) {
 
 	//
 	//  One letter with no padding is very good test
@@ -533,7 +533,7 @@ func RunEncryptionTests(t *testing.T, client bbclient.Iconsensusdb, set string) 
 	//  Test Put
 	//
 
-	op := bbclient.Put(set, []byte("enc"), payload).EncryptOnServer()
+	op := cdb.Put(set, []byte("enc"), payload).EncryptOnServer()
 
 	res := client.Execute(op)
 
@@ -545,7 +545,7 @@ func RunEncryptionTests(t *testing.T, client bbclient.Iconsensusdb, set string) 
 	//  Test Size
 	//
 
-	op = bbclient.Get(set, []byte("enc")).HeadOnly()
+	op = cdb.Get(set, []byte("enc")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -561,7 +561,7 @@ func RunEncryptionTests(t *testing.T, client bbclient.Iconsensusdb, set string) 
 	//  Test Get
 	//
 
-	op = bbclient.Get(set, []byte("enc"))
+	op = cdb.Get(set, []byte("enc"))
 
 	res = client.Execute(op)
 
@@ -579,14 +579,14 @@ func RunEncryptionTests(t *testing.T, client bbclient.Iconsensusdb, set string) 
 
 }
 
-func RunPitOneTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
+func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set string) {
 
 
 	//
 	//  Test Put
 	//
 
-	op := bbclient.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(1514764800)
+	op := cdb.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(1514764800)
 
 	res := client.Execute(op)
 
@@ -599,7 +599,7 @@ func RunPitOneTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Exact Lookup Head
 	//
 
-	op = bbclient.Get(set, []byte("pit1")).HeadOnly().WithTimestamp(1514764800)
+	op = cdb.Get(set, []byte("pit1")).HeadOnly().WithTimestamp(1514764800)
 
 	res = client.Execute(op)
 
@@ -621,7 +621,7 @@ func RunPitOneTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Lower Lookup Head
 	//
 
-	op = bbclient.Get(set, []byte("pit2")).HeadOnly()
+	op = cdb.Get(set, []byte("pit2")).HeadOnly()
 
 	res = client.Execute(op)
 
@@ -637,7 +637,7 @@ func RunPitOneTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Test Second Put
 	//
 
-	op = bbclient.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(1514764900)
+	op = cdb.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(1514764900)
 
 	res = client.Execute(op)
 
@@ -650,7 +650,7 @@ func RunPitOneTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Exact Lookup Head
 	//
 
-	op = bbclient.Range(set, []byte("pit1"), 1).HeadOnly().WithTimestamp(math.MaxUint64)
+	op = cdb.Range(set, []byte("pit1"), 1).HeadOnly().WithTimestamp(math.MaxUint64)
 
 	res = client.Execute(op)
 
@@ -672,7 +672,7 @@ func RunPitOneTests(t *testing.T, client bbclient.Iconsensusdb, set string) {
 	//  Lower Lookup Head
 	//
 
-	op = bbclient.Range(set, []byte("pit2"), 1).HeadOnly()
+	op = cdb.Range(set, []byte("pit2"), 1).HeadOnly()
 
 	res = client.Execute(op)
 

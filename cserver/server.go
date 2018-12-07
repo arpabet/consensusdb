@@ -1,0 +1,546 @@
+/*
+ *
+ * Copyright 2018-present Alexander Shvid and Contributors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+package cserver
+
+import (
+	stats "go.etcd.io/etcd/etcdserver/api/v2stats"
+	"go.etcd.io/etcd/etcdserver/api/rafthttp"
+	"go.etcd.io/etcd/etcdserver/api/snap"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"log"
+	"net"
+	"github.com/consensusdb/consensusdb/proto/bbproto"
+	"github.com/pkg/errors"
+	"io/ioutil"
+	"path/filepath"
+	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/gobwas/glob"
+	"github.com/consensusdb/consensusdb/c"
+	"net/http"
+	"go.etcd.io/etcd/raft"
+	"go.etcd.io/etcd/raft/raftpb"
+	"strconv"
+	"go.uber.org/zap"
+	"go.etcd.io/etcd/pkg/types"
+	"go.etcd.io/etcd/wal"
+	"go.etcd.io/etcd/wal/walpb"
+	"time"
+)
+
+type DefaultServer struct {
+
+	grpcServer       *grpc.Server
+	conf             *Configuration
+	regionStoreMap   *RegionStoreMap
+
+	shuttingDown     bool
+
+	logger           *zap.Logger
+
+	wal              *wal.WAL
+	snapshotter      *snap.Snapshotter
+
+	ticker 			*time.Ticker
+
+	raftStorage      *raft.MemoryStorage
+	raftNode         raft.Node
+	raftTransport    *rafthttp.Transport
+
+	raftErrorC 		 chan error
+	raftStopC  		 chan bool
+}
+
+func (this *DefaultServer) Close() {
+
+	if this == nil || this.shuttingDown {
+		return
+	}
+
+	this.shuttingDown = true
+
+	log.Println("consensusdb shutting down...")
+
+	this.raftStopC <- true
+	this.ticker.Stop()
+
+	if this.grpcServer != nil {
+		this.grpcServer.Stop()
+		this.grpcServer = nil
+	}
+
+	list := this.regionStoreMap.List()
+
+	this.regionStoreMap.Clear()
+
+	for _, e := range list {
+		e.Value.Close();
+	}
+
+	close(this.raftErrorC)
+
+	this.wal.Close()
+}
+
+func NewServer(conf *Configuration) (server *DefaultServer, err error) {
+
+	server = &DefaultServer{
+		conf:           conf,
+		regionStoreMap: NewRegionStoreMap(),
+		logger:         zap.NewExample(),
+		ticker:         time.NewTicker(100 * time.Millisecond),
+		raftStorage:    raft.NewMemoryStorage(),
+		raftErrorC:     make(chan error),
+		raftStopC:      make(chan bool, 1),
+	}
+
+	log.Printf("Data path: %s\n", server.conf.RootDir)
+
+	regionDirs, err := ioutil.ReadDir(server.conf.DataDir)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, regionName := range regionDirs {
+
+		if regionName.IsDir() {
+
+			log.Printf("Load region: %s\n", regionName.Name())
+
+			store, err := LoadBaggerDriver(filepath.Join(server.conf.DataDir, regionName.Name()), conf)
+			if err != nil {
+				return nil, err
+			}
+
+			server.regionStoreMap.Put(store.GetRegion().GetName(), store)
+
+		}
+
+	}
+
+	server.snapshotter = snap.New(server.logger, conf.SnapDir)
+
+	walExist := wal.Exist(conf.WalDir)
+
+	if !walExist {
+
+		w, err := wal.Create(server.logger, conf.WalDir, nil)
+		if err != nil {
+			return nil, err
+		}
+		w.Close()
+
+	}
+
+	snapshot, err := server.snapshotter.Load()
+	walSnapshot := walpb.Snapshot{}
+	if err != nil {
+		if err != snap.ErrNoSnapshot {
+			log.Fatal("error loading raft snapshot", err)
+		}
+	} else {
+		walSnapshot.Index, walSnapshot.Term = snapshot.Metadata.Index, snapshot.Metadata.Term
+		server.raftStorage.ApplySnapshot(*snapshot)
+	}
+
+	log.Printf("Loading WAL at term %d and index %d", walSnapshot.Term, walSnapshot.Index)
+	server.wal, err = wal.Open(server.logger, conf.WalDir, walSnapshot)
+	if err != nil {
+		return nil, err
+	}
+
+	_, st, ents, err := server.wal.ReadAll()
+	if err != nil {
+		log.Fatal("failed to read WAL", err)
+	}
+	server.raftStorage.SetHardState(st)
+	server.raftStorage.Append(ents)
+
+	if len(ents) > 0 {
+		lastIndex := ents[len(ents)-1].Index
+		log.Print("raft started from lastIndex=", lastIndex, "\n")
+	}
+
+	raftConf := &raft.Config{
+		ID:                        uint64(conf.PeerId),
+		ElectionTick:              10,
+		HeartbeatTick:             1,
+		Storage:                   server.raftStorage,
+		MaxSizePerMsg:             1024 * 1024,
+		MaxInflightMsgs:           256,
+		MaxUncommittedEntriesSize: 1 << 30,
+	}
+
+	raftPeers := make([]raft.Peer, 0, len(conf.Peers))
+	for k, _ := range conf.Peers {
+		raftPeers = append(raftPeers, raft.Peer{ID: uint64(k)})
+	}
+
+	if walExist {
+		server.raftNode = raft.RestartNode(raftConf)
+	} else {
+		server.raftNode = raft.StartNode(raftConf, raftPeers)
+	}
+
+	peerIdStr := strconv.Itoa(conf.PeerId)
+
+	server.raftTransport = &rafthttp.Transport{
+		Logger:      zap.NewExample(),
+		ID:          types.ID(conf.PeerId),
+		ClusterID:   types.ID(conf.ClusterId),
+		Raft:        server,
+		ServerStats: stats.NewServerStats(conf.PeerName, peerIdStr),
+		LeaderStats: stats.NewLeaderStats(peerIdStr),
+		ErrorC:      server.raftErrorC,
+	}
+
+	err = server.raftTransport.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range conf.Peers {
+		if k != conf.PeerId {
+			server.raftTransport.AddPeer(types.ID(k), []string{v})
+		}
+	}
+
+	return server,nil
+}
+
+
+func (this *DefaultServer) GetRaftMux()  *http.ServeMux {
+	handler := this.raftTransport.Handler()
+	return handler.(*http.ServeMux)
+}
+
+func (this *DefaultServer) saveToStorage() {
+
+}
+
+func (this *DefaultServer) RaftLoop() error {
+
+	// event loop on raft state machine updates
+	for {
+		select {
+		case <-this.ticker.C:
+			this.raftNode.Tick()
+
+			// store raft entries to wal, then publish over commit channel
+		case rd := <-this.raftNode.Ready():
+			this.wal.Save(rd.HardState, rd.Entries)
+
+			if !raft.IsEmptySnap(rd.Snapshot) {
+				log.Print("Received snapshot")
+				this.saveSnapshot(rd.Snapshot)
+				this.raftStorage.ApplySnapshot(rd.Snapshot)
+				//this.publishSnapshot(rd.Snapshot)
+			}
+
+			this.raftStorage.Append(rd.Entries)
+			this.raftTransport.Send(rd.Messages)
+
+
+			this.raftNode.Advance()
+
+		case err := <-this.raftTransport.ErrorC:
+			log.Fatal("raft transport error", err)
+			return err
+
+		case <-this.raftStopC:
+			return nil
+		}
+	}
+}
+
+func (this *DefaultServer) saveSnapshot(snap raftpb.Snapshot) error {
+	// must save the snapshot index to the WAL before saving the
+	// snapshot to maintain the invariant that we only Open the
+	// wal at previously-saved snapshot indexes.
+	walSnapshot := walpb.Snapshot{
+		Index: snap.Metadata.Index,
+		Term:  snap.Metadata.Term,
+	}
+	if err := this.wal.SaveSnapshot(walSnapshot); err != nil {
+		return err
+	}
+	if err := this.snapshotter.SaveSnap(snap); err != nil {
+		return err
+	}
+	return this.wal.ReleaseLockTo(snap.Metadata.Index)
+}
+
+//
+//  Raft
+//
+
+func (this *DefaultServer) Process(ctx context.Context, m raftpb.Message) error {
+	return this.raftNode.Step(ctx, m)
+}
+
+func (this *DefaultServer) IsIDRemoved(id uint64) bool                           {
+	return false
+}
+
+func (this *DefaultServer) ReportUnreachable(id uint64)                          {
+
+}
+
+func (this *DefaultServer) ReportSnapshot(id uint64, status raft.SnapshotStatus) {
+
+}
+
+func (this *DefaultServer) propogateChanges(msg *bbproto.RawRecord) {
+}
+
+func (this *DefaultServer) getSnapshot() ([]byte, error) {
+
+	majorKey := []byte{}
+
+	var outC chan *bbproto.RawRecord
+
+	for _, regionStore := range this.regionStoreMap.List() {
+
+		go regionStore.Value.GetSnapshot(majorKey, outC)
+
+	}
+
+	return []byte{}, nil
+}
+
+
+//
+//
+// REGION API
+//
+//
+
+
+func (this *DefaultServer) Create(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
+
+	regionName := region.Name
+
+	log.Printf("Create region: %s\n", regionName)
+
+	if regionName == "" {
+		return nil, errors.New("empty regionName")
+	}
+
+	store, ok := this.regionStoreMap.Get(regionName)
+
+	if ok {
+		return new(empty.Empty), nil
+	}
+
+	store, err = NewDefaultStore(filepath.Join(this.conf.DataDir, regionName), region, this.conf)
+
+	if err != nil {
+		return nil, err
+	}
+
+	this.regionStoreMap.Put(regionName, store)
+
+	return new(empty.Empty), nil
+
+}
+
+func (this *DefaultServer) Update(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
+
+	name := region.Name
+
+	log.Printf("Alter region: %s\n", name)
+
+	if name == "" {
+		return nil, errors.New("empty name")
+	}
+
+	return nil, errors.New("not supported")
+
+}
+
+func (this *DefaultServer) Delete(context context.Context, request *bbproto.String) (response *empty.Empty, err error) {
+
+	name := request.Value
+
+	log.Printf("Drop table: %s\n", name)
+
+	prev, ok := this.regionStoreMap.Remove(name)
+
+	if ok {
+		prev.Close()
+	}
+
+	return new(empty.Empty), nil
+}
+
+func (this *DefaultServer) Get(request *bbproto.String, responseServer bbproto.RegionService_GetServer) error {
+
+    pattern := request.Value
+
+    if pattern == "" {
+    	pattern = "*"
+	}
+
+	log.Printf("Get regions: %s\n", pattern)
+
+    matcher, err := glob.Compile(pattern)
+
+	if err != nil {
+		return errors.New("wrong pattern")
+	}
+
+
+	list := this.regionStoreMap.List()
+
+	for _, e := range list {
+
+		if matcher.Match(e.Name) {
+
+			responseServer.Send(e.Value.GetRegion())
+
+		}
+
+	}
+
+	return nil
+}
+
+func (this *DefaultServer) FindRegionStore(operation *bbproto.TxOperation) IRegionStore {
+
+	if operation.Key == nil {
+		return NewErrorStore("", c.ErrorBadRequest("empty Key"))
+	}
+
+	key := operation.Key
+
+	if key.RegionName == "" {
+		return NewErrorStore("", c.ErrorBadRequest("empty Key.RegionName"))
+	}
+
+	if len(key.MajorKey) == 0 {
+		return NewErrorStore(key.RegionName, c.ErrorBadRequest("replicated empty MajorKey not supported yet"))
+	}
+
+	store, ok := this.regionStoreMap.Get(key.RegionName)
+
+	if !ok {
+		return NewErrorStore(key.RegionName, c.ErrorRegionNotFound(key.RegionName))
+	}
+
+	return store
+}
+
+
+//
+//
+// RECORD API
+//
+//
+
+func (this *DefaultServer) Execute(context context.Context, tx *bbproto.Transaction) (response *bbproto.TransactionResult, err error) {
+
+	size := len(tx.Operations)
+
+	response = new(bbproto.TransactionResult)
+	response.Results = make([]*bbproto.TxOperationResult, 0, size)
+
+	if size == 0 {
+		return response, nil
+	}
+
+	txlist := make([]IRegionTnx, 0, size)
+	txmap := make(map[string]IRegionTnx)
+
+	for _, op := range tx.Operations {
+
+		store := this.FindRegionStore(op)
+
+		tx, ok := txmap[store.GetName()]
+
+		if !ok {
+			tx = store.NewTransaction()
+			txmap[store.GetName()] = tx
+		}
+
+		tx.Update(c.IsUpdateOperation(op))
+		txlist = append(txlist, tx)
+
+	}
+
+	for _, tx := range txmap {
+		tx.Begin()
+	}
+
+	rollbackAll := false
+
+	for i := 0; i < size; i = i + 1 {
+		result := txlist[i].ProcessOperation(tx.Operations[i])
+		response.Results = append(response.Results, result)
+
+		if tx.AllOrNothing && !c.IsSuccessResult(result) {
+			rollbackAll = true
+			for i = i + 1; i < size; i = i + 1 {
+				response.Results = append(response.Results, c.ErrorDriver("rollback"))
+			}
+			break
+		}
+
+
+	}
+
+	if rollbackAll {
+
+		for _, c := range txmap {
+			c.Rollback()
+		}
+
+	} else {
+
+		for _, c := range txmap {
+			c.Commit()
+		}
+
+	}
+
+	return response, nil
+
+}
+
+
+func (this *DefaultServer) ServeGRPC() error {
+
+	// start listening for grpc
+	listen, err := net.Listen("tcp4", this.conf.GrpcAddress)
+	if err != nil {
+		log.Fatal("port is busy " + this.conf.GrpcAddress, err)
+		return err
+	}
+
+	// Create new grpc cserver
+	this.grpcServer = grpc.NewServer()
+
+	// Register services
+	bbproto.RegisterRegionServiceServer(this.grpcServer, this)
+	bbproto.RegisterTransactionServiceServer(this.grpcServer, this)
+
+	// Start serving requests
+	return this.grpcServer.Serve(listen)
+
+}
