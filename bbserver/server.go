@@ -44,7 +44,7 @@ import (
 	"time"
 )
 
-type BigBaggerServer struct {
+type DefaultServer struct {
 
 	grpcServer       *grpc.Server
 	conf             *Configuration
@@ -67,7 +67,7 @@ type BigBaggerServer struct {
 	raftStopC  		 chan bool
 }
 
-func (this *BigBaggerServer) Close() {
+func (this *DefaultServer) Close() {
 
 	if this == nil || this.shuttingDown {
 		return
@@ -98,9 +98,9 @@ func (this *BigBaggerServer) Close() {
 	this.wal.Close()
 }
 
-func NewServer(conf *Configuration) (server *BigBaggerServer, err error) {
+func NewServer(conf *Configuration) (server *DefaultServer, err error) {
 
-	server = &BigBaggerServer{
+	server = &DefaultServer{
 		conf:           conf,
 		regionStoreMap: NewRegionStoreMap(),
 		logger:         zap.NewExample(),
@@ -226,16 +226,16 @@ func NewServer(conf *Configuration) (server *BigBaggerServer, err error) {
 }
 
 
-func (this *BigBaggerServer) GetRaftMux()  *http.ServeMux {
+func (this *DefaultServer) GetRaftMux()  *http.ServeMux {
 	handler := this.raftTransport.Handler()
 	return handler.(*http.ServeMux)
 }
 
-func (this *BigBaggerServer) saveToStorage() {
+func (this *DefaultServer) saveToStorage() {
 
 }
 
-func (this *BigBaggerServer) RaftLoop() error {
+func (this *DefaultServer) RaftLoop() error {
 
 	// event loop on raft state machine updates
 	for {
@@ -270,7 +270,7 @@ func (this *BigBaggerServer) RaftLoop() error {
 	}
 }
 
-func (this *BigBaggerServer) saveSnapshot(snap raftpb.Snapshot) error {
+func (this *DefaultServer) saveSnapshot(snap raftpb.Snapshot) error {
 	// must save the snapshot index to the WAL before saving the
 	// snapshot to maintain the invariant that we only Open the
 	// wal at previously-saved snapshot indexes.
@@ -291,26 +291,26 @@ func (this *BigBaggerServer) saveSnapshot(snap raftpb.Snapshot) error {
 //  Raft
 //
 
-func (this *BigBaggerServer) Process(ctx context.Context, m raftpb.Message) error {
+func (this *DefaultServer) Process(ctx context.Context, m raftpb.Message) error {
 	return this.raftNode.Step(ctx, m)
 }
 
-func (this *BigBaggerServer) IsIDRemoved(id uint64) bool                           {
+func (this *DefaultServer) IsIDRemoved(id uint64) bool                           {
 	return false
 }
 
-func (this *BigBaggerServer) ReportUnreachable(id uint64)                          {
+func (this *DefaultServer) ReportUnreachable(id uint64)                          {
 
 }
 
-func (this *BigBaggerServer) ReportSnapshot(id uint64, status raft.SnapshotStatus) {
+func (this *DefaultServer) ReportSnapshot(id uint64, status raft.SnapshotStatus) {
 
 }
 
-func (this *BigBaggerServer) propogateChanges(msg *bbproto.RawRecord) {
+func (this *DefaultServer) propogateChanges(msg *bbproto.RawRecord) {
 }
 
-func (this *BigBaggerServer) getSnapshot() ([]byte, error) {
+func (this *DefaultServer) getSnapshot() ([]byte, error) {
 
 	majorKey := []byte{}
 
@@ -333,7 +333,7 @@ func (this *BigBaggerServer) getSnapshot() ([]byte, error) {
 //
 
 
-func (this *BigBaggerServer) Create(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
+func (this *DefaultServer) Create(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
 
 	regionName := region.Name
 
@@ -349,7 +349,7 @@ func (this *BigBaggerServer) Create(context context.Context, region *bbproto.Reg
 		return new(empty.Empty), nil
 	}
 
-	store, err = NewBaggerStore(filepath.Join(this.conf.DataDir, regionName), region, this.conf)
+	store, err = NewDefaultStore(filepath.Join(this.conf.DataDir, regionName), region, this.conf)
 
 	if err != nil {
 		return nil, err
@@ -361,7 +361,7 @@ func (this *BigBaggerServer) Create(context context.Context, region *bbproto.Reg
 
 }
 
-func (this *BigBaggerServer) Update(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
+func (this *DefaultServer) Update(context context.Context, region *bbproto.Region) (response *empty.Empty, err error) {
 
 	name := region.Name
 
@@ -375,7 +375,7 @@ func (this *BigBaggerServer) Update(context context.Context, region *bbproto.Reg
 
 }
 
-func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.String) (response *empty.Empty, err error) {
+func (this *DefaultServer) Delete(context context.Context, request *bbproto.String) (response *empty.Empty, err error) {
 
 	name := request.Value
 
@@ -390,7 +390,7 @@ func (this *BigBaggerServer) Delete(context context.Context, request *bbproto.St
 	return new(empty.Empty), nil
 }
 
-func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto.RegionService_GetServer) error {
+func (this *DefaultServer) Get(request *bbproto.String, responseServer bbproto.RegionService_GetServer) error {
 
     pattern := request.Value
 
@@ -422,7 +422,7 @@ func (this *BigBaggerServer) Get(request *bbproto.String, responseServer bbproto
 	return nil
 }
 
-func (this *BigBaggerServer) FindRegionStore(operation *bbproto.TxOperation) IRegionStore {
+func (this *DefaultServer) FindRegionStore(operation *bbproto.TxOperation) IRegionStore {
 
 	if operation.Key == nil {
 		return NewErrorStore("", bbcommon.ErrorBadRequest("empty Key"))
@@ -454,7 +454,7 @@ func (this *BigBaggerServer) FindRegionStore(operation *bbproto.TxOperation) IRe
 //
 //
 
-func (this *BigBaggerServer) Execute(context context.Context, tx *bbproto.Transaction) (response *bbproto.TransactionResult, err error) {
+func (this *DefaultServer) Execute(context context.Context, tx *bbproto.Transaction) (response *bbproto.TransactionResult, err error) {
 
 	size := len(tx.Operations)
 
@@ -524,7 +524,7 @@ func (this *BigBaggerServer) Execute(context context.Context, tx *bbproto.Transa
 }
 
 
-func (this *BigBaggerServer) ServeGRPC() error {
+func (this *DefaultServer) ServeGRPC() error {
 
 	// start listening for grpc
 	listen, err := net.Listen("tcp4", this.conf.GrpcAddress)
