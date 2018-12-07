@@ -7,3 +7,9 @@
 [submodule "vendor/go.uber.go/zap"]
 	path = vendor/go.uber.go/zap
 	url = https://github.com/uber-go/zap
+[submodule "vendor/go.uber.org/zap"]
+	path = vendor/go.uber.org/zap
+	url = https://github.com/uber-go/zap
+[submodule "vendor/github.com/dgraph-io/badger"]
+	path = vendor/github.com/dgraph-io/badger
+	url = https://github.com/dgraph-io/badger

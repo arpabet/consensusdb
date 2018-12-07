@@ -74,7 +74,7 @@ func (this *DefaultStoreTxn) Rollback() {
 }
 
 func (this *DefaultStoreTxn) Commit() error {
-	return this.txn.Commit(nil)
+	return this.txn.Commit()
 }
 
 
