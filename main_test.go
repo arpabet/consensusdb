@@ -24,12 +24,12 @@ import (
 	"github.com/consensusdb/consensusdb/cserver"
 	"time"
 	"github.com/consensusdb/consensusdb/cdb"
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"os"
 	"bytes"
 	"fmt"
 	"math"
 	"log"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 )
 
 const (
@@ -74,28 +74,17 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create a cdb ", err)
 	}
 
-	region := new(cserverpb.Region)
-	region.Version = "1.0"
-	region.Name = "TEST"
-
-	err = client.CreateRegion(region)
-
-	if err != nil {
-		t.Fatal("fail to TEST dataset ", err)
-	}
-
-	region.Name = "TEST_NO_TTL"
-
-	err = client.CreateRegion(region)
-
-	if err != nil {
-		t.Fatal("fail to create TEST_NO_TTL dataset ", err)
-	}
+	RunCRUIDTests(t, client, "TEST")
+	RunCompareAndSetTests(t, client, "TEST")
+	RunWithTtlTests(t, client, "TEST")
+	RunCompressionTests(t, client, "TEST")
+	RunEncryptionTests(t, client, "TEST")
+	RunPitOneTests(t, client, "TEST_PIT")
 
 	list, err := client.GetRegions("TEST*")
 
 	if err != nil {
-		t.Fatal("fail to get dataset ", err)
+		t.Fatal("fail to get region list ", err)
 	}
 
 	if len(list) != 2 {
@@ -112,16 +101,9 @@ func TestSuit(t *testing.T) {
 		t.Fatal("TEST table not found")
 	}
 
-	if _, ok := m["TEST_NO_TTL"]; !ok {
-		t.Fatal("TEST_NO_TTL table not found")
+	if _, ok := m["TEST_PIT"]; !ok {
+		t.Fatal("TEST_PIT table not found")
 	}
-
-	RunCRUIDTests(t, client, "TEST")
-	RunCompareAndSetTests(t, client, "TEST")
-	RunWithTtlTests(t, client, "TEST")
-	RunCompressionTests(t, client, "TEST")
-	RunEncryptionTests(t, client, "TEST")
-	RunPitOneTests(t, client, "TEST")
 
 	err = client.DeleteRegion("TEST")
 

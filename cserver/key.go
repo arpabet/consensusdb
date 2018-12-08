@@ -28,48 +28,84 @@ import (
 func GetEncodedSize(key *cserverpb.Key) int {
 
 	majorKeyLen := len(key.MajorKey)
+	regionNameLen := len(key.RegionName)
 	minorKeyLen := len(key.MinorKey)
 
-	sz := 2 + majorKeyLen + 2 + minorKeyLen
+	size := 2 + majorKeyLen + 2 + regionNameLen + 2 + minorKeyLen
 
 	if key.Timestamp > 0 {
-		sz = sz + 8
+		size = size + 8
 	}
 
-	return sz
+	return size
 }
 
 func DecodeKey(b []byte) *cserverpb.Key {
 
-	majorKeyLen := binary.BigEndian.Uint16(b)
-	i := 2 + int(majorKeyLen)
+	j := 0
 
-	majorKey := b[2:i]
+	//
+	// MajorKey
+	//
+	majorKeyLen := binary.BigEndian.Uint16(b[j:])
+	i := j + 2
+	j = i + int(majorKeyLen)
+	majorKey := b[i:j]
 
-	minorKeyLen := binary.BigEndian.Uint16(b[i:])
-	j := i + 2
-	i = j + int(minorKeyLen)
+	//
+	// RegionName
+	//
+	regionNameLen := binary.BigEndian.Uint16(b[j:])
+	i = j + 2
+	j = i + int(regionNameLen)
+	regionName := b[i:j]
 
-	minorKey := b[j:i]
+	//
+	// MinorKey
+	//
+	minorKeyLen := binary.BigEndian.Uint16(b[j:])
+	i = j + 2
+	j = i + int(minorKeyLen)
+	minorKey := b[i:j]
 
+	//
+	// Get Timestamp
+	//
 	var timestamp uint64
-	if i <= len(b)-8 {
-		timestamp = binary.BigEndian.Uint64(b[i:])
+	if j <= len(b)-8 {
+		timestamp = binary.BigEndian.Uint64(b[j:])
 	} else {
 		timestamp = 0
 	}
 
-	return &cserverpb.Key{RegionName: "TEST", MajorKey: majorKey, MinorKey: minorKey, Timestamp: timestamp}
+	return &cserverpb.Key{RegionName: string(regionName), MajorKey: majorKey, MinorKey: minorKey, Timestamp: timestamp}
 }
 
 func GetKeyTimestamp(b []byte) uint64 {
 
-	majorKeyLen := binary.BigEndian.Uint16(b)
-	i := 2 + int(majorKeyLen)
+	i := 0
 
+	//
+	// MajorKey
+	//
+	majorKeyLen := binary.BigEndian.Uint16(b[i:])
+	i = i + 2 + int(majorKeyLen)
+
+	//
+	// RegionName
+	//
+	regionNameLen := binary.BigEndian.Uint16(b[i:])
+	i = i + 2 + int(regionNameLen)
+
+	//
+	// MinorKey
+	//
 	minorKeyLen := binary.BigEndian.Uint16(b[i:])
 	i = i + 2 + int(minorKeyLen)
 
+	//
+	// Get Timestamp
+	//
 	if i <= len(b)-8 {
 		return binary.BigEndian.Uint64(b[i:])
 	} else {
@@ -80,24 +116,71 @@ func GetKeyTimestamp(b []byte) uint64 {
 
 func GetMajorKeyPrefix(majorKey []byte) []byte {
 
-	majorKeyLen := binary.BigEndian.Uint16(majorKey)
+	majorKeyLen := len(majorKey)
 
-	prefix := make([]byte, 2 + int(majorKeyLen))
+	p := make([]byte, 2 + majorKeyLen)
 
-	binary.BigEndian.PutUint16(prefix, uint16(majorKeyLen))
-	copy(prefix[2:], majorKey)
+	//
+	// MajorKey
+	//
+	binary.BigEndian.PutUint16(p, uint16(majorKeyLen))
+	copy(p[2:], majorKey)
 
-	return prefix
+	return p
+}
+
+func GetRegionNamePrefix(majorKey []byte, regionName string) []byte {
+
+	majorKeyLen := len(majorKey)
+	regionNameLen := len(regionName)
+
+	p := make([]byte, 2 + majorKeyLen + 2 + regionNameLen)
+
+	i := 0
+
+	//
+	// MajorKey
+	//
+	binary.BigEndian.PutUint16(p[i:], uint16(majorKeyLen))
+	i = i + 2
+	copy(p[i:], majorKey)
+	i = i + majorKeyLen
+
+	//
+	// RegionName
+	//
+	binary.BigEndian.PutUint16(p[i:], uint16(regionNameLen))
+	i = i + 2
+	copy(p[i:], regionName)
+
+	return p
 }
 
 func ReplaceKeyTimestamp(b []byte, timestamp uint64) []byte {
 
-	majorKeyLen := binary.BigEndian.Uint16(b)
-	i := 2 + int(majorKeyLen)
+	i := 0
 
+	//
+	// MajorKey
+	//
+	majorKeyLen := binary.BigEndian.Uint16(b[i:])
+	i = i + 2 + int(majorKeyLen)
+
+	//
+	// RegionName
+	//
+	regionNameLen := binary.BigEndian.Uint16(b[i:])
+	i = i + 2 + int(regionNameLen)
+
+	//
+	// MinorKey
+	//
 	minorKeyLen := binary.BigEndian.Uint16(b[i:])
 	i = i + 2 + int(minorKeyLen)
 
+	//
+	// Replace Timestamp
+	//
 	other := make([]byte, i + 8)
 	copy(other, b[:i])
 	binary.BigEndian.PutUint64(other[i:], timestamp)
@@ -109,19 +192,38 @@ func ReplaceKeyTimestamp(b []byte, timestamp uint64) []byte {
 func EncodeKey(key *cserverpb.Key, out []byte) int {
 
 	majorKeyLen := len(key.MajorKey)
+	regionNameLen := len(key.RegionName)
 	minorKeyLen := len(key.MinorKey)
 
-	binary.BigEndian.PutUint16(out, uint16(majorKeyLen))
+	i := 0
 
-	copy(out[2:], key.MajorKey)
-	i := 2 + majorKeyLen
+	//
+	// MajorKey
+	//
+	binary.BigEndian.PutUint16(out[i:], uint16(majorKeyLen))
+	i = i + 2
+	copy(out[i:], key.MajorKey)
+	i = i + majorKeyLen
 
+	//
+	// RegionName
+	//
+	binary.BigEndian.PutUint16(out[i:], uint16(regionNameLen))
+	i = i + 2
+	copy(out[i:], key.RegionName)
+	i = i + regionNameLen
+
+	//
+	// MinorKey
+	//
 	binary.BigEndian.PutUint16(out[i:], uint16(minorKeyLen))
 	i = i + 2
-
 	copy(out[i:], key.MinorKey)
 	i = i + minorKeyLen
 
+	//
+	// Timestamp
+	//
 	if key.Timestamp > 0 {
 		binary.BigEndian.PutUint64(out[i:], key.Timestamp)
 	}
@@ -131,24 +233,66 @@ func EncodeKey(key *cserverpb.Key, out []byte) int {
 
 func EncodeKeyTo(key *cserverpb.Key, buf *bytes.Buffer) {
 
+	//
+	// tmp buf
+	//
 	var enc [8]byte
 	enc16 := enc[:2]
 	enc64 := enc[:8]
 
 	majorKeyLen := len(key.MajorKey)
+	regionNameLen := len(key.RegionName)
 	minorKeyLen := len(key.MinorKey)
 
+	//
+	// MajorKey
+	//
 	binary.BigEndian.PutUint16(enc16, uint16(majorKeyLen))
 	buf.Write(enc16)
 	buf.Write(key.MajorKey)
 
+	//
+	// RegionName
+	//
+	binary.BigEndian.PutUint16(enc16, uint16(regionNameLen))
+	buf.Write(enc16)
+	buf.Write([]byte(key.RegionName))
+
+	//
+	// MinorKey
+	//
 	binary.BigEndian.PutUint16(enc16, uint16(minorKeyLen))
 	buf.Write(enc16)
 	buf.Write(key.MinorKey)
 
+	//
+	// Timestamp
+	//
 	if key.Timestamp > 0 {
 		binary.BigEndian.PutUint64(enc64, key.Timestamp)
 		buf.Write(enc64)
 	}
 
+}
+
+
+func IsEquals(left *cserverpb.Key, right *cserverpb.Key) bool {
+
+	if !bytes.Equal(left.MajorKey, right.MajorKey) {
+		return false
+	}
+
+	if left.RegionName != right.RegionName {
+		return false
+	}
+
+	if !bytes.Equal(left.MinorKey, right.MinorKey) {
+		return false
+	}
+
+	if left.Timestamp != right.Timestamp {
+		return false
+	}
+
+	return true
 }
