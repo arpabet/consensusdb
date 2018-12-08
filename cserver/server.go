@@ -371,6 +371,12 @@ func (this *DefaultServer) Execute(context context.Context, tx *cserverpb.Transa
 
 	tnx := this.kv.NewTransaction()
 
+	for i := 0; i < size; i = i + 1 {
+		if c.IsUpdateOperation(tx.Operations[i]) {
+			tnx.SetUpdate(true)
+		}
+	}
+
 	tnx.Begin()
 
 	rollbackAll := false
