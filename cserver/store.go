@@ -96,8 +96,7 @@ func (this *DefaultStorage) GetSnapshot(majorKey []byte, outC chan<- *cserverpb.
 
 		item := iter.Item()
 
-		var key Key
-		key.Decode(item.Key())
+		key := DecodeKey(item.Key())
 
 		msg := new(cserverpb.RawRecord)
 
@@ -154,16 +153,14 @@ func (this *DefaultStorage) Close() error {
 
 func (this *DefaultStorage) GetEntryKey(key *cserverpb.Key) (entryKey []byte, prefixKey []byte, err error) {
 
-	k := &Key{MajorKey: key.MajorKey, MinorKey: key.MinorKey, Timestamp: key.Timestamp}
-
-	size := k.EncodedSize()
+	size := GetEncodedSize(key)
 
 	if size > math.MaxUint16 {
 		return nil, nil, errors.New("key is too long")
 	}
 
 	entryKey = make([]byte, size)
-	PrefixLen := k.Encode(entryKey)
+	PrefixLen := EncodeKey(key, entryKey)
 
 	return entryKey, entryKey[:PrefixLen], nil
 

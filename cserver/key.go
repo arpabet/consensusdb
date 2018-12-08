@@ -21,45 +21,45 @@ package cserver
 import (
 	"encoding/binary"
 	"bytes"
+	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 )
 
-type Key struct {
-	MajorKey    []byte    // compare first
-	MinorKey    []byte    // compare second
-	Timestamp   uint64    // compare third (optional)
-}
 
-func (k *Key) EncodedSize() int {
+func GetEncodedSize(key *cserverpb.Key) int {
 
-	majorKeyLen := len(k.MajorKey)
-	minorKeyLen := len(k.MinorKey)
+	majorKeyLen := len(key.MajorKey)
+	minorKeyLen := len(key.MinorKey)
 
 	sz := 2 + majorKeyLen + 2 + minorKeyLen
 
-	if k.Timestamp > 0 {
+	if key.Timestamp > 0 {
 		sz = sz + 8
 	}
 
 	return sz
 }
 
-func (k *Key) Decode(b []byte) {
+func DecodeKey(b []byte) *cserverpb.Key {
 
 	majorKeyLen := binary.BigEndian.Uint16(b)
 	i := 2 + int(majorKeyLen)
 
-	k.MajorKey = b[2:i]
+	majorKey := b[2:i]
 
 	minorKeyLen := binary.BigEndian.Uint16(b[i:])
 	j := i + 2
 	i = j + int(minorKeyLen)
 
-	k.MajorKey = b[j:i]
+	minorKey := b[j:i]
 
+	var timestamp uint64
 	if i <= len(b)-8 {
-		k.Timestamp = binary.BigEndian.Uint64(b[i:])
+		timestamp = binary.BigEndian.Uint64(b[i:])
+	} else {
+		timestamp = 0
 	}
 
+	return &cserverpb.Key{RegionName: "TEST", MajorKey: majorKey, MinorKey: minorKey, Timestamp: timestamp}
 }
 
 func GetKeyTimestamp(b []byte) uint64 {
@@ -106,48 +106,48 @@ func ReplaceKeyTimestamp(b []byte, timestamp uint64) []byte {
 }
 
 // return key length without timestamp
-func (k *Key) Encode(b []byte) int {
+func EncodeKey(key *cserverpb.Key, out []byte) int {
 
-	majorKeyLen := len(k.MajorKey)
-	minorKeyLen := len(k.MinorKey)
+	majorKeyLen := len(key.MajorKey)
+	minorKeyLen := len(key.MinorKey)
 
-	binary.BigEndian.PutUint16(b, uint16(majorKeyLen))
+	binary.BigEndian.PutUint16(out, uint16(majorKeyLen))
 
-	copy(b[2:], k.MajorKey)
+	copy(out[2:], key.MajorKey)
 	i := 2 + majorKeyLen
 
-	binary.BigEndian.PutUint16(b[i:], uint16(minorKeyLen))
+	binary.BigEndian.PutUint16(out[i:], uint16(minorKeyLen))
 	i = i + 2
 
-	copy(b[i:], k.MinorKey)
+	copy(out[i:], key.MinorKey)
 	i = i + minorKeyLen
 
-	if k.Timestamp > 0 {
-		binary.BigEndian.PutUint64(b[i:], k.Timestamp)
+	if key.Timestamp > 0 {
+		binary.BigEndian.PutUint64(out[i:], key.Timestamp)
 	}
 
 	return i
 }
 
-func (k *Key) EncodeTo(buf *bytes.Buffer) {
+func EncodeKeyTo(key *cserverpb.Key, buf *bytes.Buffer) {
 
 	var enc [8]byte
 	enc16 := enc[:2]
 	enc64 := enc[:8]
 
-	majorKeyLen := len(k.MajorKey)
-	minorKeyLen := len(k.MinorKey)
+	majorKeyLen := len(key.MajorKey)
+	minorKeyLen := len(key.MinorKey)
 
 	binary.BigEndian.PutUint16(enc16, uint16(majorKeyLen))
 	buf.Write(enc16)
-	buf.Write(k.MajorKey)
+	buf.Write(key.MajorKey)
 
 	binary.BigEndian.PutUint16(enc16, uint16(minorKeyLen))
 	buf.Write(enc16)
-	buf.Write(k.MinorKey)
+	buf.Write(key.MinorKey)
 
-	if k.Timestamp > 0 {
-		binary.BigEndian.PutUint64(enc64, k.Timestamp)
+	if key.Timestamp > 0 {
+		binary.BigEndian.PutUint64(enc64, key.Timestamp)
 		buf.Write(enc64)
 	}
 
