@@ -34,6 +34,14 @@ const (
 	Year                 = Day * 365
 )
 
+func MaxInt(x, y int) int {
+	if x >= y {
+		return x
+	} else {
+		return y
+	}
+}
+
 func CopyOf(src []byte) []byte {
 	dst := make([]byte, len(src))
 	copy(dst, src)

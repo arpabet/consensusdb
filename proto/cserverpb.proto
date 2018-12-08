@@ -123,8 +123,8 @@ message TxOperation {
 }
 
 message GetOperation {
-    bool     headOnly      = 1;
-    uint32   earlyRecords  = 2;    // goes to early records starts from Key.timestamp, but with last versions
+    bool     headOnly             = 1;
+    uint32   lessOrEqualRecords   = 2;    // goes to early records starts from Key.timestamp, but with last versions
 }
 
 message RangeOperation {

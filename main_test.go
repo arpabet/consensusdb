@@ -29,6 +29,7 @@ import (
 	"bytes"
 	"fmt"
 	"math"
+	"log"
 )
 
 const (
@@ -140,6 +141,8 @@ func RunCRUIDTests(t *testing.T, client cdb.IConsensusDB, set string) {
 	op := cdb.Get(set, []byte("key")).HeadOnly()
 
 	res := client.Execute(op)
+
+	log.Println("res=", res)
 
 	if res.Exists() {
 		t.Fatal("this is a new test, entry must not exists")
@@ -648,7 +651,7 @@ func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set string) {
 	//  Exact Lookup Head
 	//
 
-	op = cdb.Range(set, []byte("mk"), []byte("pit1"), []byte("pit2")).HeadOnly().WithTimestamp(math.MaxUint64)
+	op = cdb.GetEarly(set, []byte("pit1"), 1).HeadOnly().WithTimestamp(math.MaxUint64)
 
 	res = client.Execute(op)
 
@@ -670,7 +673,7 @@ func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set string) {
 	//  Lower Lookup Head
 	//
 
-	op = cdb.Range(set, []byte("mk"), []byte("pit2"), []byte("pit3")).HeadOnly()
+	op = cdb.GetEarly(set, []byte("pit2"), 1).HeadOnly()
 
 	res = client.Execute(op)
 

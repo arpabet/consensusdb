@@ -161,7 +161,7 @@
           "type": "boolean",
           "format": "boolean"
         },
-        "earlyRecords": {
+        "lessOrEqualRecords": {
           "type": "integer",
           "format": "int64"
         }

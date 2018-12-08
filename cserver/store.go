@@ -255,10 +255,10 @@ func (this *DefaultStore) ProcessGetOperation(txn *badger.Txn, key *cserverpb.Ke
 		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
 	}
 
-	size := 1 + int(operation.EarlyRecords)
+	size := c.MaxInt(1, int(operation.LessOrEqualRecords))
 	records := make([]*cserverpb.Record, 0, size)
 
-	if size > 1 {
+	if operation.LessOrEqualRecords > 0 {
 
 		reverseIteratorOptions := badger.IteratorOptions{
 			PrefetchValues: true,
@@ -423,6 +423,7 @@ func (this *DefaultStore) ProcessTouchOperation(txn *badger.Txn, key *cserverpb.
 	}
 
 	record := RecordHeadOf(timestamp, item)
+	record.Head.ExpiresAt = entry.ExpiresAt
 
 	return SuccessResultOf([]*cserverpb.Record{record})
 

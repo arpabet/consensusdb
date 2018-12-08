@@ -138,7 +138,7 @@ func (this *ProtoHead) DiskSize() int64 {
 
 var emptyRecord = EmptyRecord{}
 
-var emptyRecords = []IRecord{&emptyRecord}
+var emptyRecords = []IRecord{}
 
 type EmptyRecord struct {
 }
@@ -231,13 +231,13 @@ func Get(regionName string, majorKey []byte) IOperation {
 	return op
 }
 
-func GetEarly(regionName string, majorKey []byte, earlyRecords int) IOperation {
+func GetEarly(regionName string, majorKey []byte, lessOrEqualRecords int) IOperation {
 
 	op := new(GetOp)
 
 	op.Key.RegionName = regionName
 	op.Key.MajorKey = majorKey
-	op.Get.EarlyRecords = uint32(earlyRecords)
+	op.Get.LessOrEqualRecords = uint32(lessOrEqualRecords)
 
 	return op
 }
@@ -251,12 +251,12 @@ func GetReplicated(regionName string) IOperation {
 	return op
 }
 
-func GetEarlyReplicated(regionName string, earlyRecords int) IOperation {
+func GetEarlyReplicated(regionName string, lessOrEqualRecords int) IOperation {
 
 	op := new(GetOp)
 
 	op.Key.RegionName = regionName
-	op.Get.EarlyRecords = uint32(earlyRecords)
+	op.Get.LessOrEqualRecords = uint32(lessOrEqualRecords)
 
 	return op
 }
