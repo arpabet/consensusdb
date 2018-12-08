@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"path/filepath"
 	"github.com/consensusdb/consensusdb/c"
+	"github.com/pkg/errors"
 )
 
 type Configuration struct {
@@ -36,8 +37,9 @@ type Configuration struct {
 	HttpAddress            string
 	GrpcAddress            string
 
-	RootDir                string
 	DataDir                string
+	KeyDir                 string
+	ValueDir               string
 	WalDir                 string
 	SnapDir                string
 
@@ -53,6 +55,14 @@ type Configuration struct {
 	EncryptionTopo         string
 	EncryptionKeyLen       int        // key length in bytes
 
+}
+
+func GetDirProperty(section *ini.Section, dataDir, keyName, defaultValue string) string {
+	if section.HasKey(keyName) {
+		return section.Key(keyName).String()
+	} else {
+		return filepath.Join(dataDir, defaultValue)
+	}
 }
 
 func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
@@ -100,29 +110,15 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 
 	databaseSection := cfg.Section("database")
 
-	rootDir := databaseSection.Key("rootDir").String()
-
-	var dataDir string
-	var walDir  string
-	var snapDir string
-
-	if databaseSection.HasKey("dataDir") {
-		dataDir = databaseSection.Key("dataDir").String()
-	} else {
-		dataDir = filepath.Join(rootDir, "data")
+	dataDir := databaseSection.Key("dataDir").String()
+	if len(dataDir) == 0 {
+		return nil, errors.New("dataDir property in database section can not be empty")
 	}
 
-	if databaseSection.HasKey("walDir") {
-		walDir = databaseSection.Key("walDir").String()
-	} else {
-		walDir = filepath.Join(rootDir, "WAL")
-	}
-
-	if databaseSection.HasKey("snapDir") {
-		snapDir = databaseSection.Key("snapDir").String()
-	} else {
-		snapDir = filepath.Join(rootDir, "snap")
-	}
+	keyDir   := GetDirProperty(databaseSection, dataDir, "keyDir", "key")
+	valueDir := GetDirProperty(databaseSection, dataDir, "valueDir", "value")
+	walDir   := GetDirProperty(databaseSection, dataDir, "walDir", "WAL")
+	snapDir  := GetDirProperty(databaseSection, dataDir, "snapDir", "snap")
 
 	if databaseSection.HasKey("createIfNotExist") {
 		b, err := databaseSection.Key("createIfNotExist").Bool()
@@ -130,7 +126,7 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 			return nil, err
 		}
 		if b {
-			c.CreateDirsIfNotExist(rootDir, dataDir, walDir, snapDir)
+			c.CreateDirsIfNotExist(dataDir, keyDir, valueDir, walDir, snapDir)
 		}
 	}
 
@@ -186,8 +182,9 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 		HttpAddress: httpAddress,
 		GrpcAddress: grpcAddress,
 
-		RootDir: 	rootDir,
 		DataDir: 	dataDir,
+		KeyDir: 	keyDir,
+		ValueDir: 	valueDir,
 		WalDir: 	walDir,
 		SnapDir: 	snapDir,
 
@@ -251,7 +248,7 @@ func FindCipherMode(name string) (mode ICipherMode, err error) {
 	return mode, nil
 }
 
-func NewDefaultConfiguration(httpAddress, grpcAddress, rootDir string) (*Configuration, error) {
+func NewDefaultConfiguration(httpAddress, grpcAddress, dataDir string) (*Configuration, error) {
 
 	passwordMap := map[string]string {
 		"password" : "De6*u1tPassw0rd!",
@@ -272,10 +269,11 @@ func NewDefaultConfiguration(httpAddress, grpcAddress, rootDir string) (*Configu
 		HttpAddress: httpAddress,
 		GrpcAddress: grpcAddress,
 
-		RootDir: 	 rootDir,
-		DataDir: 	 filepath.Join(rootDir, "data"),
-		WalDir: 	 filepath.Join(rootDir, "WAL"),
-		SnapDir: 	 filepath.Join(rootDir, "snap"),
+		DataDir:  dataDir,
+		KeyDir:   filepath.Join(dataDir, "key"),
+		ValueDir: filepath.Join(dataDir, "value"),
+		WalDir:   filepath.Join(dataDir, "WAL"),
+		SnapDir:  filepath.Join(dataDir, "snap"),
 
 		CompressionEnabled: true,
 		Compressor: 		&LZ4Compressor{},
@@ -291,7 +289,7 @@ func NewDefaultConfiguration(httpAddress, grpcAddress, rootDir string) (*Configu
 
 	}
 
-	c.CreateDirsIfNotExist(conf.RootDir, conf.DataDir, conf.WalDir, conf.SnapDir)
+	c.CreateDirsIfNotExist(conf.DataDir, conf.KeyDir, conf.ValueDir, conf.WalDir, conf.SnapDir)
 
 	return conf, nil
 }
