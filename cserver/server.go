@@ -28,8 +28,6 @@ import (
 	"net"
 	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"github.com/pkg/errors"
-	"io/ioutil"
-	"path/filepath"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gobwas/glob"
 	"github.com/consensusdb/consensusdb/c"
@@ -48,7 +46,7 @@ type DefaultServer struct {
 
 	grpcServer       *grpc.Server
 	conf             *Configuration
-	regionStoreMap   *RegionStoreMap
+	kv               IStorage
 
 	shuttingDown     bool
 
@@ -85,13 +83,7 @@ func (this *DefaultServer) Close() {
 		this.grpcServer = nil
 	}
 
-	list := this.regionStoreMap.List()
-
-	this.regionStoreMap.Clear()
-
-	for _, e := range list {
-		e.Value.Close();
-	}
+	this.kv.Close()
 
 	close(this.raftErrorC)
 
@@ -100,39 +92,21 @@ func (this *DefaultServer) Close() {
 
 func NewServer(conf *Configuration) (server *DefaultServer, err error) {
 
+	log.Printf("Data path: %s\n", conf.DataDir)
+
+	kv, err := OpenDefaultStore(conf);
+	if err != nil {
+		return nil, err
+	}
+
 	server = &DefaultServer{
 		conf:           conf,
-		regionStoreMap: NewRegionStoreMap(),
+		kv:             kv,
 		logger:         zap.NewExample(),
 		ticker:         time.NewTicker(100 * time.Millisecond),
 		raftStorage:    raft.NewMemoryStorage(),
 		raftErrorC:     make(chan error),
 		raftStopC:      make(chan bool, 1),
-	}
-
-	log.Printf("Data path: %s\n", server.conf.RootDir)
-
-	regionDirs, err := ioutil.ReadDir(server.conf.DataDir)
-
-	if err != nil {
-		return nil, err
-	}
-
-	for _, regionName := range regionDirs {
-
-		if regionName.IsDir() {
-
-			log.Printf("Load region: %s\n", regionName.Name())
-
-			store, err := LoadBaggerDriver(filepath.Join(server.conf.DataDir, regionName.Name()), conf)
-			if err != nil {
-				return nil, err
-			}
-
-			server.regionStoreMap.Put(store.GetRegion().GetName(), store)
-
-		}
-
 	}
 
 	server.snapshotter = snap.New(server.logger, conf.SnapDir)
@@ -316,11 +290,7 @@ func (this *DefaultServer) getSnapshot() ([]byte, error) {
 
 	var outC chan *cserverpb.RawRecord
 
-	for _, regionStore := range this.regionStoreMap.List() {
-
-		go regionStore.Value.GetSnapshot(majorKey, outC)
-
-	}
+	this.kv.GetSnapshot(majorKey, outC)
 
 	return []byte{}, nil
 }
@@ -335,27 +305,7 @@ func (this *DefaultServer) getSnapshot() ([]byte, error) {
 
 func (this *DefaultServer) Create(context context.Context, region *cserverpb.Region) (response *empty.Empty, err error) {
 
-	regionName := region.Name
-
-	log.Printf("Create region: %s\n", regionName)
-
-	if regionName == "" {
-		return nil, errors.New("empty regionName")
-	}
-
-	store, ok := this.regionStoreMap.Get(regionName)
-
-	if ok {
-		return new(empty.Empty), nil
-	}
-
-	store, err = NewDefaultStore(filepath.Join(this.conf.DataDir, regionName), region, this.conf)
-
-	if err != nil {
-		return nil, err
-	}
-
-	this.regionStoreMap.Put(regionName, store)
+	log.Printf("Create region: %s\n", region.Name)
 
 	return new(empty.Empty), nil
 
@@ -363,29 +313,15 @@ func (this *DefaultServer) Create(context context.Context, region *cserverpb.Reg
 
 func (this *DefaultServer) Update(context context.Context, region *cserverpb.Region) (response *empty.Empty, err error) {
 
-	name := region.Name
+	log.Printf("Update region: %s\n", region.Name)
 
-	log.Printf("Alter region: %s\n", name)
-
-	if name == "" {
-		return nil, errors.New("empty name")
-	}
-
-	return nil, errors.New("not supported")
+	return new(empty.Empty), nil
 
 }
 
 func (this *DefaultServer) Delete(context context.Context, request *cserverpb.String) (response *empty.Empty, err error) {
 
-	name := request.Value
-
-	log.Printf("Drop table: %s\n", name)
-
-	prev, ok := this.regionStoreMap.Remove(name)
-
-	if ok {
-		prev.Close()
-	}
+	log.Printf("Delete region: %s\n", request.Value)
 
 	return new(empty.Empty), nil
 }
@@ -406,45 +342,13 @@ func (this *DefaultServer) Get(request *cserverpb.String, responseServer cserver
 		return errors.New("wrong pattern")
 	}
 
+	if matcher.Match("TEST") {
 
-	list := this.regionStoreMap.List()
-
-	for _, e := range list {
-
-		if matcher.Match(e.Name) {
-
-			responseServer.Send(e.Value.GetRegion())
-
-		}
+		//responseServer.Send(e.Value.GetRegion())
 
 	}
 
 	return nil
-}
-
-func (this *DefaultServer) FindRegionStore(operation *cserverpb.TxOperation) IRegionStore {
-
-	if operation.Key == nil {
-		return NewErrorStore("", c.ErrorBadRequest("empty Key"))
-	}
-
-	key := operation.Key
-
-	if key.RegionName == "" {
-		return NewErrorStore("", c.ErrorBadRequest("empty Key.RegionName"))
-	}
-
-	if len(key.MajorKey) == 0 {
-		return NewErrorStore(key.RegionName, c.ErrorBadRequest("replicated empty MajorKey not supported yet"))
-	}
-
-	store, ok := this.regionStoreMap.Get(key.RegionName)
-
-	if !ok {
-		return NewErrorStore(key.RegionName, c.ErrorRegionNotFound(key.RegionName))
-	}
-
-	return store
 }
 
 
@@ -465,64 +369,32 @@ func (this *DefaultServer) Execute(context context.Context, tx *cserverpb.Transa
 		return response, nil
 	}
 
-	txlist := make([]IRegionTnx, 0, size)
-	txmap := make(map[string]IRegionTnx)
+	tnx := this.kv.NewTransaction()
 
-	for _, op := range tx.Operations {
-
-		store := this.FindRegionStore(op)
-
-		tx, ok := txmap[store.GetName()]
-
-		if !ok {
-			tx = store.NewTransaction()
-			txmap[store.GetName()] = tx
-		}
-
-		tx.Update(c.IsUpdateOperation(op))
-		txlist = append(txlist, tx)
-
-	}
-
-	for _, tx := range txmap {
-		tx.Begin()
-	}
+	tnx.Begin()
 
 	rollbackAll := false
 
 	for i := 0; i < size; i = i + 1 {
-		result := txlist[i].ProcessOperation(tx.Operations[i])
+		result := tnx.ProcessOperation(tx.Operations[i])
 		response.Results = append(response.Results, result)
 
 		if !c.IsSuccessCode(result.Status) {
 			rollbackAll = true
-			for i = i + 1; i < size; i = i + 1 {
-				response.Results = append(response.Results, c.ErrorDriver("rollback"))
-			}
 			break
 		}
-
 
 	}
 
 	if rollbackAll {
-
-		for _, c := range txmap {
-			c.Rollback()
-		}
-
+		tnx.Rollback()
 	} else {
-
-		for _, c := range txmap {
-			c.Commit()
-		}
-
+		tnx.Commit()
 	}
 
 	return response, nil
 
 }
-
 
 func (this *DefaultServer) ServeGRPC() error {
 

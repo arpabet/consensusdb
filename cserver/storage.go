@@ -26,13 +26,9 @@ const (
 	REGION_JSON = "region.json"
 )
 
-type IRegionStore interface {
+type IStorage interface {
 
-	GetName() string
-
-	GetRegion() *cserverpb.Region
-
-	NewTransaction() IRegionTnx
+	NewTransaction() IStorageTnx
 
 	Close() error
 
@@ -40,7 +36,7 @@ type IRegionStore interface {
 
 }
 
-type IRegionTnx interface {
+type IStorageTnx interface {
 
 	Update(bool)
 
@@ -54,52 +50,43 @@ type IRegionTnx interface {
 
 }
 
-type ErrorStore struct {
-	regionName   string
+type ErrorStorage struct {
 	result       *cserverpb.TxOperationResult
 }
 
-type ErrorTxn struct {
-	store        *ErrorStore
+type ErrorStorageTxn struct {
+	store        *ErrorStorage
 }
 
-func (this *ErrorStore) GetName() string {
-	return this.regionName
+func (this *ErrorStorage) NewTransaction() IStorageTnx {
+	return &ErrorStorageTxn{store: this}
 }
 
-func (this *ErrorStore) GetRegion() *cserverpb.Region {
-	return &cserverpb.Region{Name: this.regionName}
-}
-
-func (this *ErrorStore) NewTransaction() IRegionTnx {
-	return &ErrorTxn{store: this}
-}
-
-func (this *ErrorStore) Close() error {
+func (this *ErrorStorage) Close() error {
 	return nil
 }
 
-func (this *ErrorStore)  GetSnapshot(majorKey []byte, outC chan<- *cserverpb.RawRecord) error {
+func (this *ErrorStorage)  GetSnapshot(majorKey []byte, outC chan<- *cserverpb.RawRecord) error {
 	return nil
 }
 
-func (this *ErrorTxn) Update(update bool) {
+func (this *ErrorStorageTxn) Update(update bool) {
 }
 
-func (this *ErrorTxn) Begin() {
+func (this *ErrorStorageTxn) Begin() {
 }
 
-func (this *ErrorTxn) ProcessOperation(operation *cserverpb.TxOperation) *cserverpb.TxOperationResult {
+func (this *ErrorStorageTxn) ProcessOperation(operation *cserverpb.TxOperation) *cserverpb.TxOperationResult {
 	return this.store.result
 }
 
-func (this *ErrorTxn) Rollback() {
+func (this *ErrorStorageTxn) Rollback() {
 }
 
-func (this *ErrorTxn) Commit() error {
+func (this *ErrorStorageTxn) Commit() error {
 	return nil
 }
 
-func NewErrorStore(regionName string, result  *cserverpb.TxOperationResult) IRegionStore {
-	return &ErrorStore{regionName, result}
+func NewErrorStorage(result  *cserverpb.TxOperationResult) IStorage {
+	return &ErrorStorage{result}
 }
