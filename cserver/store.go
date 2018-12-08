@@ -45,7 +45,7 @@ type DefaultStoreTxn struct {
 // IStorageTnx
 //
 
-func (this *DefaultStoreTxn) Update(update bool) {
+func (this *DefaultStoreTxn) SetUpdate(update bool) {
 	this.update = update
 }
 

@@ -38,7 +38,7 @@ type IStorage interface {
 
 type IStorageTnx interface {
 
-	Update(bool)
+	SetUpdate(bool)
 
 	Begin()
 
@@ -70,7 +70,7 @@ func (this *ErrorStorage)  GetSnapshot(majorKey []byte, outC chan<- *cserverpb.R
 	return nil
 }
 
-func (this *ErrorStorageTxn) Update(update bool) {
+func (this *ErrorStorageTxn) SetUpdate(update bool) {
 }
 
 func (this *ErrorStorageTxn) Begin() {
