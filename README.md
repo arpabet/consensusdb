@@ -168,6 +168,6 @@ password=PUT_YOUR_PASSWORD
 
 ### Influencers
 
-* [https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36971.pdf](Megastore)
-* [http://cs.yale.edu/homes/thomson/publications/calvin-sigmod12.pdf](Calvin)
+* [Megastore](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36971.pdf)
+* [Calvin](http://cs.yale.edu/homes/thomson/publications/calvin-sigmod12.pdf)
 
