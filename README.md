@@ -2,7 +2,9 @@
 
 ConsensusDB Database
 
-This project started on Halloween!
+a (near-)linearly scalable shared-nothing database system that
+provides high availability, strong consistency, and full ACID
+transactions
 
 # Description
 
