@@ -166,7 +166,8 @@ password=PUT_YOUR_PASSWORD
 
 ```
 
-### Bagger
+### Influencers
 
-Bagger - is the touring motorcycle for long trips (for large baggage). BMW K1600B for example.
+* [https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36971.pdf](Megastore)
+* [http://cs.yale.edu/homes/thomson/publications/calvin-sigmod12.pdf](Calvin)
 
