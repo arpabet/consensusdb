@@ -19,47 +19,33 @@
 package cserver
 
 import (
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type ISecurityContext interface {
 
-	GetEncryptionKey(topo string, timestamp uint64, keyLen int) ([]byte, error)
+	GetEncryptionKey(majorKey []byte, timestamp uint64, keyLen int) ([]byte, error)
 
 }
 
 type SimpleSecurityContext struct {
 
-	hashMap   map[string][]byte
+	hash  []byte
 
 }
 
-func NewSimpleSecurityContext(passwordMap map[string]string) (context *SimpleSecurityContext, err error) {
+func NewSimpleSecurityContext(password string) (context *SimpleSecurityContext, err error) {
 
-	context = &SimpleSecurityContext{hashMap: make(map[string][]byte)}
+	context = new(SimpleSecurityContext)
 
-	for topo, password := range passwordMap {
+	context.hash, err = GetPasswordHash(password)
 
-		context.hashMap[topo], err = GetPasswordHash(password)
-
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return context, nil
+	return
 }
 
-func (this* SimpleSecurityContext) GetEncryptionKey(topo string, timestamp uint64, keyLen int) ([]byte, error) {
+func (this* SimpleSecurityContext) GetEncryptionKey(majorKey []byte, timestamp uint64, keyLen int) ([]byte, error) {
 
-	hash, ok := this.hashMap[topo]
-
-	if !ok {
-		return nil, errors.New("topo not found: " + topo)
-	}
-
-	return hash[:keyLen], nil
+	return this.hash[:keyLen], nil
 
 }
 
@@ -77,3 +63,5 @@ func GetPasswordHash(password string) ([]byte, error) {
 func GetCipherKey(hash []byte, keyLen int) ([]byte) {
 	return hash[:keyLen]
 }
+
+

@@ -212,7 +212,7 @@ func (this *DefaultStorage) ProcessGetOperation(txn *badger.Txn, key *cserverpb.
 
 			} else {
 
-				data, resp := this.FetchValue(item)
+				data, resp := this.FetchValue(key.MajorKey, item)
 				if resp != nil {
 					iter.Close()
 					return resp
@@ -242,7 +242,7 @@ func (this *DefaultStorage) ProcessGetOperation(txn *badger.Txn, key *cserverpb.
 
 		} else {
 
-			data, resp := this.FetchValue(item)
+			data, resp := this.FetchValue(key.MajorKey, item)
 			if resp != nil {
 				return resp
 			}
@@ -299,7 +299,7 @@ func (this *DefaultStorage) ProcessRangeOperation(txn *badger.Txn, key *cserverp
 
 		} else {
 
-			data, resp := this.FetchValue(item)
+			data, resp := this.FetchValue(key.MajorKey, item)
 			if resp != nil {
 				iter.Close()
 				return resp
@@ -385,7 +385,7 @@ func (this *DefaultStorage) ProcessPutOperation(txn *badger.Txn, key *cserverpb.
 
 	}
 
-	entry, resp := this.NewEntry(entryKey, operation.Value, operation.TtlSeconds, operation.CompressOnServer, operation.EncryptOnServer)
+	entry, resp := this.NewEntry(key.MajorKey, entryKey, operation.Value, operation.TtlSeconds, operation.CompressOnServer, operation.EncryptOnServer)
 	if resp != nil {
 		return resp
 	}
@@ -451,7 +451,7 @@ func (this *DefaultStorage) ProcessOperation(txn *badger.Txn, operation *cserver
 //  Value I/O
 //
 
-func (this *DefaultStorage) NewEntry(entryKey, value []byte, ttlSeconds uint32, compressOnServer, encryptOnServer bool) (*badger.Entry, *cserverpb.TxOperationResult) {
+func (this *DefaultStorage) NewEntry(majorKey, entryKey, value []byte, ttlSeconds uint32, compressOnServer, encryptOnServer bool) (*badger.Entry, *cserverpb.TxOperationResult) {
 
 	entry := &badger.Entry{ Key: entryKey, Value: value }
 
@@ -474,7 +474,7 @@ func (this *DefaultStorage) NewEntry(entryKey, value []byte, ttlSeconds uint32, 
 
 	if this.conf.EncryptionEnabled && encryptOnServer {
 
-		if encryptedValue, err := this.Encrypt(entry.Value); err == nil {
+		if encryptedValue, err := this.Encrypt(majorKey, entry.Value); err == nil {
 			entry.Value = encryptedValue
 			entry.UserMeta = SetEncryptionEnabled(entry.UserMeta)
 		} else {
@@ -488,7 +488,7 @@ func (this *DefaultStorage) NewEntry(entryKey, value []byte, ttlSeconds uint32, 
 }
 
 
-func (this *DefaultStorage) FetchValue(item *badger.Item) ([]byte, *cserverpb.TxOperationResult) {
+func (this *DefaultStorage) FetchValue(majorKey []byte, item *badger.Item) ([]byte, *cserverpb.TxOperationResult) {
 
 	data, err := item.ValueCopy(nil)
 	if err != nil {
@@ -497,7 +497,7 @@ func (this *DefaultStorage) FetchValue(item *badger.Item) ([]byte, *cserverpb.Tx
 
 	if this.conf.EncryptionEnabled && isEncryptionEnabled(item.UserMeta()) {
 
-		if decrypted, err := this.Decrypt(data); err == nil {
+		if decrypted, err := this.Decrypt(majorKey, data); err == nil {
 			data = decrypted
 		} else {
 			return nil, c.ErrorDriver(fmt.Sprint("decryption failed: ", err))
@@ -522,9 +522,9 @@ func (this *DefaultStorage) FetchValue(item *badger.Item) ([]byte, *cserverpb.Tx
 //  Encryption
 //
 
-func (this*DefaultStorage) Encrypt(plaintext []byte) ([]byte, error) {
+func (this*DefaultStorage) Encrypt(majorKey, plaintext []byte) ([]byte, error) {
 
-	key, err := this.conf.SecurityContext.GetEncryptionKey(this.conf.EncryptionTopo, 0, this.conf.EncryptionKeyLen)
+	key, err := this.conf.SecurityContext.GetEncryptionKey(majorKey, 0, this.conf.EncryptionKeyLen)
 
 	if err != nil {
 		return nil, err
@@ -540,9 +540,9 @@ func (this*DefaultStorage) Encrypt(plaintext []byte) ([]byte, error) {
 
 }
 
-func (this*DefaultStorage) Decrypt(ciphertext []byte) ([]byte, error) {
+func (this*DefaultStorage) Decrypt(majorKey, ciphertext []byte) ([]byte, error) {
 
-	key, err := this.conf.SecurityContext.GetEncryptionKey(this.conf.EncryptionTopo, 0, this.conf.EncryptionKeyLen)
+	key, err := this.conf.SecurityContext.GetEncryptionKey(majorKey, 0, this.conf.EncryptionKeyLen)
 
 	if err != nil {
 		return nil, err

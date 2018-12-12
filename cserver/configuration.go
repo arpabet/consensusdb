@@ -52,7 +52,6 @@ type Configuration struct {
 	EncryptionEnabled      bool
 	EncryptionCipher       ICipher
 	EncryptionMode         ICipherMode
-	EncryptionTopo         string
 	EncryptionKeyLen       int        // key length in bytes
 
 }
@@ -130,7 +129,7 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 		}
 	}
 
-	securityContext, err := NewSimpleSecurityContext(cfg.Section("security").KeysHash())
+	securityContext, err := NewSimpleSecurityContext(cfg.Section("security").Key("password").String())
 
 	if err != nil {
 		return nil, err
@@ -159,8 +158,6 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	topo := encryptionSection.Key("topo").String()
 
 	keySize, err := encryptionSection.Key("keySize").Int()
 	if err != nil {
@@ -195,7 +192,6 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 		EncryptionEnabled: encryptionEnabled,
 		EncryptionCipher: cipher,
 		EncryptionMode: mode,
-		EncryptionTopo: topo,
 		EncryptionKeyLen: keyLen,
 
 		SecurityContext: securityContext,
@@ -250,11 +246,7 @@ func FindCipherMode(name string) (mode ICipherMode, err error) {
 
 func NewDefaultConfiguration(httpAddress, grpcAddress, dataDir string) (*Configuration, error) {
 
-	passwordMap := map[string]string {
-		"password" : "De6*u1tPassw0rd!",
-	}
-
-	securityContext, err := NewSimpleSecurityContext(passwordMap)
+	securityContext, err := NewSimpleSecurityContext("De6*u1tPassw0rd!")
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +274,6 @@ func NewDefaultConfiguration(httpAddress, grpcAddress, dataDir string) (*Configu
 		EncryptionEnabled: true,
 		EncryptionCipher: &AESCipher{},
 		EncryptionMode: &CFBMode{},
-		EncryptionTopo: "password",
 		EncryptionKeyLen: 32,
 
 		SecurityContext: securityContext,
