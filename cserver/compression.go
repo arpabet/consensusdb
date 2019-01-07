@@ -27,6 +27,7 @@ import (
 	"compress/zlib"
 	"github.com/dsnet/compress/bzip2"
 	"github.com/pierrec/lz4"
+	"github.com/golang/snappy"
 )
 
 type ICompressor interface {
@@ -44,6 +45,7 @@ var KnownCompressors = map[string]ICompressor {
 	"ZLIB": &ZLIBCompressor{},
 	"BZIP2": &BZIP2Compressor{},
 	"LZ4": &LZ4Compressor{},
+	"SNAPPY": &SnappyCompressor{},
 }
 
 type NoCompressor struct {
@@ -314,4 +316,19 @@ func (this*LZ4Compressor) Decompress(input  []byte) (output []byte, err error) {
 
 	return ioutil.ReadAll(r)
 
+}
+
+//
+//  Snappy Compressor
+//
+
+type SnappyCompressor struct {
+}
+
+func (this*SnappyCompressor) Compress(input []byte, level int) (output []byte, err error) {
+	return snappy.Encode(nil, input), nil;
+}
+
+func (this*SnappyCompressor) Decompress(input []byte) (output []byte, err error) {
+	return snappy.Decode(nil, input)
 }

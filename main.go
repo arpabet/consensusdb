@@ -19,7 +19,7 @@
 package main
 
 import (
-	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	rt "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"gopkg.in/ini.v1"
@@ -36,6 +36,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"math/rand"
 	"time"
+	"runtime"
 )
 
 var (
@@ -47,6 +48,9 @@ func run() error {
 	log.Println("Starting...")
 
 	rand.Seed(time.Now().UnixNano())
+
+	// Use all CPUs
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	cfg, err := ini.Load(*iniFile)
 	if err != nil {
@@ -133,8 +137,8 @@ func serveSwagger(w http.ResponseWriter, r *http.Request) {
 
 func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string, mux *http.ServeMux) (*http.Server, error) {
 
-	gwRegion := runtime.NewServeMux()
-	gwTnx := runtime.NewServeMux()
+	gwRegion := rt.NewServeMux()
+	gwTnx := rt.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
 	err := cserverpb.RegisterRegionServiceHandlerFromEndpoint(ctx, gwRegion, "localhost"+grpcAddress, opts)
 	if err != nil {
