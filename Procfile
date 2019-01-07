@@ -1,3 +1,3 @@
-bb1: ./bigbagger
-bb2: ./bigbagger --ini=bigbagger2.ini
-bb3: ./bigbagger --ini=bigbagger3.ini
+bb1: ./consensusdb
+bb2: ./consensusdb --ini=consensus2.ini
+bb3: ./consensusdb --ini=consensus3.ini

@@ -27,24 +27,15 @@ import (
 )
 
 type IConsensusDB interface {
-	CreateRegion(region *cserverpb.Region) error
-
-	UpdateRegion(region *cserverpb.Region) error
-
-	DeleteRegion(name string) error
-
-	GetRegions(pattern string) ([]*cserverpb.Region, error)
 
 	Execute(IOperation) IResult
 
-	ExecuteTxn(operations []IOperation) ([]IResult, error)
+	ExecuteTransaction(operations []IOperation) ([]IResult, error)
 }
 
 type DefaultClient struct {
 	conn               *grpc.ClientConn
-	regionService      cserverpb.RegionServiceClient
-	transactionService cserverpb.TransactionServiceClient
-
+	databaseService cserverpb.DatabaseServiceClient
 }
 
 func (cli *DefaultClient) Close() error {
@@ -55,66 +46,6 @@ func (cli *DefaultClient) Close() error {
 	return nil
 }
 
-func (this *DefaultClient) CreateRegion(region *cserverpb.Region) (err error) {
-
-	_, err = this.regionService.Create(context.Background(), region)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-func (this *DefaultClient) UpdateRegion(region *cserverpb.Region) (err error) {
-
-	_, err = this.regionService.Update(context.Background(), region)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-func (this *DefaultClient) DeleteRegion(name string) error {
-
-	request := new(cserverpb.String)
-	request.Value = name
-
-	_, err := this.regionService.Delete(context.Background(), request)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-
-}
-
-func (this *DefaultClient) GetRegions(pattern string) (result []*cserverpb.Region, err error) {
-
-	request := new(cserverpb.String)
-	request.Value = pattern
-
-	response, err := this.regionService.Get(context.Background(), request)
-
-	if err != nil {
-		return nil, err
-	}
-
-	result = make([]*cserverpb.Region, 0, 10)
-
-	for dataset, e := response.Recv(); e == nil; dataset, e = response.Recv() {
-		result = append(result, dataset)
-	}
-
-	return result, err
-
-}
-
 func (this *DefaultClient) Execute(op IOperation) (res IResult) {
 
 	request := new(cserverpb.Transaction)
@@ -122,7 +53,7 @@ func (this *DefaultClient) Execute(op IOperation) (res IResult) {
 
 	request.Operations[0] = op.toProto()
 
-	response, err := this.transactionService.Execute(context.Background(), request)
+	response, err := this.databaseService.Execute(context.Background(), request)
 
 	if err != nil {
 		return NewErrorResult(cserverpb.StatusCode_ERROR_NETWORK, err.Error())
@@ -136,7 +67,7 @@ func (this *DefaultClient) Execute(op IOperation) (res IResult) {
 
 }
 
-func (this *DefaultClient) ExecuteTxn(ops []IOperation) (res []IResult, err error) {
+func (this *DefaultClient) ExecuteTransaction(ops []IOperation) (res []IResult, err error) {
 
 	size := len(ops)
 
@@ -147,7 +78,7 @@ func (this *DefaultClient) ExecuteTxn(ops []IOperation) (res []IResult, err erro
 		request.Operations[i] = op.toProto()
 	}
 
-	response, err := this.transactionService.Execute(context.Background(), request)
+	response, err := this.databaseService.Execute(context.Background(), request)
 
 	if err != nil {
 		return nil, err
@@ -175,8 +106,7 @@ func NewClient(grpcAddress string) (*DefaultClient, error) {
 	}
 
 	var cli = &DefaultClient{conn,
-	cserverpb.NewRegionServiceClient(conn),
-	 cserverpb.NewTransactionServiceClient(conn)}
+	 cserverpb.NewDatabaseServiceClient(conn)}
 
 	return cli, nil
 }

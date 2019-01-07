@@ -29,7 +29,6 @@ import (
 	"fmt"
 	"math"
 	"log"
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 )
 
 const (
@@ -80,37 +79,6 @@ func TestSuit(t *testing.T) {
 	RunCompressionTests(t, client, "TEST")
 	RunEncryptionTests(t, client, "TEST")
 	RunPitOneTests(t, client, "TEST_PIT")
-
-	list, err := client.GetRegions("TEST*")
-
-	if err != nil {
-		t.Fatal("fail to get region list ", err)
-	}
-
-	if len(list) != 2 {
-		t.Fatal("expected 2 results in dataset list, but was: ", len(list))
-	}
-
-	m := make(map[string]*cserverpb.Region)
-
-	for _, v := range list {
-		m[v.Name] = v
-	}
-
-	if _, ok := m["TEST"]; !ok {
-		t.Fatal("TEST table not found")
-	}
-
-	if _, ok := m["TEST_PIT"]; !ok {
-		t.Fatal("TEST_PIT table not found")
-	}
-
-	err = client.DeleteRegion("TEST")
-
-	if err != nil {
-		t.Fatal("fail to remove dataset ", err)
-	}
-
 
 }
 

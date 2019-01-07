@@ -16,6 +16,13 @@ transactions
 * Supports compression
 * Supports encryption
 * Very fast
+* Pure golang
+
+# Current Status
+* developing the simple one-node version
+
+# Design
+Data colocated by majorKey in data nodes, grouped by regionName to reference different types of data, use the minorKey to access an entry.
 
 # Quick start
 
