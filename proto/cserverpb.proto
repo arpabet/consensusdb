@@ -19,7 +19,6 @@
 syntax = "proto3";
 
 import "google/api/annotations.proto";
-import "google/protobuf/empty.proto";
 
 option go_package = "cserver/cserverpb";
 option java_multiple_files = true;
@@ -49,46 +48,8 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 
 package cdb;
 
-service RegionService {
 
-    rpc Create (Region) returns (google.protobuf.Empty) {
-        option (google.api.http) = {
-            post: "/v1/region"
-            body: "*"
-        };
-    }
-
-    rpc Update (Region) returns (google.protobuf.Empty) {
-        option (google.api.http) = {
-            put: "/v1/region/{name}"
-            body: "*"
-        };
-    }
-
-    rpc Delete (String) returns (google.protobuf.Empty) {
-        option (google.api.http) = {
-            delete: "/v1/region/{value}"
-        };
-    }
-
-    rpc Get (String) returns (stream Region) {
-        option (google.api.http) = {
-            get: "/v1/region/{value}"
-        };
-    }
-
-}
-
-message Region {
-    string           version      = 1;     // version of the data structure, 1.0 - the first one
-    string           name         = 2;     // can not be changed
-}
-
-message String {
-    string  value  = 1;
-}
-
-service TransactionService {
+service DatabaseService {
 
     rpc Execute (Transaction) returns (TransactionResult) {
         option (google.api.http) = {
@@ -101,8 +62,8 @@ service TransactionService {
 
 message Key {
 
-    string    regionName    = 1;
-    bytes     majorKey      = 2;   // used as a partition key, good candidate is accountId, if empty - data replicated in all partitions
+    bytes     majorKey      = 1;   // used as a partition key, good candidate is accountId, if empty - data replicated in all partitions
+    string    regionName    = 2;
     bytes     minorKey      = 3;   // used as a record key in the partition
     fixed64   timestamp     = 4;   // find records with timestamp LESS_OR_EQ
 

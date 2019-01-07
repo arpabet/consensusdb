@@ -22,110 +22,6 @@
     "application/octet-stream"
   ],
   "paths": {
-    "/v1/region": {
-      "post": {
-        "operationId": "Create",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/protobufEmpty"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/cdbRegion"
-            }
-          }
-        ],
-        "tags": [
-          "RegionService"
-        ]
-      }
-    },
-    "/v1/region/{name}": {
-      "put": {
-        "operationId": "Update",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/protobufEmpty"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          },
-          {
-            "name": "body",
-            "in": "body",
-            "required": true,
-            "schema": {
-              "$ref": "#/definitions/cdbRegion"
-            }
-          }
-        ],
-        "tags": [
-          "RegionService"
-        ]
-      }
-    },
-    "/v1/region/{value}": {
-      "get": {
-        "operationId": "Get",
-        "responses": {
-          "200": {
-            "description": "(streaming responses)",
-            "schema": {
-              "$ref": "#/definitions/cdbRegion"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "value",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "RegionService"
-        ]
-      },
-      "delete": {
-        "operationId": "Delete",
-        "responses": {
-          "200": {
-            "description": "",
-            "schema": {
-              "$ref": "#/definitions/protobufEmpty"
-            }
-          }
-        },
-        "parameters": [
-          {
-            "name": "value",
-            "in": "path",
-            "required": true,
-            "type": "string"
-          }
-        ],
-        "tags": [
-          "RegionService"
-        ]
-      }
-    },
     "/v1/transaction": {
       "put": {
         "operationId": "Execute",
@@ -148,7 +44,7 @@
           }
         ],
         "tags": [
-          "TransactionService"
+          "DatabaseService"
         ]
       }
     }
@@ -191,12 +87,12 @@
     "cdbKey": {
       "type": "object",
       "properties": {
-        "regionName": {
-          "type": "string"
-        },
         "majorKey": {
           "type": "string",
           "format": "byte"
+        },
+        "regionName": {
+          "type": "string"
         },
         "minorKey": {
           "type": "string",
@@ -259,17 +155,6 @@
         "value": {
           "type": "string",
           "format": "byte"
-        }
-      }
-    },
-    "cdbRegion": {
-      "type": "object",
-      "properties": {
-        "version": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
         }
       }
     },
@@ -371,11 +256,6 @@
           }
         }
       }
-    },
-    "protobufEmpty": {
-      "type": "object",
-      "description": "service Foo {\n      rpc Bar(google.protobuf.Empty) returns (google.protobuf.Empty);\n    }\n\nThe JSON representation for `Empty` is empty JSON object `{}`.",
-      "title": "A generic empty message that you can re-use to avoid defining duplicated\nempty messages in your APIs. A typical example is to use it as the request\nor the response type of an API method. For instance:"
     }
   }
 }
