@@ -27,9 +27,6 @@ import (
 	"log"
 	"net"
 	"github.com/consensusdb/consensusdb/cserver/cserverpb"
-	"github.com/pkg/errors"
-	"github.com/golang/protobuf/ptypes/empty"
-	"github.com/gobwas/glob"
 	"github.com/consensusdb/consensusdb/c"
 	"net/http"
 	"go.etcd.io/etcd/raft"
@@ -298,63 +295,7 @@ func (this *DefaultServer) getSnapshot() ([]byte, error) {
 
 //
 //
-// REGION API
-//
-//
-
-
-func (this *DefaultServer) Create(context context.Context, region *cserverpb.Region) (response *empty.Empty, err error) {
-
-	log.Printf("Create region: %s\n", region.Name)
-
-	return new(empty.Empty), nil
-
-}
-
-func (this *DefaultServer) Update(context context.Context, region *cserverpb.Region) (response *empty.Empty, err error) {
-
-	log.Printf("Update region: %s\n", region.Name)
-
-	return new(empty.Empty), nil
-
-}
-
-func (this *DefaultServer) Delete(context context.Context, request *cserverpb.String) (response *empty.Empty, err error) {
-
-	log.Printf("Delete region: %s\n", request.Value)
-
-	return new(empty.Empty), nil
-}
-
-func (this *DefaultServer) Get(request *cserverpb.String, responseServer cserverpb.RegionService_GetServer) error {
-
-    pattern := request.Value
-
-    if pattern == "" {
-    	pattern = "*"
-	}
-
-	log.Printf("Get regions: %s\n", pattern)
-
-    matcher, err := glob.Compile(pattern)
-
-	if err != nil {
-		return errors.New("wrong pattern")
-	}
-
-	if matcher.Match("TEST") {
-
-		//responseServer.Send(e.Value.GetRegion())
-
-	}
-
-	return nil
-}
-
-
-//
-//
-// RECORD API
+// Database API
 //
 //
 
@@ -415,8 +356,7 @@ func (this *DefaultServer) ServeGRPC() error {
 	this.grpcServer = grpc.NewServer()
 
 	// Register services
-	cserverpb.RegisterRegionServiceServer(this.grpcServer, this)
-	cserverpb.RegisterTransactionServiceServer(this.grpcServer, this)
+	cserverpb.RegisterDatabaseServiceServer(this.grpcServer, this)
 
 	// Start serving requests
 	return this.grpcServer.Serve(listen)

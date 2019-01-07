@@ -137,19 +137,13 @@ func serveSwagger(w http.ResponseWriter, r *http.Request) {
 
 func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string, mux *http.ServeMux) (*http.Server, error) {
 
-	gwRegion := rt.NewServeMux()
-	gwTnx := rt.NewServeMux()
+	gwDb := rt.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := cserverpb.RegisterRegionServiceHandlerFromEndpoint(ctx, gwRegion, "localhost"+grpcAddress, opts)
+	err := cserverpb.RegisterDatabaseServiceHandlerFromEndpoint(ctx, gwDb, "localhost"+grpcAddress, opts)
 	if err != nil {
 		return nil, err
 	}
-	err = cserverpb.RegisterTransactionServiceHandlerFromEndpoint(ctx, gwTnx, "localhost"+grpcAddress, opts)
-	if err != nil {
-		return nil, err
-	}
-	mux.Handle("/v1/region", gwRegion)
-	mux.Handle("/v1/transaction", gwTnx)
+	mux.Handle("/v1/consensusdb", gwDb)
 	mux.HandleFunc("/swagger/", serveSwagger)
 	mux.HandleFunc("/", serveWelcome)
 	mux.Handle("/metrics", promhttp.Handler())
