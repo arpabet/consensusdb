@@ -29,6 +29,8 @@ import (
 	"fmt"
 	"math"
 	"log"
+	"github.com/shvid/timeuuid"
+	"math/rand"
 )
 
 const (
@@ -73,16 +75,18 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create a cdb ", err)
 	}
 
-	RunCRUIDTests(t, client, "TEST")
-	RunCompareAndSetTests(t, client, "TEST")
-	RunWithTtlTests(t, client, "TEST")
-	RunCompressionTests(t, client, "TEST")
-	RunEncryptionTests(t, client, "TEST")
-	RunPitOneTests(t, client, "TEST_PIT")
+	set := []byte("TEST")
+
+	RunCRUIDTests(t, client, set)
+	RunCompareAndSetTests(t, client, set)
+	RunWithTtlTests(t, client, set)
+	RunCompressionTests(t, client, set)
+	RunEncryptionTests(t, client, set)
+	RunPitOneTests(t, client, set)
 
 }
 
-func RunCRUIDTests(t *testing.T, client cdb.IConsensusDB, set string) {
+func RunCRUIDTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 
 	//
 	//  Test Not Exists
@@ -172,7 +176,7 @@ func RunCRUIDTests(t *testing.T, client cdb.IConsensusDB, set string) {
 }
 
 
-func RunCompareAndSetTests(t *testing.T, client cdb.IConsensusDB, set string) {
+func RunCompareAndSetTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 
 	//
 	//  Test Not Exists
@@ -296,7 +300,7 @@ func RunCompareAndSetTests(t *testing.T, client cdb.IConsensusDB, set string) {
 }
 
 
-func RunWithTtlTests(t *testing.T, client cdb.IConsensusDB, set string) {
+func RunWithTtlTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 
 	//
 	//  Test Not Exists
@@ -401,7 +405,7 @@ func RunWithTtlTests(t *testing.T, client cdb.IConsensusDB, set string) {
 }
 
 
-func RunCompressionTests(t *testing.T, client cdb.IConsensusDB, set string) {
+func RunCompressionTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 
 	//
 	//  Create Payload
@@ -472,7 +476,7 @@ func RunCompressionTests(t *testing.T, client cdb.IConsensusDB, set string) {
 }
 
 
-func RunEncryptionTests(t *testing.T, client cdb.IConsensusDB, set string) {
+func RunEncryptionTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 
 	//
 	//  One letter with no padding is very good test
@@ -530,14 +534,17 @@ func RunEncryptionTests(t *testing.T, client cdb.IConsensusDB, set string) {
 
 }
 
-func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set string) {
+func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 
+	uuid := timeuuid.NewUUID(timeuuid.TimebasedUUID)
+	uuid.SetUnixTimeMillis(1514764800)
+	uuid.SetCounter(rand.Int63())
 
 	//
 	//  Test Put
 	//
 
-	op := cdb.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(1514764800)
+	op := cdb.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(uuid)
 
 	res := client.Execute(op)
 
@@ -550,7 +557,7 @@ func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set string) {
 	//  Exact Lookup Head
 	//
 
-	op = cdb.Get(set, []byte("pit1")).HeadOnly().WithTimestamp(1514764800)
+	op = cdb.Get(set, []byte("pit1")).HeadOnly().WithTimestamp(uuid)
 
 	res = client.Execute(op)
 
@@ -564,7 +571,7 @@ func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set string) {
 
 	fmt.Print("res.GetHead().GetTimestamp()=", res.GetRecord().Head().Timestamp(), "\n")
 
-	if res.GetRecord().Head().Timestamp() != 1514764800 {
+	if !res.GetRecord().Head().Timestamp().Equal(uuid) {
 		t.Fatal("wrong timestamp")
 	}
 
@@ -588,7 +595,7 @@ func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set string) {
 	//  Test Second Put
 	//
 
-	op = cdb.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(1514764900)
+	op = cdb.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(uuid)
 
 	res = client.Execute(op)
 
@@ -601,7 +608,11 @@ func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set string) {
 	//  Exact Lookup Head
 	//
 
-	op = cdb.GetEarly(set, []byte("pit1"), 1).HeadOnly().WithTimestamp(math.MaxUint64)
+	uuidMax := timeuuid.NewUUID(timeuuid.TimebasedUUID)
+	uuidMax.SetTime100NanosUnsigned(math.MaxUint64)
+	uuidMax.SetMaxCounter()
+
+	op = cdb.GetEarly(set, []byte("pit1"), 1).HeadOnly().WithTimestamp(uuidMax)
 
 	res = client.Execute(op)
 
@@ -615,7 +626,7 @@ func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set string) {
 
 	fmt.Print("res.GetHead().GetTimestamp()=", res.GetRecord().Head().Timestamp(), "\n")
 
-	if res.GetRecord().Head().Timestamp() != 1514764900 {
+	if !res.GetRecord().Head().Timestamp().Equal(uuid) {
 		t.Fatal("wrong timestamp")
 	}
 

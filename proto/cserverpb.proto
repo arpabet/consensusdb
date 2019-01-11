@@ -60,12 +60,18 @@ service DatabaseService {
 
 }
 
+// Java compatible
+message TimeUUID {
+    int64  mostSigBits   = 1;
+    int64  leastSigBits  = 2;
+}
+
 message Key {
 
-    bytes     majorKey      = 1;   // used as a partition key, good candidate is accountId, if empty - data replicated in all partitions
-    string    regionName    = 2;
-    bytes     minorKey      = 3;   // used as a record key in the partition
-    fixed64   timestamp     = 4;   // find records with timestamp LESS_OR_EQ
+    bytes         majorKey      = 1;   // used as a partition key, good candidate is accountId, if empty - data replicated in all partitions
+    bytes         regionName    = 2;
+    bytes         minorKey      = 3;   // used as a record key in the partition
+    TimeUUID      timestamp     = 4;   // timestamp in TimeUUID if present
 
 }
 
@@ -152,7 +158,7 @@ message Head {
 
    uint64     version    = 1;
    fixed64    expiresAt  = 2;
-   fixed64    timestamp  = 3;
+   TimeUUID   timestamp  = 3;
    int64      diskSize   = 4;
 
 }

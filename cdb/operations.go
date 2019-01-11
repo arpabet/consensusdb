@@ -22,6 +22,7 @@ import (
 	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"github.com/pkg/errors"
 	"github.com/consensusdb/consensusdb/c"
+	"github.com/shvid/timeuuid"
 )
 
 type IOperation interface {
@@ -34,7 +35,7 @@ type IOperation interface {
 
 	EncryptOnServer() IOperation
 
-	WithTimestamp(timestamp uint64) IOperation
+	WithTimestamp(timestamp timeuuid.UUID) IOperation
 
 	WithTtl(ttlSeconds uint32) IOperation
 
@@ -50,7 +51,7 @@ type IHead interface {
 
 	ExpiresAt() uint64
 
-	Timestamp() uint64
+	Timestamp() timeuuid.UUID
 
 	DiskSize() int64
 
@@ -108,8 +109,8 @@ func (this *EmptyHead) ExpiresAt() uint64 {
 	return 0
 }
 
-func (this *EmptyHead) Timestamp() uint64 {
-	return 0
+func (this *EmptyHead) Timestamp() timeuuid.UUID {
+	return timeuuid.ZeroUUID
 }
 
 func (this *EmptyHead) DiskSize() int64 {
@@ -128,8 +129,15 @@ func (this *ProtoHead) ExpiresAt() uint64 {
 	return this.head.ExpiresAt
 }
 
-func (this *ProtoHead) Timestamp() uint64 {
-	return this.head.Timestamp
+func (this *ProtoHead) Timestamp() (uuid timeuuid.UUID) {
+
+	if this.head.Timestamp == nil {
+		return timeuuid.ZeroUUID
+	}
+
+	uuid.SetMostSignificantBits(this.head.Timestamp.MostSigBits)
+	uuid.SetLeastSignificantBits(this.head.Timestamp.LeastSigBits)
+	return uuid
 }
 
 func (this *ProtoHead) DiskSize() int64 {
@@ -198,7 +206,7 @@ type RemoveOp struct {
 
 }
 
-func Range(regionName string, majorKey, startMinorKey, endMinorKey []byte) IOperation {
+func Range(regionName []byte, majorKey, startMinorKey, endMinorKey []byte) IOperation {
 
 	op := new(RangeOp)
 
@@ -210,7 +218,7 @@ func Range(regionName string, majorKey, startMinorKey, endMinorKey []byte) IOper
 	return op
 }
 
-func RangeReplicated(regionName string, startMinorKey, endMinorKey []byte) IOperation {
+func RangeReplicated(regionName []byte, startMinorKey, endMinorKey []byte) IOperation {
 
 	op := new(RangeOp)
 
@@ -221,7 +229,7 @@ func RangeReplicated(regionName string, startMinorKey, endMinorKey []byte) IOper
 	return op
 }
 
-func Get(regionName string, majorKey []byte) IOperation {
+func Get(regionName []byte, majorKey []byte) IOperation {
 
 	op := new(GetOp)
 
@@ -231,7 +239,7 @@ func Get(regionName string, majorKey []byte) IOperation {
 	return op
 }
 
-func GetEarly(regionName string, majorKey []byte, lessOrEqualRecords int) IOperation {
+func GetEarly(regionName []byte, majorKey []byte, lessOrEqualRecords int) IOperation {
 
 	op := new(GetOp)
 
@@ -242,7 +250,7 @@ func GetEarly(regionName string, majorKey []byte, lessOrEqualRecords int) IOpera
 	return op
 }
 
-func GetReplicated(regionName string) IOperation {
+func GetReplicated(regionName []byte) IOperation {
 
 	op := new(GetOp)
 
@@ -251,7 +259,7 @@ func GetReplicated(regionName string) IOperation {
 	return op
 }
 
-func GetEarlyReplicated(regionName string, lessOrEqualRecords int) IOperation {
+func GetEarlyReplicated(regionName []byte, lessOrEqualRecords int) IOperation {
 
 	op := new(GetOp)
 
@@ -261,7 +269,7 @@ func GetEarlyReplicated(regionName string, lessOrEqualRecords int) IOperation {
 	return op
 }
 
-func Touch(regionName string, majorKey []byte) IOperation {
+func Touch(regionName []byte, majorKey []byte) IOperation {
 
 	op := new(TouchOp)
 
@@ -271,7 +279,7 @@ func Touch(regionName string, majorKey []byte) IOperation {
 	return op
 }
 
-func TouchReplicated(regionName string) IOperation {
+func TouchReplicated(regionName []byte) IOperation {
 
 	op := new(TouchOp)
 
@@ -280,7 +288,7 @@ func TouchReplicated(regionName string) IOperation {
 	return op
 }
 
-func Put(regionName string, majorKey, value []byte) IOperation {
+func Put(regionName []byte, majorKey, value []byte) IOperation {
 
 	op := new(PutOp)
 
@@ -292,7 +300,7 @@ func Put(regionName string, majorKey, value []byte) IOperation {
 	return op
 }
 
-func PutReplicated(regionName string, value []byte) IOperation {
+func PutReplicated(regionName []byte, value []byte) IOperation {
 
 	op := new(PutOp)
 
@@ -302,7 +310,7 @@ func PutReplicated(regionName string, value []byte) IOperation {
 	return op
 }
 
-func Remove(regionName string, majorKey []byte) IOperation {
+func Remove(regionName []byte, majorKey []byte) IOperation {
 
 	op := new(RemoveOp)
 
@@ -312,7 +320,7 @@ func Remove(regionName string, majorKey []byte) IOperation {
 	return op
 }
 
-func RemoveReplicated(regionName string) IOperation {
+func RemoveReplicated(regionName []byte) IOperation {
 
 	op := new(RemoveOp)
 
@@ -431,28 +439,28 @@ func (this *RemoveOp) WithMinorKey(minorKey []byte) IOperation {
 //  WithTimestamp
 //
 
-func (this *GetOp) WithTimestamp(timestamp uint64) IOperation {
-	this.Key.Timestamp = timestamp
+func (this *GetOp) WithTimestamp(timestamp timeuuid.UUID) IOperation {
+	this.Key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: timestamp.MostSignificantBits(), LeastSigBits: timestamp.LeastSignificantBits()  }
 	return this
 }
 
-func (this *RangeOp) WithTimestamp(timestamp uint64) IOperation {
-	this.Key.Timestamp = timestamp
+func (this *RangeOp) WithTimestamp(timestamp timeuuid.UUID) IOperation {
+	this.Key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: timestamp.MostSignificantBits(), LeastSigBits: timestamp.LeastSignificantBits()  }
 	return this
 }
 
-func (this *TouchOp) WithTimestamp(timestamp uint64) IOperation {
-	this.Key.Timestamp = timestamp
+func (this *TouchOp) WithTimestamp(timestamp timeuuid.UUID) IOperation {
+	this.Key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: timestamp.MostSignificantBits(), LeastSigBits: timestamp.LeastSignificantBits()  }
 	return this
 }
 
-func (this *PutOp) WithTimestamp(timestamp uint64) IOperation {
-	this.Key.Timestamp = timestamp
+func (this *PutOp) WithTimestamp(timestamp timeuuid.UUID) IOperation {
+	this.Key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: timestamp.MostSignificantBits(), LeastSigBits: timestamp.LeastSignificantBits()  }
 	return this
 }
 
-func (this *RemoveOp) WithTimestamp(timestamp uint64) IOperation {
-	this.Key.Timestamp = timestamp
+func (this *RemoveOp) WithTimestamp(timestamp timeuuid.UUID) IOperation {
+	this.Key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: timestamp.MostSignificantBits(), LeastSigBits: timestamp.LeastSignificantBits()  }
 	return this
 }
 
