@@ -75,8 +75,7 @@
           "format": "uint64"
         },
         "timestamp": {
-          "type": "string",
-          "format": "uint64"
+          "$ref": "#/definitions/cdbTimeUUID"
         },
         "diskSize": {
           "type": "string",
@@ -92,15 +91,15 @@
           "format": "byte"
         },
         "regionName": {
-          "type": "string"
+          "type": "string",
+          "format": "byte"
         },
         "minorKey": {
           "type": "string",
           "format": "byte"
         },
         "timestamp": {
-          "type": "string",
-          "format": "uint64"
+          "$ref": "#/definitions/cdbTimeUUID"
         }
       }
     },
@@ -185,6 +184,20 @@
         "ERROR_INTERNAL"
       ],
       "default": "SUCCESS"
+    },
+    "cdbTimeUUID": {
+      "type": "object",
+      "properties": {
+        "mostSigBits": {
+          "type": "string",
+          "format": "int64"
+        },
+        "leastSigBits": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "title": "Java compatible"
     },
     "cdbTouchOperation": {
       "type": "object",

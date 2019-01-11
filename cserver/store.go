@@ -24,8 +24,6 @@ import (
 	"fmt"
 	"time"
 	"log"
-	"github.com/pkg/errors"
-	"math"
 	"github.com/dgraph-io/badger"
 )
 
@@ -79,8 +77,14 @@ func (this *DefaultStorage) GetSnapshot(majorKey []byte, outC chan<- *cserverpb.
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
 
-	prefixKey := GetMajorKeyPrefix(majorKey)
-	regionName := "TEST"
+	key := &cserverpb.Key{MajorKey: majorKey}
+
+	prefixKey, err := EncodeKeyPrefix(key, MajorKeyField)
+	if err != nil {
+		return err
+	}
+
+	regionName := []byte("TEST")
 
 	iteratorOptions := badger.IteratorOptions{
 		PrefetchValues: true,
@@ -96,7 +100,7 @@ func (this *DefaultStorage) GetSnapshot(majorKey []byte, outC chan<- *cserverpb.
 
 		item := iter.Item()
 
-		key := DecodeKey(item.Key())
+		key, _ := DecodeKey(item.Key())
 
 		msg := new(cserverpb.RawRecord)
 
@@ -151,21 +155,6 @@ func (this *DefaultStorage) Close() error {
 // Other methods
 //
 
-func (this *DefaultStorage) GetEntryKey(key *cserverpb.Key) (entryKey []byte, prefixKey []byte, err error) {
-
-	size := GetEncodedSize(key)
-
-	if size > math.MaxUint16 {
-		return nil, nil, errors.New("key is too long")
-	}
-
-	entryKey = make([]byte, size)
-	PrefixLen := EncodeKey(key, entryKey)
-
-	return entryKey, entryKey[:PrefixLen], nil
-
-}
-
 func OpenDefaultStore(conf *Configuration) (context *DefaultStorage, err error) {
 
 	context = &DefaultStorage{conf: conf}
@@ -181,11 +170,7 @@ func OpenDefaultStore(conf *Configuration) (context *DefaultStorage, err error) 
 
 func (this *DefaultStorage) ProcessGetOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.GetOperation) *cserverpb.TxOperationResult {
 
-	lookupKey, prefixKey, err := this.GetEntryKey(key)
-
-	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
-	}
+	entryKey, rawKey := EncodeKey(key)
 
 	size := c.MaxInt(1, int(operation.LessOrEqualRecords))
 	records := make([]*cserverpb.Record, 0, size)
@@ -200,15 +185,20 @@ func (this *DefaultStorage) ProcessGetOperation(txn *badger.Txn, key *cserverpb.
 		}
 
 		iter := txn.NewIterator(reverseIteratorOptions)
-		iter.Seek(lookupKey)
+		iter.Seek(entryKey)
 
-		for i := 0; i < size && iter.Valid() && iter.ValidForPrefix(prefixKey); i = i + 1 {
+		for i := 0; i < size && iter.Valid() && iter.ValidForPrefix(rawKey); i = i + 1 {
 
 			item := iter.Item()
-			timestamp := GetKeyTimestamp(item.Key())
+			itemKey, err := DecodeKey(item.Key())
+
+			if err != nil {
+				// ignore invalid key
+				continue
+			}
 
 			if operation.HeadOnly {
-				records = append(records, RecordHeadOf(timestamp, item))
+				records = append(records, RecordHeadOf(itemKey, item))
 
 			} else {
 
@@ -218,7 +208,7 @@ func (this *DefaultStorage) ProcessGetOperation(txn *badger.Txn, key *cserverpb.
 					return resp
 				}
 
-				records = append(records, RecordOf(timestamp, item, data))
+				records = append(records, RecordOf(itemKey, item, data))
 			}
 
 			iter.Next()
@@ -230,15 +220,13 @@ func (this *DefaultStorage) ProcessGetOperation(txn *badger.Txn, key *cserverpb.
 
 	} else {
 
-		item, err := txn.Get(lookupKey)
+		item, err := txn.Get(entryKey)
 		if err != nil {
 			return SuccessResultOf(records)
 		}
 
-		timestamp := key.Timestamp
-
 		if operation.HeadOnly {
-			records = append(records, RecordHeadOf(timestamp, item))
+			records = append(records, RecordHeadOf(key, item))
 
 		} else {
 
@@ -247,7 +235,7 @@ func (this *DefaultStorage) ProcessGetOperation(txn *badger.Txn, key *cserverpb.
 				return resp
 			}
 
-			records = append(records, RecordOf(timestamp, item, data))
+			records = append(records, RecordOf(key, item, data))
 
 		}
 
@@ -258,24 +246,16 @@ func (this *DefaultStorage) ProcessGetOperation(txn *badger.Txn, key *cserverpb.
 
 func (this *DefaultStorage) ProcessRangeOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.RangeOperation) *cserverpb.TxOperationResult {
 
-	lookupKey, prefixKey, err := this.GetEntryKey(key)
+	entryKey, rawKey := EncodeKey(key)
 
-	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
-	}
-
-	fmt.Print("Range LookupKey=", lookupKey, ", PrefixKey=", prefixKey, ", WithTimestamp=", key.Timestamp, ", EndMinorKey=", operation.EndMinorKey,  "\n")
+	fmt.Print("Range entryKey=", entryKey, ", rawKey=", rawKey, ", WithTimestamp=", key.Timestamp, ", EndMinorKey=", operation.EndMinorKey,  "\n")
 
 	endKey := &cserverpb.Key{RegionName: key.RegionName,
 							MajorKey: key.MajorKey,
 							MinorKey: operation.EndMinorKey,
 							Timestamp: key.Timestamp}
 
-	_, endPrefixKey, err := this.GetEntryKey(endKey)
-
-	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
-	}
+	_, endRawKey := EncodeKey(endKey)
 
 	records := make([]*cserverpb.Record, 0, 100)
 
@@ -287,15 +267,19 @@ func (this *DefaultStorage) ProcessRangeOperation(txn *badger.Txn, key *cserverp
 	}
 
 	iter := txn.NewIterator(reverseIteratorOptions)
-	iter.Seek(lookupKey)
+	iter.Seek(entryKey)
 
-	for i := 0; iter.Valid() && !iter.ValidForPrefix(endPrefixKey); i = i + 1 {
+	for i := 0; iter.Valid() && !iter.ValidForPrefix(endRawKey); i = i + 1 {
 
 		item := iter.Item()
-		timestamp := GetKeyTimestamp(item.Key())
+		itemKey, err := DecodeKey(item.Key())
+
+		if err != nil {
+			continue
+		}
 
 		if operation.HeadOnly {
-			records = append(records, RecordHeadOf(timestamp, item))
+			records = append(records, RecordHeadOf(itemKey, item))
 
 		} else {
 
@@ -305,7 +289,7 @@ func (this *DefaultStorage) ProcessRangeOperation(txn *badger.Txn, key *cserverp
 				return resp
 			}
 
-			records = append(records, RecordOf(timestamp, item, data))
+			records = append(records, RecordOf(itemKey, item, data))
 		}
 
 		iter.Next()
@@ -320,16 +304,9 @@ func (this *DefaultStorage) ProcessRangeOperation(txn *badger.Txn, key *cserverp
 
 func (this *DefaultStorage) ProcessTouchOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.TouchOperation) *cserverpb.TxOperationResult {
 
-	lookupKey, _, err := this.GetEntryKey(key)
-	entryKey := lookupKey
+	entryKey, _ := EncodeKey(key)
 
-	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
-	}
-
-	timestamp := key.Timestamp
-
-	item, err := txn.Get(lookupKey)
+	item, err := txn.Get(entryKey)
 
 	if err != nil {
 		return SuccessNotUpdatedResult()
@@ -354,7 +331,7 @@ func (this *DefaultStorage) ProcessTouchOperation(txn *badger.Txn, key *cserverp
 		return c.ErrorDriver(fmt.Sprint("touch set entry failed: ", err))
 	}
 
-	record := RecordHeadOf(timestamp, item)
+	record := RecordHeadOf(key, item)
 	record.Head.ExpiresAt = entry.ExpiresAt
 
 	return SuccessResultOf([]*cserverpb.Record{record})
@@ -363,11 +340,7 @@ func (this *DefaultStorage) ProcessTouchOperation(txn *badger.Txn, key *cserverp
 
 func (this *DefaultStorage) ProcessPutOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.PutOperation) *cserverpb.TxOperationResult {
 
-	entryKey, _, err := this.GetEntryKey(key)
-
-	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("format key failed: ", err))
-	}
+	entryKey, _ := EncodeKey(key)
 
 	fmt.Print("Put entryKey=", entryKey, ", len=", len(entryKey), "\n")
 
@@ -390,10 +363,10 @@ func (this *DefaultStorage) ProcessPutOperation(txn *badger.Txn, key *cserverpb.
 		return resp
 	}
 
-	err = txn.SetEntry(entry)
+	err := txn.SetEntry(entry)
 
 	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("put failed: ", err))
+		return c.ErrorDriver(fmt.Sprintf("put failed with error %q", err))
 	}
 
 	return SuccessResult()
@@ -402,16 +375,12 @@ func (this *DefaultStorage) ProcessPutOperation(txn *badger.Txn, key *cserverpb.
 
 func (this *DefaultStorage) ProcessRemoveOperation(txn *badger.Txn, key *cserverpb.Key, operation *cserverpb.RemoveOperation) *cserverpb.TxOperationResult {
 
-	entryKey, _, err := this.GetEntryKey(key)
+	entryKey, _ := EncodeKey(key)
+
+	err := txn.Delete(entryKey)
 
 	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("get entry key failed: ", err))
-	}
-
-	err = txn.Delete(entryKey)
-
-	if err != nil {
-		return c.ErrorDriver(fmt.Sprint("remove failed: ", err))
+		return c.ErrorDriver(fmt.Sprintf("remove failed with error %q", err))
 	}
 
 	return SuccessResult()

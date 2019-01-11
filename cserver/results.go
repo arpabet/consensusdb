@@ -27,16 +27,16 @@ import (
 var emptyRecords = []*cserverpb.Record{}
 var emptyValue = []byte{}
 
-func HeadOf(timestamp uint64, item *badger.Item) *cserverpb.Head {
-	return &cserverpb.Head{Version: item.Version(), ExpiresAt:item.ExpiresAt(), Timestamp: timestamp, DiskSize: item.EstimatedSize()}
+func HeadOf(key *cserverpb.Key, item *badger.Item) *cserverpb.Head {
+	return &cserverpb.Head{Version: item.Version(), ExpiresAt:item.ExpiresAt(), Timestamp: key.Timestamp, DiskSize: item.EstimatedSize()}
 }
 
-func RecordHeadOf(timestamp uint64, item *badger.Item) *cserverpb.Record {
-	return RecordOf(timestamp, item, emptyValue)
+func RecordHeadOf(key *cserverpb.Key, item *badger.Item) *cserverpb.Record {
+	return RecordOf(key, item, emptyValue)
 }
 
-func RecordOf(timestamp uint64, item *badger.Item, data []byte) *cserverpb.Record {
-	return &cserverpb.Record{Head: HeadOf(timestamp, item), Value: data}
+func RecordOf(key *cserverpb.Key, item *badger.Item, data []byte) *cserverpb.Record {
+	return &cserverpb.Record{Head: HeadOf(key, item), Value: data}
 }
 
 func SuccessResultOf(records []*cserverpb.Record) *cserverpb.TxOperationResult  {
