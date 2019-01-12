@@ -101,7 +101,7 @@ func run() error {
 		}
 	}()
 
-	log.Println("consensusdb is ready.")
+	log.Println("server is ready.")
 
 	err = httpServer.ListenAndServe()
 	if err != nil {
@@ -137,13 +137,13 @@ func serveSwagger(w http.ResponseWriter, r *http.Request) {
 
 func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string, mux *http.ServeMux) (*http.Server, error) {
 
-	gwDb := rt.NewServeMux()
+	gwKeyValue := rt.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := cserverpb.RegisterDatabaseServiceHandlerFromEndpoint(ctx, gwDb, "localhost"+grpcAddress, opts)
+	err := cserverpb.RegisterKeyValueServiceHandlerFromEndpoint(ctx, gwKeyValue, "localhost"+grpcAddress, opts)
 	if err != nil {
 		return nil, err
 	}
-	mux.Handle("/v1/consensusdb", gwDb)
+	mux.Handle("/v1/keyvalue", gwKeyValue)
 	mux.HandleFunc("/swagger/", serveSwagger)
 	mux.HandleFunc("/", serveWelcome)
 	mux.Handle("/metrics", promhttp.Handler())

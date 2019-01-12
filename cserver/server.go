@@ -356,7 +356,7 @@ func (this *DefaultServer) ServeGRPC() error {
 	this.grpcServer = grpc.NewServer()
 
 	// Register services
-	cserverpb.RegisterDatabaseServiceServer(this.grpcServer, this)
+	cserverpb.RegisterKeyValueServiceServer(this.grpcServer, this)
 
 	// Start serving requests
 	return this.grpcServer.Serve(listen)

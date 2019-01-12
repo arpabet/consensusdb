@@ -28,7 +28,7 @@ var _ status.Status
 var _ = runtime.String
 var _ = utilities.NewDoubleArray
 
-func request_DatabaseService_Execute_0(ctx context.Context, marshaler runtime.Marshaler, client DatabaseServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_KeyValueService_Execute_0(ctx context.Context, marshaler runtime.Marshaler, client KeyValueServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq Transaction
 	var metadata runtime.ServerMetadata
 
@@ -41,9 +41,9 @@ func request_DatabaseService_Execute_0(ctx context.Context, marshaler runtime.Ma
 
 }
 
-// RegisterDatabaseServiceHandlerFromEndpoint is same as RegisterDatabaseServiceHandler but
+// RegisterKeyValueServiceHandlerFromEndpoint is same as RegisterKeyValueServiceHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterDatabaseServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterKeyValueServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -63,23 +63,23 @@ func RegisterDatabaseServiceHandlerFromEndpoint(ctx context.Context, mux *runtim
 		}()
 	}()
 
-	return RegisterDatabaseServiceHandler(ctx, mux, conn)
+	return RegisterKeyValueServiceHandler(ctx, mux, conn)
 }
 
-// RegisterDatabaseServiceHandler registers the http handlers for service DatabaseService to "mux".
+// RegisterKeyValueServiceHandler registers the http handlers for service KeyValueService to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterDatabaseServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterDatabaseServiceHandlerClient(ctx, mux, NewDatabaseServiceClient(conn))
+func RegisterKeyValueServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterKeyValueServiceHandlerClient(ctx, mux, NewKeyValueServiceClient(conn))
 }
 
-// RegisterDatabaseServiceHandlerClient registers the http handlers for service DatabaseService
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "DatabaseServiceClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "DatabaseServiceClient"
+// RegisterKeyValueServiceHandlerClient registers the http handlers for service KeyValueService
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "KeyValueServiceClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "KeyValueServiceClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "DatabaseServiceClient" to call the correct interceptors.
-func RegisterDatabaseServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client DatabaseServiceClient) error {
+// "KeyValueServiceClient" to call the correct interceptors.
+func RegisterKeyValueServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client KeyValueServiceClient) error {
 
-	mux.Handle("PUT", pattern_DatabaseService_Execute_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("PUT", pattern_KeyValueService_Execute_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -97,14 +97,14 @@ func RegisterDatabaseServiceHandlerClient(ctx context.Context, mux *runtime.Serv
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_DatabaseService_Execute_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_KeyValueService_Execute_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_DatabaseService_Execute_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_KeyValueService_Execute_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -112,9 +112,9 @@ func RegisterDatabaseServiceHandlerClient(ctx context.Context, mux *runtime.Serv
 }
 
 var (
-	pattern_DatabaseService_Execute_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "transaction"}, ""))
+	pattern_KeyValueService_Execute_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "transaction"}, ""))
 )
 
 var (
-	forward_DatabaseService_Execute_0 = runtime.ForwardResponseMessage
+	forward_KeyValueService_Execute_0 = runtime.ForwardResponseMessage
 )

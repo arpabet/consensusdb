@@ -49,7 +49,7 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 package cdb;
 
 
-service DatabaseService {
+service KeyValueService {
 
     rpc Execute (Transaction) returns (TransactionResult) {
         option (google.api.http) = {

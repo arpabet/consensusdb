@@ -35,7 +35,7 @@ type IConsensusDB interface {
 
 type DefaultClient struct {
 	conn               *grpc.ClientConn
-	databaseService cserverpb.DatabaseServiceClient
+	kvService 			cserverpb.KeyValueServiceClient
 }
 
 func (cli *DefaultClient) Close() error {
@@ -53,7 +53,7 @@ func (this *DefaultClient) Execute(op IOperation) (res IResult) {
 
 	request.Operations[0] = op.toProto()
 
-	response, err := this.databaseService.Execute(context.Background(), request)
+	response, err := this.kvService.Execute(context.Background(), request)
 
 	if err != nil {
 		return NewErrorResult(cserverpb.StatusCode_ERROR_NETWORK, err.Error())
@@ -78,7 +78,7 @@ func (this *DefaultClient) ExecuteTransaction(ops []IOperation) (res []IResult, 
 		request.Operations[i] = op.toProto()
 	}
 
-	response, err := this.databaseService.Execute(context.Background(), request)
+	response, err := this.kvService.Execute(context.Background(), request)
 
 	if err != nil {
 		return nil, err
@@ -106,7 +106,7 @@ func NewClient(grpcAddress string) (*DefaultClient, error) {
 	}
 
 	var cli = &DefaultClient{conn,
-	 cserverpb.NewDatabaseServiceClient(conn)}
+	 cserverpb.NewKeyValueServiceClient(conn)}
 
 	return cli, nil
 }
