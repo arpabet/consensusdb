@@ -125,7 +125,7 @@ enum StatusCode {
      SUCCESS = 0;
      SUCCESS_NOT_UPDATED = 1;  // for compare and put operation that is non-locking algorithm
 
-     ERROR_NO_REGION = 10;     // not found: database, namespace, store, table, cache, catalog, etc.
+     ERROR_NOT_FOUND = 10;     // not found: database, namespace, store, table, cache, catalog, etc.
      ERROR_BAD_REQUEST = 11;   // invalid parameters in request
      ERROR_POLICY = 12;        // exists record for operation that requires record and vise versa
      ERROR_MIGRATION = 13;     // data or connections migration occur during operation

@@ -25,6 +25,7 @@ import (
 	"path/filepath"
 	"github.com/consensusdb/consensusdb/c"
 	"github.com/pkg/errors"
+	"strings"
 )
 
 type Configuration struct {
@@ -47,7 +48,6 @@ type Configuration struct {
 
 	CompressionEnabled     bool
 	Compressor             ICompressor
-	CompressionLevel       int
 
 	EncryptionEnabled      bool
 	EncryptionCipher       ICipher
@@ -142,11 +142,6 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 		return nil, err
 	}
 
-	level, err := compressionSection.Key("level").Int()
-	if err != nil {
-		return nil, err
-	}
-
 	encryptionSection := cfg.Section("encryption")
 
 	encryptionEnabled, cipher, err := FindCipher(encryptionSection.Key("cipher").String())
@@ -187,7 +182,6 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 
 		CompressionEnabled: compressionEnabled,
 		Compressor: compressor,
-		CompressionLevel: level,
 
 		EncryptionEnabled: encryptionEnabled,
 		EncryptionCipher: cipher,
@@ -201,14 +195,16 @@ func LoadConfiguration(cfg *ini.File) (*Configuration, error) {
 
 func FindCompressor(name string) (enabled bool, compressor ICompressor, err error) {
 
-	if name == "" || name=="NO" {
-		return false, &NoCompressor{}, nil
+	name = strings.ToLower(name)
+
+	if name == "" {
+		name ="no"
 	}
 
 	compressor, ok := KnownCompressors[name]
 
 	if !ok {
-		return false, &NoCompressor{}, err
+		return false, nil, errors.Errorf("compressor not found: %q", name)
 	}
 
 	return true, compressor, nil
@@ -269,7 +265,6 @@ func NewDefaultConfiguration(httpAddress, grpcAddress, dataDir string) (*Configu
 
 		CompressionEnabled: true,
 		Compressor: 		&LZ4Compressor{},
-		CompressionLevel: 	9,
 
 		EncryptionEnabled: true,
 		EncryptionCipher: &AESCipher{},

@@ -26,7 +26,6 @@ import (
 	"reflect"
 )
 
-var Levels = [...]int{0, 1, 6, 9}
 
 func TestCompression(t *testing.T) {
 
@@ -37,24 +36,20 @@ func TestCompression(t *testing.T) {
 	}
 
 	for _, v := range cserver.KnownCompressors {
-
-		for _, level := range Levels {
-			CompressorTest(t, input, v, level)
-		}
-
+		CompressorTest(t, input, v)
 	}
 
 }
 
 
-func CompressorTest(t *testing.T, input []byte, compression cserver.ICompressor, level int) {
+func CompressorTest(t *testing.T, input []byte, compression cserver.ICompressor) {
 
-	output, err := compression.Compress(input, level)
+	output, err := compression.Compress(input)
 	if err != nil {
 		t.Fatal("fail to compress ", err)
 	}
 
-	fmt.Print("output.len=", len(output), " for = ", reflect.TypeOf(compression), " level=", level, "\n")
+	fmt.Print("output.len=", len(output), " for = ", reflect.TypeOf(compression), "\n")
 
 	actual, err := compression.Decompress(output)
 	if err != nil {

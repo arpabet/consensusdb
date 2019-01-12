@@ -19,32 +19,9 @@
  package cserver
 
 const (
-	bitCompressed             byte = 1 << 0    // Set if the entry has been compressed.
-	bitEncrypted              byte = 1 << 1    // Set if the entry has been encrypted.
-	bitChunked                byte = 1 << 2    // Set if the entry was packed in to the chunk.
+	bitReserved             byte = 1 << 0    // Set if the entry has been compressed.
+	bitEncrypted            byte = 1 << 1    // Set if the entry has been encrypted by AES
+	bitLZ4                  byte = 1 << 2    // Set if the entry was compressed by LZ4
+	bitSnappy               byte = 1 << 3    // Set if the entry was compressed by Snappy
 )
-
-func isCompressionEnabled(userMeta byte) bool {
-	return userMeta & bitCompressed > 0
-}
-
-func SetCompressionEnabled(userMeta byte) byte {
-	return userMeta | bitCompressed
-}
-
-func isEncryptionEnabled(userMeta byte) bool {
-	return userMeta & bitEncrypted > 0
-}
-
-func SetEncryptionEnabled(userMeta byte) byte {
-	return userMeta | bitEncrypted
-}
-
-func isChunked(userMeta byte) bool {
-	return userMeta & bitChunked > 0
-}
-
-func SetChunked(userMeta byte) byte {
-	return userMeta | bitChunked
-}
 
