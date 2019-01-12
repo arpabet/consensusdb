@@ -19,269 +19,43 @@
 package cserver
 
 import (
-	"compress/gzip"
 	"bytes"
 	"io/ioutil"
-	"compress/flate"
-	"compress/lzw"
-	"compress/zlib"
-	"github.com/dsnet/compress/bzip2"
 	"github.com/pierrec/lz4"
 	"github.com/golang/snappy"
 )
 
 type ICompressor interface {
-
-	Compress(payload []byte, level int) ([]byte, error)
-
-	Decompress(payload []byte) ([]byte, error)
-
+	MetadataFlag() byte
+	Compress(input []byte) ([]byte, error)
+	Decompress(input []byte) ([]byte, error)
 }
 
+var (
+	LZ4 = &LZ4Compressor{}
+	SNAPPY = &SnappyCompressor{}
+)
+
 var KnownCompressors = map[string]ICompressor {
-	"FLATE": &FlateCompressor{},
-	"GZIP": &GZIPCompressor{},
-	"LZW": &LZWCompressor{},
-	"ZLIB": &ZLIBCompressor{},
-	"BZIP2": &BZIP2Compressor{},
-	"LZ4": &LZ4Compressor{},
-	"SNAPPY": &SnappyCompressor{},
+	"no": &NoCompressor{},
+	"lz4": LZ4,
+	"lz4_high": &LZ4HighCompressor{},
+	"snappy": SNAPPY,
 }
 
 type NoCompressor struct {
 }
 
-func (this*NoCompressor) Compress(input []byte, level int) (output []byte, err error) {
+func (this*NoCompressor) MetadataFlag() byte {
+	return 0
+}
+
+func (this*NoCompressor) Compress(input []byte) (output []byte, err error) {
 	return input, nil
 }
 
 func (this*NoCompressor) Decompress(input  []byte) (output []byte, err error) {
 	return input, nil
-}
-
-func FlateCompressionLevel(level int) int {
-
-	if level == 6 {
-		return -1
-	}
-
-	return level
-}
-
-func BZIP2CompressionLevel(level int) int {
-	return level
-}
-
-//
-//  Flate Compressor
-//
-
-type FlateCompressor struct {
-}
-
-func (this*FlateCompressor) Compress(input []byte, level int) (output []byte, err error) {
-
-	var b bytes.Buffer
-
-	w, err := flate.NewWriter(&b, FlateCompressionLevel(level))
-	defer w.Close()
-
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := w.Write(input); err != nil {
-		return nil, err
-	}
-
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
-func (this*FlateCompressor) Decompress(input  []byte) (output []byte, err error) {
-
-	b := bytes.NewBuffer(input)
-
-	r := flate.NewReader(b)
-	defer r.Close()
-
-	return ioutil.ReadAll(r)
-
-}
-
-
-//
-//  GZIP Compressor
-//
-
-type GZIPCompressor struct {
-}
-
-func (this*GZIPCompressor) Compress(input []byte, level int) (output []byte, err error) {
-
-	var b bytes.Buffer
-
-	w, err := gzip.NewWriterLevel(&b, FlateCompressionLevel(level))
-	defer w.Close()
-
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := w.Write(input); err != nil {
-		return nil, err
-	}
-
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
-func (this*GZIPCompressor) Decompress(input  []byte) (output []byte, err error) {
-
-	b := bytes.NewBuffer(input)
-
-	r, err := gzip.NewReader(b)
-	defer r.Close()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ioutil.ReadAll(r)
-
-}
-
-
-//
-//  LZW Compressor
-//
-
-type LZWCompressor struct {
-}
-
-func (this*LZWCompressor) Compress(input []byte, level int) (output []byte, err error) {
-
-	var b bytes.Buffer
-
-	w := lzw.NewWriter(&b, lzw.LSB, 8)
-	defer w.Close()
-
-	if _, err := w.Write(input); err != nil {
-		return nil, err
-	}
-
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
-func (this*LZWCompressor) Decompress(input  []byte) (output []byte, err error) {
-
-	b := bytes.NewBuffer(input)
-
-	r := lzw.NewReader(b, lzw.LSB, 8)
-	defer r.Close()
-
-	return ioutil.ReadAll(r)
-
-}
-
-//
-//  ZLIB Compressor
-//
-
-type ZLIBCompressor struct {
-}
-
-func (this*ZLIBCompressor) Compress(input []byte, level int) (output []byte, err error) {
-
-	var b bytes.Buffer
-
-	w, err := zlib.NewWriterLevel(&b, FlateCompressionLevel(level))
-	defer w.Close()
-
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := w.Write(input); err != nil {
-		return nil, err
-	}
-
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
-func (this*ZLIBCompressor) Decompress(input  []byte) (output []byte, err error) {
-
-	b := bytes.NewBuffer(input)
-
-	r, err := zlib.NewReader(b)
-	defer r.Close()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ioutil.ReadAll(r)
-
-}
-
-
-//
-//  BZIP2 Compressor
-//
-
-type BZIP2Compressor struct {
-}
-
-func (this*BZIP2Compressor) Compress(input []byte, level int) (output []byte, err error) {
-
-	var b bytes.Buffer
-
-	config := bzip2.WriterConfig { Level: BZIP2CompressionLevel(level) }
-
-	w, err := bzip2.NewWriter(&b, &config)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := w.Write(input); err != nil {
-		return nil, err
-	}
-
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-
-	return b.Bytes(), nil
-}
-
-func (this*BZIP2Compressor) Decompress(input  []byte) (output []byte, err error) {
-
-	var config bzip2.ReaderConfig
-
-	b := bytes.NewBuffer(input)
-	r, err := bzip2.NewReader(b, &config)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return ioutil.ReadAll(r)
-
 }
 
 //
@@ -291,12 +65,15 @@ func (this*BZIP2Compressor) Decompress(input  []byte) (output []byte, err error)
 type LZ4Compressor struct {
 }
 
-func (this*LZ4Compressor) Compress(input []byte, level int) (output []byte, err error) {
+func (this*LZ4Compressor) MetadataFlag() byte {
+	return bitLZ4
+}
+
+func (this*LZ4Compressor) Compress(input []byte) (output []byte, err error) {
 
 	var b bytes.Buffer
 
 	w := lz4.NewWriter(&b)
-	w.CompressionLevel = level
 
 	if _, err := w.Write(input); err != nil {
 		return nil, err
@@ -319,13 +96,55 @@ func (this*LZ4Compressor) Decompress(input  []byte) (output []byte, err error) {
 }
 
 //
+//  LZ4 Compressor High
+//
+
+type LZ4HighCompressor struct {
+}
+
+func (this*LZ4HighCompressor) MetadataFlag() byte {
+	return bitLZ4
+}
+
+func (this*LZ4HighCompressor) Compress(input []byte) (output []byte, err error) {
+
+	var b bytes.Buffer
+
+	w := lz4.NewWriter(&b)
+	w.CompressionLevel = 9
+
+	if _, err := w.Write(input); err != nil {
+		return nil, err
+	}
+
+	if err := w.Close(); err != nil {
+		return nil, err
+	}
+
+	return b.Bytes(), nil
+}
+
+func (this*LZ4HighCompressor) Decompress(input  []byte) (output []byte, err error) {
+
+	b := bytes.NewBuffer(input)
+	r := lz4.NewReader(b)
+
+	return ioutil.ReadAll(r)
+
+}
+
+//
 //  Snappy Compressor
 //
 
 type SnappyCompressor struct {
 }
 
-func (this*SnappyCompressor) Compress(input []byte, level int) (output []byte, err error) {
+func (this*SnappyCompressor) MetadataFlag() byte {
+	return bitSnappy
+}
+
+func (this*SnappyCompressor) Compress(input []byte) (output []byte, err error) {
 	return snappy.Encode(nil, input), nil;
 }
 

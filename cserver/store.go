@@ -432,9 +432,9 @@ func (this *DefaultStorage) NewEntry(majorKey, entryKey, value []byte, ttlSecond
 
 	if this.conf.CompressionEnabled && compressOnServer {
 
-		if compressedValue, err := this.conf.Compressor.Compress(entry.Value, this.conf.CompressionLevel); err == nil {
+		if compressedValue, err := this.conf.Compressor.Compress(entry.Value); err == nil {
 			entry.Value = compressedValue
-			entry.UserMeta = SetCompressionEnabled(entry.UserMeta)
+			entry.UserMeta = entry.UserMeta | this.conf.Compressor.MetadataFlag()
 		} else {
 			return nil, c.ErrorDriver(fmt.Sprint("compression failed: ", err))
 		}
@@ -445,7 +445,7 @@ func (this *DefaultStorage) NewEntry(majorKey, entryKey, value []byte, ttlSecond
 
 		if encryptedValue, err := this.Encrypt(majorKey, entry.Value); err == nil {
 			entry.Value = encryptedValue
-			entry.UserMeta = SetEncryptionEnabled(entry.UserMeta)
+			entry.UserMeta = entry.UserMeta | bitEncrypted
 		} else {
 			return nil, c.ErrorDriver(fmt.Sprint("encryption failed: ", err))
 		}
@@ -464,7 +464,7 @@ func (this *DefaultStorage) FetchValue(majorKey []byte, item *badger.Item) ([]by
 		return nil, c.ErrorDriver(fmt.Sprint("retrieve value failed: ", err))
 	}
 
-	if this.conf.EncryptionEnabled && isEncryptionEnabled(item.UserMeta()) {
+	if this.conf.EncryptionEnabled && (item.UserMeta() & bitEncrypted > 0) {
 
 		if decrypted, err := this.Decrypt(majorKey, data); err == nil {
 			data = decrypted
@@ -474,15 +474,24 @@ func (this *DefaultStorage) FetchValue(majorKey []byte, item *badger.Item) ([]by
 
 	}
 
-	if this.conf.CompressionEnabled && isCompressionEnabled(item.UserMeta()) {
+	if item.UserMeta() & bitLZ4 > 0 {
 
-		if decompressed, err := this.conf.Compressor.Decompress(data); err == nil {
+		if decompressed, err := LZ4.Decompress(data); err == nil {
 			data = decompressed
 		} else {
-			return nil, c.ErrorDriver(fmt.Sprint("decompress failed: ", err))
+			return nil, c.ErrorDriver(fmt.Sprint("decompress LZ4 failed: ", err))
+		}
+
+	} else if item.UserMeta() & bitSnappy > 0 {
+
+		if decompressed, err := SNAPPY.Decompress(data); err == nil {
+			data = decompressed
+		} else {
+			return nil, c.ErrorDriver(fmt.Sprint("decompress Snappy failed: ", err))
 		}
 
 	}
+
 
 	return data, nil
 }
