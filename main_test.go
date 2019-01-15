@@ -26,21 +26,20 @@ import (
 	"github.com/consensusdb/consensusdb/cdb"
 	"os"
 	"bytes"
-	"fmt"
-	"math"
 	"log"
-	"github.com/shvid/timeuuid"
 	"math/rand"
+	"go.uber.org/zap"
 )
 
-const (
-	httpAddress=":9481"
-	grpcAddress=":9482"
-)
 
 func TestSuit(t *testing.T) {
 
 	println("DatasetTest executed")
+
+	keychain, err := cdb.NewPasswordbasedKeychain("alex")
+	if err != nil {
+		t.Fatal("fail to create keychain", err)
+	}
 
 	rootDir, err := ioutil.TempDir("/tmp", "consensusdb_test")
 
@@ -50,12 +49,14 @@ func TestSuit(t *testing.T) {
 
 	defer os.RemoveAll(rootDir)
 
-	conf, err := cserver.NewDefaultConfiguration(httpAddress, grpcAddress, rootDir)
+	conf, err := cserver.NewDefaultConfiguration(rootDir)
 	if err != nil {
 		t.Fatal("fail to create configuration", err)
 	}
 
-	server, err := cserver.NewServer(conf)
+	log := zap.NewExample()
+
+	server, err := cserver.NewServer(conf, log)
 	defer server.Close()
 
 	if err != nil {
@@ -64,65 +65,74 @@ func TestSuit(t *testing.T) {
 	}
 
 	go server.ServeGRPC()
-	go server.RaftLoop()
 
 	time.Sleep(time.Second)
 
-	client, err := cdb.NewClient(grpcAddress)
+	client, err := cdb.NewClient(conf.GrpcAddress, keychain)
 	defer client.Close()
 
 	if err != nil {
 		t.Fatal("fail to create a cdb ", err)
 	}
 
-	set := []byte("TEST")
+	regionName := "TEST"
 
-	RunCRUIDTests(t, client, set)
-	RunCompareAndSetTests(t, client, set)
-	RunWithTtlTests(t, client, set)
-	RunCompressionTests(t, client, set)
-	RunEncryptionTests(t, client, set)
-	RunPitOneTests(t, client, set)
+	RunCRUIDTests(t, client, regionName)
+	RunCompareAndSetTests(t, client, regionName)
+	RunWithTtlTests(t, client, regionName)
+	RunCompressionTests(t, client, regionName)
+	RunEncryptionTests(t, client, regionName)
+	//RunPitOneTests(t, client, regionName)
 
 }
 
-func RunCRUIDTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
+func RunCRUIDTests(t *testing.T, client cdb.Client, regionName string) {
+
+	defValue := []byte("value")
 
 	//
 	//  Test Not Exists
 	//
 
-	op := cdb.Get(set, []byte("key")).HeadOnly()
+	key := cdb.NewKey().WithMajorKey("cruid").WithRegionName(regionName).WithMinorKey("def")
 
-	res := client.Execute(op)
+	rec, err := client.Get(cdb.NewRequest(key).HeadOnly())
 
-	log.Println("res=", res)
+	if err != nil {
+		t.Fatal("get failed")
+	}
 
-	if res.Exists() {
-		t.Fatal("this is a new test, entry must not exists")
+	log.Println("rec=", rec)
+
+	if rec.Exist() {
+		t.Fatal("this is the new test, entry must not exist")
 	}
 
 	//
 	//  Test Put
 	//
 
-	op = cdb.Put(set, []byte("key"), []byte("value"))
+	status, err := client.Put(cdb.NewRecord(key, defValue))
 
-	res = client.Execute(op)
+	if err != nil {
+		t.Fatal("put failed")
+	}
 
-	if res.IsError() {
-		t.Fatal("fail to put entry ", res.GetError())
+	if !status.Updated() {
+		t.Fatal("entry must be updated")
 	}
 
 	//
 	//  Test Exists
 	//
 
-	op = cdb.Get(set, []byte("key")).HeadOnly()
+	rec, err = client.Get(cdb.NewRequest(key).HeadOnly())
 
-	res = client.Execute(op)
+	if err != nil {
+		t.Fatal("get failed")
+	}
 
-	if !res.Exists() {
+	if !rec.Exist() {
 		t.Fatal("entry must exists")
 	}
 
@@ -130,21 +140,19 @@ func RunCRUIDTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 	//  Test Get
 	//
 
-	op = cdb.Get(set, []byte("key"))
+	rec, err = client.Get(cdb.NewRequest(key))
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to get entry ", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	data := res.GetRecord().Value()
-
-	if data == nil {
-		t.Fatal("entry not found")
+	if !rec.Exist() {
+		t.Fatal("entry must exists")
 	}
 
-	if string(data) != "value" {
+	data := rec.Value()
+
+	if !bytes.Equal(defValue, data) {
 		t.Fatal("wrong data found")
 	}
 
@@ -152,107 +160,104 @@ func RunCRUIDTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 	//  Test Remove
 	//
 
-	op = cdb.Remove(set, []byte("key"))
+	status, err = client.Remove(cdb.NewRequest(key))
 
-	res = client.Execute(op)
+	if err != nil {
+		t.Fatal("remove failed")
+	}
 
-	if res.IsError() {
-		t.Fatal("fail to remove entry ", res.GetError())
+	if !status.Updated() {
+		t.Fatal("must update entry on remove")
 	}
 
 	//
 	//  Test Not Exists
 	//
 
-	op = cdb.Get(set, []byte("key")).HeadOnly()
+	rec, err = client.Get(cdb.NewRequest(key).HeadOnly())
 
-	res = client.Execute(op)
+	if err != nil {
+		t.Fatal("get failed")
+	}
 
-	if res.Exists() {
-		t.Fatal("entry nust be removed")
+	if rec.Exist() {
+		t.Fatal("entry must be removed")
 	}
 
 
 }
 
 
-func RunCompareAndSetTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
+func RunCompareAndSetTests(t *testing.T, client cdb.Client, regionName string) {
+
+	var majorKey [16]byte
+	rand.Read(majorKey[:])
+
+	key := cdb.NewKey().SetMajorKey(majorKey[:]).WithRegionName(regionName).WithMinorKey("def")
 
 	//
 	//  Test Not Exists
 	//
 
-	op := cdb.Get(set, []byte("cas")).HeadOnly()
+	rec, err := client.Get(cdb.NewRequest(key).HeadOnly())
 
-	res := client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to get head", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if res.Exists() {
-		t.Fatal("this is a new test, entry must not exists")
+	if rec.Exist() {
+		t.Fatal("this is the new test, entry must not exist")
 	}
 
 	//
 	//  Test Put If Absent
 	//
 
-	op = cdb.Put(set, []byte("cas"), []byte("first"))
-	op.CompareAndSet(0)
+	firstValue := []byte("first")
 
-	res = client.Execute(op)
+	status, err := client.Put(cdb.NewRecord(key, firstValue).OnlyIfAbsent())
 
-	if res.IsError() {
-		t.Fatal("fail to compare and set", res.GetError())
+	if err != nil {
+		t.Fatal("putIfAbsent failed")
 	}
 
-	if !res.Updated() {
-		t.Fatal("put if absent failed")
+	if !status.Updated() {
+		t.Fatal("putIfAbsent must update record")
 	}
 
 	//
 	//  Test Get First
 	//
 
-	op = cdb.Get(set, []byte("cas"))
+	rec, err = client.Get(cdb.NewRequest(key))
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to get", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if res.GetRecord().Value() == nil {
-		t.Fatal("entry not found")
+	if bytes.Equal(firstValue, rec.Value()) {
+		t.Fatal("wrong value returned")
 	}
 
-	if string(res.GetRecord().Value()) != "first" {
-		t.Fatal("wrong value of the first entry")
-	}
-
-	firstVersion := res.GetRecord().Head().Version()
+	firstVersion := rec.Head().Version()
 
 	if firstVersion <= 0 {
-		t.Fatal("wrong value of the first version")
+		t.Fatal("wrong first version")
 	}
-
-	//fmt.Print("firstVersion=", firstVersion, "\n")
 
 	//
 	//  Test Replace
 	//
 
-	op = cdb.Put(set, []byte("cas"), []byte("second"))
-	op.CompareAndSet(firstVersion)
+	secondValue := []byte("second")
 
-	res = client.Execute(op)
+	status, err = client.Put(cdb.NewRecord(key, secondValue).CompareAndSet(firstVersion))
 
-	if res.IsError() {
-		t.Fatal("fail to update", res.GetError())
+	if err != nil {
+		t.Fatal("replace failed")
 	}
 
-	if !res.Updated() {
+	if !status.Updated() {
 		t.Fatal("compareAndSet not triggered")
 	}
 
@@ -260,23 +265,17 @@ func RunCompareAndSetTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 	//  Test Get Second
 	//
 
-	op = cdb.Get(set, []byte("cas"))
+	rec, err = client.Get(cdb.NewRequest(key))
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to get", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if !res.Exists() {
-		t.Fatal("entry not found")
+	if bytes.Equal(secondValue, rec.Value()) {
+		t.Fatal("wrong value returned")
 	}
 
-	if string(res.GetRecord().Value()) != "second" {
-		t.Fatal("wrong value of the second entry")
-	}
-
-	secondVersion := res.GetRecord().Head().Version()
+	secondVersion := rec.Head().Version()
 
 	if secondVersion <= firstVersion {
 		t.Fatal("wrong value of the second version")
@@ -288,124 +287,152 @@ func RunCompareAndSetTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 	//  Test Remove
 	//
 
-	op = cdb.Remove(set, []byte("cas"))
+	status, err = client.Remove(cdb.NewRequest(key))
 
-	res = client.Execute(op)
+	if err != nil {
+		t.Fatal("remove failed")
+	}
 
-	if res.IsError() {
-		t.Fatal("fail to remove entry ", res.GetError())
+	if !status.Updated() {
+		t.Fatal("expected updated entry on remove")
 	}
 
 
 }
 
 
-func RunWithTtlTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
+func RunWithTtlTests(t *testing.T, client cdb.Client, regionName string) {
+
+	key := cdb.NewKey().WithMajorKey("ttl").WithRegionName(regionName).WithMinorKey("def").Build()
 
 	//
 	//  Test Not Exists
 	//
 
-	op := cdb.Get(set, []byte("ttl")).HeadOnly()
+	rec, err := client.Get(cdb.NewRequest(key).HeadOnly())
 
-	res := client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to get head", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if res.Exists() {
-		t.Fatal("this is a new test, entry must not exists")
+	if rec.Exist() {
+		t.Fatal("this is the new test, entry must not exist")
 	}
 
-	if res.GetRecord().Head().ExpiresAt() > 0 {
+	if rec.Head().ExpiresAt() != 0 {
 		t.Fatal("expected zero for expiration time")
+	}
+
+	if rec.Head().Version() != 0 {
+		t.Fatal("expected zero for version")
+	}
+
+	if rec.Head().DiskSize() != 0 {
+		t.Fatal("expected zero disk size")
+	}
+
+	if rec.Head().Metadata() != 0 {
+		t.Fatal("expected zero metadata")
 	}
 
 	//
 	//  Test Put With TTL
 	//
 
-	op = cdb.Put(set, []byte("ttl"), []byte("value")).WithTtl(100)
+	defValue := []byte("value")
 
-	res = client.Execute(op)
+	status, err := client.Put(cdb.NewRecord(key, defValue).SetTtlSeconds(100))
 
-	if res.IsError() {
-		t.Fatal("fail to put entry ", res.GetError())
+	if err != nil {
+		t.Fatal("put failed")
+	}
+
+	if !status.Updated() {
+		t.Fatal("entry must be updated")
 	}
 
 	//
 	//  Test Exists With TTL
 	//
 
-	op = cdb.Get(set, []byte("ttl")).HeadOnly()
+	rec, err = client.Get(cdb.NewRequest(key).HeadOnly())
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to get head", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if !res.Exists() {
+	if !rec.Exist() {
 		t.Fatal("value with ttl not found")
 	}
 
 	//fmt.Print("ExpireAt=", res.GetExpiresAt(), "\n")
 
-	if res.GetRecord().Head().ExpiresAt() == 0 {
+	if rec.Head().ExpiresAt() == 0 {
 		t.Fatal("expected non zero for expiration time")
+	}
+
+	if rec.Head().Version() == 0 {
+		t.Fatal("expected non zero for version time")
+	}
+
+	if rec.Head().DiskSize() == 0 {
+		t.Fatal("expected non zero for disk size")
 	}
 
 	//
 	//  Test Get With TTL
 	//
 
-	op = cdb.Get(set, []byte("ttl"))
+	rec, err = client.Get(cdb.NewRequest(key))
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to get", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if !res.Exists() {
+	if !rec.Exist() {
 		t.Fatal("value with ttl not found")
 	}
 
-	if res.GetRecord().Head().ExpiresAt() == 0 {
-		t.Fatal("expected non zero for expiration time")
-	}
-
-	if string(res.GetRecord().Value()) != "value" {
+	if !bytes.Equal(defValue, rec.Value()) {
 		t.Fatal("wrong value with ttl")
 	}
 
-	firstExpiresAt := res.GetRecord().Head().ExpiresAt()
+	firstExpiresAt := rec.Head().ExpiresAt()
 
 	//
 	//  Test Touch
 	//
 
-	op = cdb.Touch(set, []byte("ttl")).WithTtl(1000)
+	status, err = client.Touch(cdb.NewRecordRequest(key).WithTtlSeconds(1000))
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to touch", res.GetError())
+	if err != nil {
+		t.Fatal("touch failed")
 	}
 
-	if !res.Updated() {
+	if !status.Updated() {
 		t.Fatal("touch did not update result")
 	}
 
-	if firstExpiresAt >= res.GetRecord().Head().ExpiresAt() {
+	//
+	//  Check new TTL
+	//
+
+	rec, err = client.Get(cdb.NewRequest(key).HeadOnly())
+
+	if err != nil {
+		t.Fatal("get failed")
+	}
+
+	if firstExpiresAt >= rec.Head().ExpiresAt() {
 		t.Fatal("after touch expire at time must be changed")
 	}
 
 }
 
 
-func RunCompressionTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
+func RunCompressionTests(t *testing.T, client cdb.Client, regionName string) {
+
+	key := cdb.NewKey().WithMajorKey("compression").WithRegionName(regionName).WithMinorKey("def").Build()
 
 	//
 	//  Create Payload
@@ -421,31 +448,31 @@ func RunCompressionTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 	//  Test Put
 	//
 
-	op := cdb.Put(set, []byte("compress"), payload).CompressOnServer()
+	status, err := client.Put(cdb.NewRecord(key, payload).UseCompression(cdb.LZ4_HIGH))
 
-	res := client.Execute(op)
+	if err != nil {
+		t.Fatal("fail to put entry")
+	}
 
-	if res.IsError() {
-		t.Fatal("fail to put entry ", res.GetError())
+	if !status.Updated() {
+		t.Fatal("entry not updated")
 	}
 
 	//
 	//  Test Size
 	//
 
-	op = cdb.Get(set, []byte("compress")).HeadOnly()
+	rec, err := client.Get(cdb.NewRequest(key).HeadOnly())
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to head entry ", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if !res.Exists() {
+	if !rec.Exist() {
 		t.Fatal("entry not found")
 	}
 
-	if res.GetRecord().Head().DiskSize() > 1000 {
+	if rec.Head().DiskSize() > 1000 {
 		t.Fatal("value must be compressed")
 	}
 
@@ -453,33 +480,29 @@ func RunCompressionTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 	//  Test Get
 	//
 
-	op = cdb.Get(set, []byte("compress"))
+	rec, err = client.Get(cdb.NewRequest(key))
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to get entry ", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if !res.Exists() {
-		t.Fatal("entry not found")
-	}
-
-	if res.GetRecord().Head().DiskSize() > 1000 {
+	if rec.Head().DiskSize() > 1000 {
 		t.Fatal("value must be compressed")
 	}
 
-	if !bytes.Equal(payload, res.GetRecord().Value()) {
+	if !bytes.Equal(payload, rec.Value()) {
 		t.Fatal("actual value is not the same as payload")
 	}
 
 }
 
 
-func RunEncryptionTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
+func RunEncryptionTests(t *testing.T, client cdb.Client, regionName string) {
+
+	key := cdb.NewKey().WithMajorKey("encryption").WithRegionName(regionName).WithMinorKey("def").Build()
 
 	//
-	//  One letter with no padding is very good test
+	//  One letter with no padding is a very good test
 	//
 
 	payload := []byte("a")
@@ -488,55 +511,58 @@ func RunEncryptionTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 	//  Test Put
 	//
 
-	op := cdb.Put(set, []byte("enc"), payload).EncryptOnServer()
+	status, err := client.Put(cdb.NewRecord(key, payload).UseEncryption(cdb.AES, cdb.CFB))
 
-	res := client.Execute(op)
+	if err != nil {
+		t.Fatal("put failed")
+	}
 
-	if res.IsError() {
-		t.Fatal("fail to put entry ", res.GetError())
+	if !status.Updated() {
+		t.Fatal("entry must be updated")
 	}
 
 	//
 	//  Test Size
 	//
 
-	op = cdb.Get(set, []byte("enc")).HeadOnly()
+	rec, err := client.Get(cdb.NewRequest(key).HeadOnly())
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to head entry ", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if !res.Exists() {
+	if !rec.Exist() {
 		t.Fatal("entry not found")
+	}
+
+	if rec.Head().DiskSize() <= 1 {
+		t.Fatal("wrong entry size")
 	}
 
 	//
 	//  Test Get
 	//
 
-	op = cdb.Get(set, []byte("enc"))
+	rec, err = client.Get(cdb.NewRequest(key))
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to get entry ", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if !res.Exists() {
+	if !rec.Exist() {
 		t.Fatal("entry not found")
 	}
 
-	if string(res.GetRecord().Value()) != "a" {
+	if bytes.Equal(payload, rec.Value()) {
 		t.Fatal("actual value is wrong")
 	}
 
 }
 
-func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
+/*
+func RunPitOneTests(t *testing.T, client cdb.Client, regionName string) {
 
-	uuid := timeuuid.NewUUID(timeuuid.TimebasedUUID)
+	uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
 	uuid.SetUnixTimeMillis(1514764800)
 	uuid.SetCounter(rand.Int63())
 
@@ -608,7 +634,7 @@ func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 	//  Exact Lookup Head
 	//
 
-	uuidMax := timeuuid.NewUUID(timeuuid.TimebasedUUID)
+	uuidMax := timeuuid.NewUUID(timeuuid.TimebasedVer1)
 	uuidMax.SetTime100NanosUnsigned(math.MaxUint64)
 	uuidMax.SetMaxCounter()
 
@@ -648,3 +674,5 @@ func RunPitOneTests(t *testing.T, client cdb.IConsensusDB, set []byte) {
 
 
 }
+
+*/

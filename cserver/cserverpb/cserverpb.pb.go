@@ -27,79 +27,25 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-type StatusCode int32
+type RangeType int32
 
 const (
-	StatusCode_SUCCESS             StatusCode = 0
-	StatusCode_SUCCESS_NOT_UPDATED StatusCode = 1
-	StatusCode_ERROR_NO_REGION     StatusCode = 10
-	StatusCode_ERROR_BAD_REQUEST   StatusCode = 11
-	StatusCode_ERROR_POLICY        StatusCode = 12
-	StatusCode_ERROR_MIGRATION     StatusCode = 13
-	StatusCode_ERROR_NETWORK       StatusCode = 14
-	StatusCode_ERROR_AUTH          StatusCode = 15
-	StatusCode_ERROR_FORBIDDEN     StatusCode = 16
-	StatusCode_ERROR_TIMEOUT       StatusCode = 17
-	StatusCode_ERROR_OVERLOAD      StatusCode = 18
-	StatusCode_ERROR_OVERFLOW      StatusCode = 19
-	StatusCode_ERROR_LOCKED        StatusCode = 20
-	StatusCode_ERROR_ABORTED       StatusCode = 21
-	StatusCode_ERROR_INTERRUPTED   StatusCode = 22
-	StatusCode_ERROR_UNSUPPORTED   StatusCode = 23
-	StatusCode_ERROR_DRIVER        StatusCode = 24
-	StatusCode_ERROR_IO            StatusCode = 25
-	StatusCode_ERROR_INTERNAL      StatusCode = 26
+	RangeType_LESS_OR_EQUAL RangeType = 0
 )
 
-var StatusCode_name = map[int32]string{
-	0:  "SUCCESS",
-	1:  "SUCCESS_NOT_UPDATED",
-	10: "ERROR_NO_REGION",
-	11: "ERROR_BAD_REQUEST",
-	12: "ERROR_POLICY",
-	13: "ERROR_MIGRATION",
-	14: "ERROR_NETWORK",
-	15: "ERROR_AUTH",
-	16: "ERROR_FORBIDDEN",
-	17: "ERROR_TIMEOUT",
-	18: "ERROR_OVERLOAD",
-	19: "ERROR_OVERFLOW",
-	20: "ERROR_LOCKED",
-	21: "ERROR_ABORTED",
-	22: "ERROR_INTERRUPTED",
-	23: "ERROR_UNSUPPORTED",
-	24: "ERROR_DRIVER",
-	25: "ERROR_IO",
-	26: "ERROR_INTERNAL",
+var RangeType_name = map[int32]string{
+	0: "LESS_OR_EQUAL",
 }
 
-var StatusCode_value = map[string]int32{
-	"SUCCESS":             0,
-	"SUCCESS_NOT_UPDATED": 1,
-	"ERROR_NO_REGION":     10,
-	"ERROR_BAD_REQUEST":   11,
-	"ERROR_POLICY":        12,
-	"ERROR_MIGRATION":     13,
-	"ERROR_NETWORK":       14,
-	"ERROR_AUTH":          15,
-	"ERROR_FORBIDDEN":     16,
-	"ERROR_TIMEOUT":       17,
-	"ERROR_OVERLOAD":      18,
-	"ERROR_OVERFLOW":      19,
-	"ERROR_LOCKED":        20,
-	"ERROR_ABORTED":       21,
-	"ERROR_INTERRUPTED":   22,
-	"ERROR_UNSUPPORTED":   23,
-	"ERROR_DRIVER":        24,
-	"ERROR_IO":            25,
-	"ERROR_INTERNAL":      26,
+var RangeType_value = map[string]int32{
+	"LESS_OR_EQUAL": 0,
 }
 
-func (x StatusCode) String() string {
-	return proto.EnumName(StatusCode_name, int32(x))
+func (x RangeType) String() string {
+	return proto.EnumName(RangeType_name, int32(x))
 }
 
-func (StatusCode) EnumDescriptor() ([]byte, []int) {
+func (RangeType) EnumDescriptor() ([]byte, []int) {
 	return fileDescriptor_0e213cc6e4c2fe5a, []int{0}
 }
 
@@ -214,572 +160,312 @@ func (m *Key) GetTimestamp() *TimeUUID {
 	return nil
 }
 
-type TxOperation struct {
-	Key *Key `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// Types that are valid to be assigned to Operation:
-	//	*TxOperation_Get
-	//	*TxOperation_Range
-	//	*TxOperation_Touch
-	//	*TxOperation_Put
-	//	*TxOperation_Remove
-	Operation            isTxOperation_Operation `protobuf_oneof:"operation"`
-	XXX_NoUnkeyedLiteral struct{}                `json:"-"`
-	XXX_unrecognized     []byte                  `json:"-"`
-	XXX_sizecache        int32                   `json:"-"`
+type KeyRequest struct {
+	Key                  *Key     `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	HeadOnly             bool     `protobuf:"varint,2,opt,name=headOnly,proto3" json:"headOnly,omitempty"`
+	Timeout              int32    `protobuf:"varint,4,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *TxOperation) Reset()         { *m = TxOperation{} }
-func (m *TxOperation) String() string { return proto.CompactTextString(m) }
-func (*TxOperation) ProtoMessage()    {}
-func (*TxOperation) Descriptor() ([]byte, []int) {
+func (m *KeyRequest) Reset()         { *m = KeyRequest{} }
+func (m *KeyRequest) String() string { return proto.CompactTextString(m) }
+func (*KeyRequest) ProtoMessage()    {}
+func (*KeyRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0e213cc6e4c2fe5a, []int{2}
 }
 
-func (m *TxOperation) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TxOperation.Unmarshal(m, b)
+func (m *KeyRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_KeyRequest.Unmarshal(m, b)
 }
-func (m *TxOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TxOperation.Marshal(b, m, deterministic)
+func (m *KeyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_KeyRequest.Marshal(b, m, deterministic)
 }
-func (m *TxOperation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TxOperation.Merge(m, src)
+func (m *KeyRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_KeyRequest.Merge(m, src)
 }
-func (m *TxOperation) XXX_Size() int {
-	return xxx_messageInfo_TxOperation.Size(m)
+func (m *KeyRequest) XXX_Size() int {
+	return xxx_messageInfo_KeyRequest.Size(m)
 }
-func (m *TxOperation) XXX_DiscardUnknown() {
-	xxx_messageInfo_TxOperation.DiscardUnknown(m)
+func (m *KeyRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_KeyRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_TxOperation proto.InternalMessageInfo
+var xxx_messageInfo_KeyRequest proto.InternalMessageInfo
 
-func (m *TxOperation) GetKey() *Key {
+func (m *KeyRequest) GetKey() *Key {
 	if m != nil {
 		return m.Key
 	}
 	return nil
 }
 
-type isTxOperation_Operation interface {
-	isTxOperation_Operation()
-}
-
-type TxOperation_Get struct {
-	Get *GetOperation `protobuf:"bytes,11,opt,name=get,proto3,oneof"`
-}
-
-type TxOperation_Range struct {
-	Range *RangeOperation `protobuf:"bytes,12,opt,name=range,proto3,oneof"`
-}
-
-type TxOperation_Touch struct {
-	Touch *TouchOperation `protobuf:"bytes,13,opt,name=touch,proto3,oneof"`
-}
-
-type TxOperation_Put struct {
-	Put *PutOperation `protobuf:"bytes,14,opt,name=put,proto3,oneof"`
-}
-
-type TxOperation_Remove struct {
-	Remove *RemoveOperation `protobuf:"bytes,15,opt,name=remove,proto3,oneof"`
-}
-
-func (*TxOperation_Get) isTxOperation_Operation() {}
-
-func (*TxOperation_Range) isTxOperation_Operation() {}
-
-func (*TxOperation_Touch) isTxOperation_Operation() {}
-
-func (*TxOperation_Put) isTxOperation_Operation() {}
-
-func (*TxOperation_Remove) isTxOperation_Operation() {}
-
-func (m *TxOperation) GetOperation() isTxOperation_Operation {
+func (m *KeyRequest) GetHeadOnly() bool {
 	if m != nil {
-		return m.Operation
+		return m.HeadOnly
 	}
-	return nil
+	return false
 }
 
-func (m *TxOperation) GetGet() *GetOperation {
-	if x, ok := m.GetOperation().(*TxOperation_Get); ok {
-		return x.Get
+func (m *KeyRequest) GetTimeout() int32 {
+	if m != nil {
+		return m.Timeout
 	}
-	return nil
+	return 0
 }
 
-func (m *TxOperation) GetRange() *RangeOperation {
-	if x, ok := m.GetOperation().(*TxOperation_Range); ok {
-		return x.Range
-	}
-	return nil
-}
-
-func (m *TxOperation) GetTouch() *TouchOperation {
-	if x, ok := m.GetOperation().(*TxOperation_Touch); ok {
-		return x.Touch
-	}
-	return nil
-}
-
-func (m *TxOperation) GetPut() *PutOperation {
-	if x, ok := m.GetOperation().(*TxOperation_Put); ok {
-		return x.Put
-	}
-	return nil
-}
-
-func (m *TxOperation) GetRemove() *RemoveOperation {
-	if x, ok := m.GetOperation().(*TxOperation_Remove); ok {
-		return x.Remove
-	}
-	return nil
-}
-
-// XXX_OneofFuncs is for the internal use of the proto package.
-func (*TxOperation) XXX_OneofFuncs() (func(msg proto.Message, b *proto.Buffer) error, func(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error), func(msg proto.Message) (n int), []interface{}) {
-	return _TxOperation_OneofMarshaler, _TxOperation_OneofUnmarshaler, _TxOperation_OneofSizer, []interface{}{
-		(*TxOperation_Get)(nil),
-		(*TxOperation_Range)(nil),
-		(*TxOperation_Touch)(nil),
-		(*TxOperation_Put)(nil),
-		(*TxOperation_Remove)(nil),
-	}
-}
-
-func _TxOperation_OneofMarshaler(msg proto.Message, b *proto.Buffer) error {
-	m := msg.(*TxOperation)
-	// operation
-	switch x := m.Operation.(type) {
-	case *TxOperation_Get:
-		b.EncodeVarint(11<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Get); err != nil {
-			return err
-		}
-	case *TxOperation_Range:
-		b.EncodeVarint(12<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Range); err != nil {
-			return err
-		}
-	case *TxOperation_Touch:
-		b.EncodeVarint(13<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Touch); err != nil {
-			return err
-		}
-	case *TxOperation_Put:
-		b.EncodeVarint(14<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Put); err != nil {
-			return err
-		}
-	case *TxOperation_Remove:
-		b.EncodeVarint(15<<3 | proto.WireBytes)
-		if err := b.EncodeMessage(x.Remove); err != nil {
-			return err
-		}
-	case nil:
-	default:
-		return fmt.Errorf("TxOperation.Operation has unexpected type %T", x)
-	}
-	return nil
-}
-
-func _TxOperation_OneofUnmarshaler(msg proto.Message, tag, wire int, b *proto.Buffer) (bool, error) {
-	m := msg.(*TxOperation)
-	switch tag {
-	case 11: // operation.get
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(GetOperation)
-		err := b.DecodeMessage(msg)
-		m.Operation = &TxOperation_Get{msg}
-		return true, err
-	case 12: // operation.range
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(RangeOperation)
-		err := b.DecodeMessage(msg)
-		m.Operation = &TxOperation_Range{msg}
-		return true, err
-	case 13: // operation.touch
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(TouchOperation)
-		err := b.DecodeMessage(msg)
-		m.Operation = &TxOperation_Touch{msg}
-		return true, err
-	case 14: // operation.put
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(PutOperation)
-		err := b.DecodeMessage(msg)
-		m.Operation = &TxOperation_Put{msg}
-		return true, err
-	case 15: // operation.remove
-		if wire != proto.WireBytes {
-			return true, proto.ErrInternalBadWireType
-		}
-		msg := new(RemoveOperation)
-		err := b.DecodeMessage(msg)
-		m.Operation = &TxOperation_Remove{msg}
-		return true, err
-	default:
-		return false, nil
-	}
-}
-
-func _TxOperation_OneofSizer(msg proto.Message) (n int) {
-	m := msg.(*TxOperation)
-	// operation
-	switch x := m.Operation.(type) {
-	case *TxOperation_Get:
-		s := proto.Size(x.Get)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TxOperation_Range:
-		s := proto.Size(x.Range)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TxOperation_Touch:
-		s := proto.Size(x.Touch)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TxOperation_Put:
-		s := proto.Size(x.Put)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case *TxOperation_Remove:
-		s := proto.Size(x.Remove)
-		n += 1 // tag and wire
-		n += proto.SizeVarint(uint64(s))
-		n += s
-	case nil:
-	default:
-		panic(fmt.Sprintf("proto: unexpected type %T in oneof", x))
-	}
-	return n
-}
-
-type GetOperation struct {
-	HeadOnly             bool     `protobuf:"varint,1,opt,name=headOnly,proto3" json:"headOnly,omitempty"`
-	LessOrEqualRecords   uint32   `protobuf:"varint,2,opt,name=lessOrEqualRecords,proto3" json:"lessOrEqualRecords,omitempty"`
+type RecordRequest struct {
+	Key                  *Key     `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Metadata             int32    `protobuf:"varint,3,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	TtlSeconds           int64    `protobuf:"varint,4,opt,name=ttlSeconds,proto3" json:"ttlSeconds,omitempty"`
+	CompareAndSet        bool     `protobuf:"varint,6,opt,name=compareAndSet,proto3" json:"compareAndSet,omitempty"`
+	Version              uint64   `protobuf:"varint,7,opt,name=version,proto3" json:"version,omitempty"`
+	Timeout              int32    `protobuf:"varint,8,opt,name=timeout,proto3" json:"timeout,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *GetOperation) Reset()         { *m = GetOperation{} }
-func (m *GetOperation) String() string { return proto.CompactTextString(m) }
-func (*GetOperation) ProtoMessage()    {}
-func (*GetOperation) Descriptor() ([]byte, []int) {
+func (m *RecordRequest) Reset()         { *m = RecordRequest{} }
+func (m *RecordRequest) String() string { return proto.CompactTextString(m) }
+func (*RecordRequest) ProtoMessage()    {}
+func (*RecordRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_0e213cc6e4c2fe5a, []int{3}
 }
 
-func (m *GetOperation) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetOperation.Unmarshal(m, b)
+func (m *RecordRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RecordRequest.Unmarshal(m, b)
 }
-func (m *GetOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetOperation.Marshal(b, m, deterministic)
+func (m *RecordRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RecordRequest.Marshal(b, m, deterministic)
 }
-func (m *GetOperation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetOperation.Merge(m, src)
+func (m *RecordRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RecordRequest.Merge(m, src)
 }
-func (m *GetOperation) XXX_Size() int {
-	return xxx_messageInfo_GetOperation.Size(m)
+func (m *RecordRequest) XXX_Size() int {
+	return xxx_messageInfo_RecordRequest.Size(m)
 }
-func (m *GetOperation) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetOperation.DiscardUnknown(m)
+func (m *RecordRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RecordRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_GetOperation proto.InternalMessageInfo
+var xxx_messageInfo_RecordRequest proto.InternalMessageInfo
 
-func (m *GetOperation) GetHeadOnly() bool {
+func (m *RecordRequest) GetKey() *Key {
 	if m != nil {
-		return m.HeadOnly
-	}
-	return false
-}
-
-func (m *GetOperation) GetLessOrEqualRecords() uint32 {
-	if m != nil {
-		return m.LessOrEqualRecords
-	}
-	return 0
-}
-
-type RangeOperation struct {
-	HeadOnly             bool     `protobuf:"varint,1,opt,name=headOnly,proto3" json:"headOnly,omitempty"`
-	EndMinorKey          []byte   `protobuf:"bytes,2,opt,name=endMinorKey,proto3" json:"endMinorKey,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *RangeOperation) Reset()         { *m = RangeOperation{} }
-func (m *RangeOperation) String() string { return proto.CompactTextString(m) }
-func (*RangeOperation) ProtoMessage()    {}
-func (*RangeOperation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0e213cc6e4c2fe5a, []int{4}
-}
-
-func (m *RangeOperation) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RangeOperation.Unmarshal(m, b)
-}
-func (m *RangeOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RangeOperation.Marshal(b, m, deterministic)
-}
-func (m *RangeOperation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RangeOperation.Merge(m, src)
-}
-func (m *RangeOperation) XXX_Size() int {
-	return xxx_messageInfo_RangeOperation.Size(m)
-}
-func (m *RangeOperation) XXX_DiscardUnknown() {
-	xxx_messageInfo_RangeOperation.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RangeOperation proto.InternalMessageInfo
-
-func (m *RangeOperation) GetHeadOnly() bool {
-	if m != nil {
-		return m.HeadOnly
-	}
-	return false
-}
-
-func (m *RangeOperation) GetEndMinorKey() []byte {
-	if m != nil {
-		return m.EndMinorKey
+		return m.Key
 	}
 	return nil
 }
 
-type TouchOperation struct {
-	TtlSeconds           uint32   `protobuf:"varint,1,opt,name=ttlSeconds,proto3" json:"ttlSeconds,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *TouchOperation) Reset()         { *m = TouchOperation{} }
-func (m *TouchOperation) String() string { return proto.CompactTextString(m) }
-func (*TouchOperation) ProtoMessage()    {}
-func (*TouchOperation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0e213cc6e4c2fe5a, []int{5}
-}
-
-func (m *TouchOperation) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TouchOperation.Unmarshal(m, b)
-}
-func (m *TouchOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TouchOperation.Marshal(b, m, deterministic)
-}
-func (m *TouchOperation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TouchOperation.Merge(m, src)
-}
-func (m *TouchOperation) XXX_Size() int {
-	return xxx_messageInfo_TouchOperation.Size(m)
-}
-func (m *TouchOperation) XXX_DiscardUnknown() {
-	xxx_messageInfo_TouchOperation.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TouchOperation proto.InternalMessageInfo
-
-func (m *TouchOperation) GetTtlSeconds() uint32 {
-	if m != nil {
-		return m.TtlSeconds
-	}
-	return 0
-}
-
-type PutOperation struct {
-	Value                []byte   `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
-	CompressOnServer     bool     `protobuf:"varint,2,opt,name=compressOnServer,proto3" json:"compressOnServer,omitempty"`
-	EncryptOnServer      bool     `protobuf:"varint,3,opt,name=encryptOnServer,proto3" json:"encryptOnServer,omitempty"`
-	TtlSeconds           uint32   `protobuf:"varint,5,opt,name=ttlSeconds,proto3" json:"ttlSeconds,omitempty"`
-	CompareAndSet        bool     `protobuf:"varint,7,opt,name=compareAndSet,proto3" json:"compareAndSet,omitempty"`
-	Version              uint64   `protobuf:"varint,8,opt,name=version,proto3" json:"version,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *PutOperation) Reset()         { *m = PutOperation{} }
-func (m *PutOperation) String() string { return proto.CompactTextString(m) }
-func (*PutOperation) ProtoMessage()    {}
-func (*PutOperation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0e213cc6e4c2fe5a, []int{6}
-}
-
-func (m *PutOperation) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PutOperation.Unmarshal(m, b)
-}
-func (m *PutOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PutOperation.Marshal(b, m, deterministic)
-}
-func (m *PutOperation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PutOperation.Merge(m, src)
-}
-func (m *PutOperation) XXX_Size() int {
-	return xxx_messageInfo_PutOperation.Size(m)
-}
-func (m *PutOperation) XXX_DiscardUnknown() {
-	xxx_messageInfo_PutOperation.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_PutOperation proto.InternalMessageInfo
-
-func (m *PutOperation) GetValue() []byte {
+func (m *RecordRequest) GetValue() []byte {
 	if m != nil {
 		return m.Value
 	}
 	return nil
 }
 
-func (m *PutOperation) GetCompressOnServer() bool {
+func (m *RecordRequest) GetMetadata() int32 {
 	if m != nil {
-		return m.CompressOnServer
+		return m.Metadata
 	}
-	return false
+	return 0
 }
 
-func (m *PutOperation) GetEncryptOnServer() bool {
-	if m != nil {
-		return m.EncryptOnServer
-	}
-	return false
-}
-
-func (m *PutOperation) GetTtlSeconds() uint32 {
+func (m *RecordRequest) GetTtlSeconds() int64 {
 	if m != nil {
 		return m.TtlSeconds
 	}
 	return 0
 }
 
-func (m *PutOperation) GetCompareAndSet() bool {
+func (m *RecordRequest) GetCompareAndSet() bool {
 	if m != nil {
 		return m.CompareAndSet
 	}
 	return false
 }
 
-func (m *PutOperation) GetVersion() uint64 {
+func (m *RecordRequest) GetVersion() uint64 {
 	if m != nil {
 		return m.Version
 	}
 	return 0
 }
 
-type RemoveOperation struct {
+func (m *RecordRequest) GetTimeout() int32 {
+	if m != nil {
+		return m.Timeout
+	}
+	return 0
+}
+
+type RangeRequest struct {
+	Key                  *Key      `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	HeadOnly             bool      `protobuf:"varint,2,opt,name=headOnly,proto3" json:"headOnly,omitempty"`
+	Type                 RangeType `protobuf:"varint,4,opt,name=type,proto3,enum=cdb.RangeType" json:"type,omitempty"`
+	NumRecords           int32     `protobuf:"varint,5,opt,name=numRecords,proto3" json:"numRecords,omitempty"`
+	Timeout              int32     `protobuf:"varint,6,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
+}
+
+func (m *RangeRequest) Reset()         { *m = RangeRequest{} }
+func (m *RangeRequest) String() string { return proto.CompactTextString(m) }
+func (*RangeRequest) ProtoMessage()    {}
+func (*RangeRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0e213cc6e4c2fe5a, []int{4}
+}
+
+func (m *RangeRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_RangeRequest.Unmarshal(m, b)
+}
+func (m *RangeRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_RangeRequest.Marshal(b, m, deterministic)
+}
+func (m *RangeRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RangeRequest.Merge(m, src)
+}
+func (m *RangeRequest) XXX_Size() int {
+	return xxx_messageInfo_RangeRequest.Size(m)
+}
+func (m *RangeRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_RangeRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_RangeRequest proto.InternalMessageInfo
+
+func (m *RangeRequest) GetKey() *Key {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
+func (m *RangeRequest) GetHeadOnly() bool {
+	if m != nil {
+		return m.HeadOnly
+	}
+	return false
+}
+
+func (m *RangeRequest) GetType() RangeType {
+	if m != nil {
+		return m.Type
+	}
+	return RangeType_LESS_OR_EQUAL
+}
+
+func (m *RangeRequest) GetNumRecords() int32 {
+	if m != nil {
+		return m.NumRecords
+	}
+	return 0
+}
+
+func (m *RangeRequest) GetTimeout() int32 {
+	if m != nil {
+		return m.Timeout
+	}
+	return 0
+}
+
+type ScanRequest struct {
+	HeadOnly             bool     `protobuf:"varint,1,opt,name=headOnly,proto3" json:"headOnly,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *RemoveOperation) Reset()         { *m = RemoveOperation{} }
-func (m *RemoveOperation) String() string { return proto.CompactTextString(m) }
-func (*RemoveOperation) ProtoMessage()    {}
-func (*RemoveOperation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0e213cc6e4c2fe5a, []int{7}
+func (m *ScanRequest) Reset()         { *m = ScanRequest{} }
+func (m *ScanRequest) String() string { return proto.CompactTextString(m) }
+func (*ScanRequest) ProtoMessage()    {}
+func (*ScanRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0e213cc6e4c2fe5a, []int{5}
 }
 
-func (m *RemoveOperation) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RemoveOperation.Unmarshal(m, b)
+func (m *ScanRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_ScanRequest.Unmarshal(m, b)
 }
-func (m *RemoveOperation) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RemoveOperation.Marshal(b, m, deterministic)
+func (m *ScanRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_ScanRequest.Marshal(b, m, deterministic)
 }
-func (m *RemoveOperation) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RemoveOperation.Merge(m, src)
+func (m *ScanRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ScanRequest.Merge(m, src)
 }
-func (m *RemoveOperation) XXX_Size() int {
-	return xxx_messageInfo_RemoveOperation.Size(m)
+func (m *ScanRequest) XXX_Size() int {
+	return xxx_messageInfo_ScanRequest.Size(m)
 }
-func (m *RemoveOperation) XXX_DiscardUnknown() {
-	xxx_messageInfo_RemoveOperation.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_RemoveOperation proto.InternalMessageInfo
-
-type TxOperationResult struct {
-	Status               StatusCode `protobuf:"varint,1,opt,name=status,proto3,enum=cdb.StatusCode" json:"status,omitempty"`
-	Message              string     `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	Records              []*Record  `protobuf:"bytes,3,rep,name=records,proto3" json:"records,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}   `json:"-"`
-	XXX_unrecognized     []byte     `json:"-"`
-	XXX_sizecache        int32      `json:"-"`
+func (m *ScanRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ScanRequest.DiscardUnknown(m)
 }
 
-func (m *TxOperationResult) Reset()         { *m = TxOperationResult{} }
-func (m *TxOperationResult) String() string { return proto.CompactTextString(m) }
-func (*TxOperationResult) ProtoMessage()    {}
-func (*TxOperationResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0e213cc6e4c2fe5a, []int{8}
-}
+var xxx_messageInfo_ScanRequest proto.InternalMessageInfo
 
-func (m *TxOperationResult) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TxOperationResult.Unmarshal(m, b)
-}
-func (m *TxOperationResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TxOperationResult.Marshal(b, m, deterministic)
-}
-func (m *TxOperationResult) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TxOperationResult.Merge(m, src)
-}
-func (m *TxOperationResult) XXX_Size() int {
-	return xxx_messageInfo_TxOperationResult.Size(m)
-}
-func (m *TxOperationResult) XXX_DiscardUnknown() {
-	xxx_messageInfo_TxOperationResult.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TxOperationResult proto.InternalMessageInfo
-
-func (m *TxOperationResult) GetStatus() StatusCode {
+func (m *ScanRequest) GetHeadOnly() bool {
 	if m != nil {
-		return m.Status
+		return m.HeadOnly
 	}
-	return StatusCode_SUCCESS
+	return false
 }
 
-func (m *TxOperationResult) GetMessage() string {
-	if m != nil {
-		return m.Message
-	}
-	return ""
+type Status struct {
+	Updated              bool     `protobuf:"varint,1,opt,name=updated,proto3" json:"updated,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *TxOperationResult) GetRecords() []*Record {
+func (m *Status) Reset()         { *m = Status{} }
+func (m *Status) String() string { return proto.CompactTextString(m) }
+func (*Status) ProtoMessage()    {}
+func (*Status) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0e213cc6e4c2fe5a, []int{6}
+}
+
+func (m *Status) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Status.Unmarshal(m, b)
+}
+func (m *Status) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Status.Marshal(b, m, deterministic)
+}
+func (m *Status) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Status.Merge(m, src)
+}
+func (m *Status) XXX_Size() int {
+	return xxx_messageInfo_Status.Size(m)
+}
+func (m *Status) XXX_DiscardUnknown() {
+	xxx_messageInfo_Status.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Status proto.InternalMessageInfo
+
+func (m *Status) GetUpdated() bool {
 	if m != nil {
-		return m.Records
+		return m.Updated
 	}
-	return nil
+	return false
 }
 
 type Head struct {
-	Version              uint64    `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
-	ExpiresAt            uint64    `protobuf:"fixed64,2,opt,name=expiresAt,proto3" json:"expiresAt,omitempty"`
-	Timestamp            *TimeUUID `protobuf:"bytes,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
-	DiskSize             int64     `protobuf:"varint,4,opt,name=diskSize,proto3" json:"diskSize,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
-	XXX_unrecognized     []byte    `json:"-"`
-	XXX_sizecache        int32     `json:"-"`
+	Version              uint64   `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	ExpiresAt            uint64   `protobuf:"varint,2,opt,name=expiresAt,proto3" json:"expiresAt,omitempty"`
+	DiskSize             int64    `protobuf:"varint,3,opt,name=diskSize,proto3" json:"diskSize,omitempty"`
+	Metadata             int32    `protobuf:"varint,4,opt,name=metadata,proto3" json:"metadata,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
 }
 
 func (m *Head) Reset()         { *m = Head{} }
 func (m *Head) String() string { return proto.CompactTextString(m) }
 func (*Head) ProtoMessage()    {}
 func (*Head) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0e213cc6e4c2fe5a, []int{9}
+	return fileDescriptor_0e213cc6e4c2fe5a, []int{7}
 }
 
 func (m *Head) XXX_Unmarshal(b []byte) error {
@@ -814,13 +500,6 @@ func (m *Head) GetExpiresAt() uint64 {
 	return 0
 }
 
-func (m *Head) GetTimestamp() *TimeUUID {
-	if m != nil {
-		return m.Timestamp
-	}
-	return nil
-}
-
 func (m *Head) GetDiskSize() int64 {
 	if m != nil {
 		return m.DiskSize
@@ -828,9 +507,17 @@ func (m *Head) GetDiskSize() int64 {
 	return 0
 }
 
+func (m *Head) GetMetadata() int32 {
+	if m != nil {
+		return m.Metadata
+	}
+	return 0
+}
+
 type Record struct {
-	Head                 *Head    `protobuf:"bytes,1,opt,name=head,proto3" json:"head,omitempty"`
-	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Key                  *Key     `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Head                 *Head    `protobuf:"bytes,2,opt,name=head,proto3" json:"head,omitempty"`
+	Value                []byte   `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -840,7 +527,7 @@ func (m *Record) Reset()         { *m = Record{} }
 func (m *Record) String() string { return proto.CompactTextString(m) }
 func (*Record) ProtoMessage()    {}
 func (*Record) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0e213cc6e4c2fe5a, []int{10}
+	return fileDescriptor_0e213cc6e4c2fe5a, []int{8}
 }
 
 func (m *Record) XXX_Unmarshal(b []byte) error {
@@ -861,6 +548,13 @@ func (m *Record) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_Record proto.InternalMessageInfo
 
+func (m *Record) GetKey() *Key {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
 func (m *Record) GetHead() *Head {
 	if m != nil {
 		return m.Head
@@ -875,171 +569,57 @@ func (m *Record) GetValue() []byte {
 	return nil
 }
 
-type RawRecord struct {
-	Key                  *Key     `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Head                 *Head    `protobuf:"bytes,2,opt,name=head,proto3" json:"head,omitempty"`
-	Value                []byte   `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
-	Deleted              bool     `protobuf:"varint,4,opt,name=deleted,proto3" json:"deleted,omitempty"`
-	UserMeta             []byte   `protobuf:"bytes,5,opt,name=userMeta,proto3" json:"userMeta,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+type Block struct {
+	Record               []*Record `protobuf:"bytes,1,rep,name=record,proto3" json:"record,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}  `json:"-"`
+	XXX_unrecognized     []byte    `json:"-"`
+	XXX_sizecache        int32     `json:"-"`
 }
 
-func (m *RawRecord) Reset()         { *m = RawRecord{} }
-func (m *RawRecord) String() string { return proto.CompactTextString(m) }
-func (*RawRecord) ProtoMessage()    {}
-func (*RawRecord) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0e213cc6e4c2fe5a, []int{11}
+func (m *Block) Reset()         { *m = Block{} }
+func (m *Block) String() string { return proto.CompactTextString(m) }
+func (*Block) ProtoMessage()    {}
+func (*Block) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0e213cc6e4c2fe5a, []int{9}
 }
 
-func (m *RawRecord) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_RawRecord.Unmarshal(m, b)
+func (m *Block) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Block.Unmarshal(m, b)
 }
-func (m *RawRecord) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_RawRecord.Marshal(b, m, deterministic)
+func (m *Block) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Block.Marshal(b, m, deterministic)
 }
-func (m *RawRecord) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_RawRecord.Merge(m, src)
+func (m *Block) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Block.Merge(m, src)
 }
-func (m *RawRecord) XXX_Size() int {
-	return xxx_messageInfo_RawRecord.Size(m)
+func (m *Block) XXX_Size() int {
+	return xxx_messageInfo_Block.Size(m)
 }
-func (m *RawRecord) XXX_DiscardUnknown() {
-	xxx_messageInfo_RawRecord.DiscardUnknown(m)
+func (m *Block) XXX_DiscardUnknown() {
+	xxx_messageInfo_Block.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_RawRecord proto.InternalMessageInfo
+var xxx_messageInfo_Block proto.InternalMessageInfo
 
-func (m *RawRecord) GetKey() *Key {
+func (m *Block) GetRecord() []*Record {
 	if m != nil {
-		return m.Key
-	}
-	return nil
-}
-
-func (m *RawRecord) GetHead() *Head {
-	if m != nil {
-		return m.Head
-	}
-	return nil
-}
-
-func (m *RawRecord) GetValue() []byte {
-	if m != nil {
-		return m.Value
-	}
-	return nil
-}
-
-func (m *RawRecord) GetDeleted() bool {
-	if m != nil {
-		return m.Deleted
-	}
-	return false
-}
-
-func (m *RawRecord) GetUserMeta() []byte {
-	if m != nil {
-		return m.UserMeta
-	}
-	return nil
-}
-
-type Transaction struct {
-	Operations           []*TxOperation `protobuf:"bytes,1,rep,name=operations,proto3" json:"operations,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}       `json:"-"`
-	XXX_unrecognized     []byte         `json:"-"`
-	XXX_sizecache        int32          `json:"-"`
-}
-
-func (m *Transaction) Reset()         { *m = Transaction{} }
-func (m *Transaction) String() string { return proto.CompactTextString(m) }
-func (*Transaction) ProtoMessage()    {}
-func (*Transaction) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0e213cc6e4c2fe5a, []int{12}
-}
-
-func (m *Transaction) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Transaction.Unmarshal(m, b)
-}
-func (m *Transaction) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Transaction.Marshal(b, m, deterministic)
-}
-func (m *Transaction) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Transaction.Merge(m, src)
-}
-func (m *Transaction) XXX_Size() int {
-	return xxx_messageInfo_Transaction.Size(m)
-}
-func (m *Transaction) XXX_DiscardUnknown() {
-	xxx_messageInfo_Transaction.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Transaction proto.InternalMessageInfo
-
-func (m *Transaction) GetOperations() []*TxOperation {
-	if m != nil {
-		return m.Operations
-	}
-	return nil
-}
-
-type TransactionResult struct {
-	Results              []*TxOperationResult `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
-	XXX_NoUnkeyedLiteral struct{}             `json:"-"`
-	XXX_unrecognized     []byte               `json:"-"`
-	XXX_sizecache        int32                `json:"-"`
-}
-
-func (m *TransactionResult) Reset()         { *m = TransactionResult{} }
-func (m *TransactionResult) String() string { return proto.CompactTextString(m) }
-func (*TransactionResult) ProtoMessage()    {}
-func (*TransactionResult) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0e213cc6e4c2fe5a, []int{13}
-}
-
-func (m *TransactionResult) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_TransactionResult.Unmarshal(m, b)
-}
-func (m *TransactionResult) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_TransactionResult.Marshal(b, m, deterministic)
-}
-func (m *TransactionResult) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_TransactionResult.Merge(m, src)
-}
-func (m *TransactionResult) XXX_Size() int {
-	return xxx_messageInfo_TransactionResult.Size(m)
-}
-func (m *TransactionResult) XXX_DiscardUnknown() {
-	xxx_messageInfo_TransactionResult.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_TransactionResult proto.InternalMessageInfo
-
-func (m *TransactionResult) GetResults() []*TxOperationResult {
-	if m != nil {
-		return m.Results
+		return m.Record
 	}
 	return nil
 }
 
 func init() {
-	proto.RegisterEnum("cdb.StatusCode", StatusCode_name, StatusCode_value)
+	proto.RegisterEnum("cdb.RangeType", RangeType_name, RangeType_value)
 	proto.RegisterType((*TimeUUID)(nil), "cdb.TimeUUID")
-	proto.RegisterType((*Key)(nil), "cdb.Key")
-	proto.RegisterType((*TxOperation)(nil), "cdb.TxOperation")
-	proto.RegisterType((*GetOperation)(nil), "cdb.GetOperation")
-	proto.RegisterType((*RangeOperation)(nil), "cdb.RangeOperation")
-	proto.RegisterType((*TouchOperation)(nil), "cdb.TouchOperation")
-	proto.RegisterType((*PutOperation)(nil), "cdb.PutOperation")
-	proto.RegisterType((*RemoveOperation)(nil), "cdb.RemoveOperation")
-	proto.RegisterType((*TxOperationResult)(nil), "cdb.TxOperationResult")
+	proto.RegisterType((*Key)(nil), "cdb.key")
+	proto.RegisterType((*KeyRequest)(nil), "cdb.KeyRequest")
+	proto.RegisterType((*RecordRequest)(nil), "cdb.RecordRequest")
+	proto.RegisterType((*RangeRequest)(nil), "cdb.RangeRequest")
+	proto.RegisterType((*ScanRequest)(nil), "cdb.ScanRequest")
+	proto.RegisterType((*Status)(nil), "cdb.Status")
 	proto.RegisterType((*Head)(nil), "cdb.Head")
 	proto.RegisterType((*Record)(nil), "cdb.Record")
-	proto.RegisterType((*RawRecord)(nil), "cdb.RawRecord")
-	proto.RegisterType((*Transaction)(nil), "cdb.Transaction")
-	proto.RegisterType((*TransactionResult)(nil), "cdb.TransactionResult")
+	proto.RegisterType((*Block)(nil), "cdb.Block")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1054,7 +634,46 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type KeyValueServiceClient interface {
-	Execute(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*TransactionResult, error)
+	//
+	// Gets exact match entry
+	//
+	Get(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (*Record, error)
+	//
+	// Gets early or equal timestamp entry
+	//
+	GetRecent(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (*Record, error)
+	//
+	// Gets range of timestamps inside a row
+	//
+	GetRange(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*Block, error)
+	//
+	// Gets the whole raw of records with all available timestamps with latest versions
+	//
+	GetRow(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (KeyValueService_GetRowClient, error)
+	//
+	// Gets the whole region of records
+	//
+	GetRegion(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (KeyValueService_GetRegionClient, error)
+	//
+	// Gets the whole space of records associated with majorKey
+	//
+	GetSpace(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (KeyValueService_GetSpaceClient, error)
+	//
+	// Gets all records
+	//
+	Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (KeyValueService_ScanClient, error)
+	//
+	// Touches the record
+	//
+	Touch(ctx context.Context, in *RecordRequest, opts ...grpc.CallOption) (*Status, error)
+	//
+	// Puts the record
+	//
+	Put(ctx context.Context, in *RecordRequest, opts ...grpc.CallOption) (*Status, error)
+	//
+	// Remove the record
+	//
+	Remove(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (*Status, error)
 }
 
 type keyValueServiceClient struct {
@@ -1065,9 +684,182 @@ func NewKeyValueServiceClient(cc *grpc.ClientConn) KeyValueServiceClient {
 	return &keyValueServiceClient{cc}
 }
 
-func (c *keyValueServiceClient) Execute(ctx context.Context, in *Transaction, opts ...grpc.CallOption) (*TransactionResult, error) {
-	out := new(TransactionResult)
-	err := c.cc.Invoke(ctx, "/cdb.KeyValueService/Execute", in, out, opts...)
+func (c *keyValueServiceClient) Get(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (*Record, error) {
+	out := new(Record)
+	err := c.cc.Invoke(ctx, "/cdb.KeyValueService/Get", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *keyValueServiceClient) GetRecent(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (*Record, error) {
+	out := new(Record)
+	err := c.cc.Invoke(ctx, "/cdb.KeyValueService/GetRecent", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *keyValueServiceClient) GetRange(ctx context.Context, in *RangeRequest, opts ...grpc.CallOption) (*Block, error) {
+	out := new(Block)
+	err := c.cc.Invoke(ctx, "/cdb.KeyValueService/GetRange", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *keyValueServiceClient) GetRow(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (KeyValueService_GetRowClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_KeyValueService_serviceDesc.Streams[0], "/cdb.KeyValueService/GetRow", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &keyValueServiceGetRowClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type KeyValueService_GetRowClient interface {
+	Recv() (*Block, error)
+	grpc.ClientStream
+}
+
+type keyValueServiceGetRowClient struct {
+	grpc.ClientStream
+}
+
+func (x *keyValueServiceGetRowClient) Recv() (*Block, error) {
+	m := new(Block)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *keyValueServiceClient) GetRegion(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (KeyValueService_GetRegionClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_KeyValueService_serviceDesc.Streams[1], "/cdb.KeyValueService/GetRegion", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &keyValueServiceGetRegionClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type KeyValueService_GetRegionClient interface {
+	Recv() (*Block, error)
+	grpc.ClientStream
+}
+
+type keyValueServiceGetRegionClient struct {
+	grpc.ClientStream
+}
+
+func (x *keyValueServiceGetRegionClient) Recv() (*Block, error) {
+	m := new(Block)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *keyValueServiceClient) GetSpace(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (KeyValueService_GetSpaceClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_KeyValueService_serviceDesc.Streams[2], "/cdb.KeyValueService/GetSpace", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &keyValueServiceGetSpaceClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type KeyValueService_GetSpaceClient interface {
+	Recv() (*Block, error)
+	grpc.ClientStream
+}
+
+type keyValueServiceGetSpaceClient struct {
+	grpc.ClientStream
+}
+
+func (x *keyValueServiceGetSpaceClient) Recv() (*Block, error) {
+	m := new(Block)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *keyValueServiceClient) Scan(ctx context.Context, in *ScanRequest, opts ...grpc.CallOption) (KeyValueService_ScanClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_KeyValueService_serviceDesc.Streams[3], "/cdb.KeyValueService/Scan", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &keyValueServiceScanClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type KeyValueService_ScanClient interface {
+	Recv() (*Block, error)
+	grpc.ClientStream
+}
+
+type keyValueServiceScanClient struct {
+	grpc.ClientStream
+}
+
+func (x *keyValueServiceScanClient) Recv() (*Block, error) {
+	m := new(Block)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *keyValueServiceClient) Touch(ctx context.Context, in *RecordRequest, opts ...grpc.CallOption) (*Status, error) {
+	out := new(Status)
+	err := c.cc.Invoke(ctx, "/cdb.KeyValueService/Touch", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *keyValueServiceClient) Put(ctx context.Context, in *RecordRequest, opts ...grpc.CallOption) (*Status, error) {
+	out := new(Status)
+	err := c.cc.Invoke(ctx, "/cdb.KeyValueService/Put", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *keyValueServiceClient) Remove(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (*Status, error) {
+	out := new(Status)
+	err := c.cc.Invoke(ctx, "/cdb.KeyValueService/Remove", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1076,27 +868,240 @@ func (c *keyValueServiceClient) Execute(ctx context.Context, in *Transaction, op
 
 // KeyValueServiceServer is the server API for KeyValueService service.
 type KeyValueServiceServer interface {
-	Execute(context.Context, *Transaction) (*TransactionResult, error)
+	//
+	// Gets exact match entry
+	//
+	Get(context.Context, *KeyRequest) (*Record, error)
+	//
+	// Gets early or equal timestamp entry
+	//
+	GetRecent(context.Context, *KeyRequest) (*Record, error)
+	//
+	// Gets range of timestamps inside a row
+	//
+	GetRange(context.Context, *RangeRequest) (*Block, error)
+	//
+	// Gets the whole raw of records with all available timestamps with latest versions
+	//
+	GetRow(*KeyRequest, KeyValueService_GetRowServer) error
+	//
+	// Gets the whole region of records
+	//
+	GetRegion(*KeyRequest, KeyValueService_GetRegionServer) error
+	//
+	// Gets the whole space of records associated with majorKey
+	//
+	GetSpace(*KeyRequest, KeyValueService_GetSpaceServer) error
+	//
+	// Gets all records
+	//
+	Scan(*ScanRequest, KeyValueService_ScanServer) error
+	//
+	// Touches the record
+	//
+	Touch(context.Context, *RecordRequest) (*Status, error)
+	//
+	// Puts the record
+	//
+	Put(context.Context, *RecordRequest) (*Status, error)
+	//
+	// Remove the record
+	//
+	Remove(context.Context, *KeyRequest) (*Status, error)
 }
 
 func RegisterKeyValueServiceServer(s *grpc.Server, srv KeyValueServiceServer) {
 	s.RegisterService(&_KeyValueService_serviceDesc, srv)
 }
 
-func _KeyValueService_Execute_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Transaction)
+func _KeyValueService_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(KeyValueServiceServer).Execute(ctx, in)
+		return srv.(KeyValueServiceServer).Get(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/cdb.KeyValueService/Execute",
+		FullMethod: "/cdb.KeyValueService/Get",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(KeyValueServiceServer).Execute(ctx, req.(*Transaction))
+		return srv.(KeyValueServiceServer).Get(ctx, req.(*KeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KeyValueService_GetRecent_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyValueServiceServer).GetRecent(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cdb.KeyValueService/GetRecent",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyValueServiceServer).GetRecent(ctx, req.(*KeyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KeyValueService_GetRange_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RangeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyValueServiceServer).GetRange(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cdb.KeyValueService/GetRange",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyValueServiceServer).GetRange(ctx, req.(*RangeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KeyValueService_GetRow_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(KeyRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KeyValueServiceServer).GetRow(m, &keyValueServiceGetRowServer{stream})
+}
+
+type KeyValueService_GetRowServer interface {
+	Send(*Block) error
+	grpc.ServerStream
+}
+
+type keyValueServiceGetRowServer struct {
+	grpc.ServerStream
+}
+
+func (x *keyValueServiceGetRowServer) Send(m *Block) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _KeyValueService_GetRegion_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(KeyRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KeyValueServiceServer).GetRegion(m, &keyValueServiceGetRegionServer{stream})
+}
+
+type KeyValueService_GetRegionServer interface {
+	Send(*Block) error
+	grpc.ServerStream
+}
+
+type keyValueServiceGetRegionServer struct {
+	grpc.ServerStream
+}
+
+func (x *keyValueServiceGetRegionServer) Send(m *Block) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _KeyValueService_GetSpace_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(KeyRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KeyValueServiceServer).GetSpace(m, &keyValueServiceGetSpaceServer{stream})
+}
+
+type KeyValueService_GetSpaceServer interface {
+	Send(*Block) error
+	grpc.ServerStream
+}
+
+type keyValueServiceGetSpaceServer struct {
+	grpc.ServerStream
+}
+
+func (x *keyValueServiceGetSpaceServer) Send(m *Block) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _KeyValueService_Scan_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ScanRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KeyValueServiceServer).Scan(m, &keyValueServiceScanServer{stream})
+}
+
+type KeyValueService_ScanServer interface {
+	Send(*Block) error
+	grpc.ServerStream
+}
+
+type keyValueServiceScanServer struct {
+	grpc.ServerStream
+}
+
+func (x *keyValueServiceScanServer) Send(m *Block) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _KeyValueService_Touch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyValueServiceServer).Touch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cdb.KeyValueService/Touch",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyValueServiceServer).Touch(ctx, req.(*RecordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KeyValueService_Put_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecordRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyValueServiceServer).Put(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cdb.KeyValueService/Put",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyValueServiceServer).Put(ctx, req.(*RecordRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KeyValueService_Remove_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KeyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyValueServiceServer).Remove(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cdb.KeyValueService/Remove",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyValueServiceServer).Remove(ctx, req.(*KeyRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1106,90 +1111,116 @@ var _KeyValueService_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*KeyValueServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Execute",
-			Handler:    _KeyValueService_Execute_Handler,
+			MethodName: "Get",
+			Handler:    _KeyValueService_Get_Handler,
+		},
+		{
+			MethodName: "GetRecent",
+			Handler:    _KeyValueService_GetRecent_Handler,
+		},
+		{
+			MethodName: "GetRange",
+			Handler:    _KeyValueService_GetRange_Handler,
+		},
+		{
+			MethodName: "Touch",
+			Handler:    _KeyValueService_Touch_Handler,
+		},
+		{
+			MethodName: "Put",
+			Handler:    _KeyValueService_Put_Handler,
+		},
+		{
+			MethodName: "Remove",
+			Handler:    _KeyValueService_Remove_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "GetRow",
+			Handler:       _KeyValueService_GetRow_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetRegion",
+			Handler:       _KeyValueService_GetRegion_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetSpace",
+			Handler:       _KeyValueService_GetSpace_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Scan",
+			Handler:       _KeyValueService_Scan_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "cserverpb.proto",
 }
 
 func init() { proto.RegisterFile("cserverpb.proto", fileDescriptor_0e213cc6e4c2fe5a) }
 
 var fileDescriptor_0e213cc6e4c2fe5a = []byte{
-	// 1180 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x56, 0xcb, 0x6e, 0xdb, 0x46,
-	0x14, 0x0d, 0x45, 0xc7, 0x96, 0x2e, 0xf5, 0xa0, 0xc6, 0x4e, 0xc2, 0x0a, 0x69, 0x61, 0x10, 0x0d,
-	0x6a, 0x38, 0x8d, 0xe4, 0xa8, 0x3b, 0x03, 0x45, 0xab, 0x07, 0x93, 0x08, 0xb6, 0x45, 0x75, 0x44,
-	0x25, 0x68, 0x80, 0xc2, 0xa0, 0xc8, 0x81, 0xcc, 0x44, 0x22, 0x59, 0xce, 0x50, 0xb1, 0x0b, 0x74,
-	0xd3, 0x4d, 0x81, 0x2e, 0xba, 0x48, 0xff, 0xa0, 0xbf, 0xd1, 0xcf, 0xe8, 0xae, 0xeb, 0x7e, 0x46,
-	0x81, 0x16, 0x33, 0xa4, 0x44, 0xca, 0x6e, 0xdd, 0x95, 0x74, 0xcf, 0x3d, 0xf7, 0xf0, 0xcc, 0xcc,
-	0x19, 0x82, 0x50, 0x73, 0x28, 0x89, 0x96, 0x24, 0x0a, 0xa7, 0xcd, 0x30, 0x0a, 0x58, 0x80, 0x64,
-	0xc7, 0x9d, 0x36, 0x1e, 0xce, 0x82, 0x60, 0x36, 0x27, 0x2d, 0x3b, 0xf4, 0x5a, 0xb6, 0xef, 0x07,
-	0xcc, 0x66, 0x5e, 0xe0, 0xd3, 0x84, 0xd2, 0xf8, 0x54, 0xfc, 0x38, 0x4f, 0x66, 0xc4, 0x7f, 0x42,
-	0xdf, 0xd9, 0xb3, 0x19, 0x89, 0x5a, 0x41, 0x28, 0x18, 0x37, 0xd9, 0xfa, 0x08, 0x8a, 0x96, 0xb7,
-	0x20, 0x93, 0xc9, 0xa0, 0x8f, 0xf6, 0x41, 0x59, 0x04, 0x94, 0x8d, 0xbd, 0x59, 0xd7, 0x63, 0x54,
-	0x93, 0xf6, 0xa5, 0x03, 0x19, 0xe7, 0x21, 0xa4, 0x43, 0x79, 0x4e, 0xec, 0x8c, 0x52, 0x10, 0x94,
-	0x0d, 0x4c, 0xff, 0x49, 0x02, 0xf9, 0x84, 0x5c, 0xa1, 0x06, 0x14, 0x17, 0xf6, 0x9b, 0x20, 0x3a,
-	0x21, 0x57, 0x42, 0xaa, 0x8c, 0xd7, 0x35, 0xfa, 0x08, 0x20, 0x22, 0x33, 0x2f, 0xf0, 0x87, 0xf6,
-	0x82, 0x08, 0x95, 0x32, 0xce, 0x21, 0x62, 0xd6, 0xf3, 0x93, 0x59, 0x39, 0x9d, 0x4d, 0x6b, 0xf4,
-	0x18, 0x4a, 0xcc, 0x5b, 0x10, 0xca, 0xec, 0x45, 0xa8, 0x6d, 0xed, 0x4b, 0x07, 0x4a, 0xbb, 0xd2,
-	0x74, 0xdc, 0x69, 0x73, 0xb5, 0x0e, 0x9c, 0xf5, 0xf5, 0x9f, 0x0b, 0xa0, 0x58, 0x97, 0x66, 0x48,
-	0x22, 0xb1, 0x6a, 0xd4, 0x00, 0xf9, 0x6d, 0xea, 0x47, 0x69, 0x17, 0xc5, 0xd8, 0x09, 0xb9, 0xc2,
-	0x1c, 0x44, 0x8f, 0x40, 0x9e, 0x11, 0xa6, 0x29, 0xa2, 0x57, 0x17, 0xbd, 0xe7, 0x84, 0xad, 0x67,
-	0x5f, 0xdc, 0xc1, 0xbc, 0x8f, 0x1e, 0xc3, 0xdd, 0xc8, 0xf6, 0x67, 0x44, 0x2b, 0x0b, 0xe2, 0xae,
-	0x20, 0x62, 0x8e, 0xe4, 0xa9, 0x09, 0x87, 0x93, 0x59, 0x10, 0x3b, 0x17, 0x5a, 0x25, 0x47, 0xb6,
-	0x38, 0xb2, 0x41, 0x16, 0x1c, 0x6e, 0x20, 0x8c, 0x99, 0x56, 0xcd, 0x19, 0x18, 0xc5, 0x9b, 0x06,
-	0xc2, 0x98, 0xa1, 0x26, 0x6c, 0x47, 0x64, 0x11, 0x2c, 0x89, 0x56, 0x13, 0xcc, 0xbd, 0xc4, 0x81,
-	0x80, 0xf2, 0xe4, 0x94, 0xd5, 0x55, 0xa0, 0x14, 0xac, 0x60, 0xfd, 0x35, 0x94, 0xf3, 0x8b, 0xe2,
-	0x3b, 0x7d, 0x41, 0x6c, 0xd7, 0xf4, 0xe7, 0xc9, 0xae, 0x14, 0xf1, 0xba, 0x46, 0x4d, 0x40, 0x73,
-	0x42, 0xa9, 0x19, 0x19, 0xdf, 0xc6, 0xf6, 0x1c, 0x13, 0x27, 0x88, 0xdc, 0xe4, 0xcc, 0x2b, 0xf8,
-	0x5f, 0x3a, 0xfa, 0x10, 0xaa, 0x9b, 0xfb, 0x70, 0xab, 0xfa, 0x3e, 0x28, 0xc4, 0x77, 0xcf, 0x56,
-	0xc7, 0x9c, 0x84, 0x20, 0x0f, 0xe9, 0x47, 0x50, 0xdd, 0xdc, 0x2a, 0x9e, 0x1b, 0xc6, 0xe6, 0x63,
-	0xe2, 0x04, 0xbe, 0x9b, 0x04, 0xb4, 0x82, 0x73, 0x88, 0xfe, 0x87, 0x04, 0xe5, 0xfc, 0x96, 0xa1,
-	0x3d, 0xb8, 0xbb, 0xb4, 0xe7, 0x31, 0x49, 0x13, 0x98, 0x14, 0xe8, 0x10, 0x54, 0x27, 0x58, 0x84,
-	0x11, 0x5f, 0x82, 0x3f, 0x16, 0x37, 0x4c, 0x3c, 0xbf, 0x88, 0x6f, 0xe0, 0xe8, 0x00, 0x6a, 0xc4,
-	0x77, 0xa2, 0xab, 0x90, 0xad, 0xa9, 0xb2, 0xa0, 0x5e, 0x87, 0xaf, 0x99, 0xbb, 0x7b, 0xdd, 0x1c,
-	0xfa, 0x18, 0x2a, 0x5c, 0xdd, 0x8e, 0x48, 0xc7, 0x77, 0xc7, 0x84, 0x69, 0x3b, 0x42, 0x67, 0x13,
-	0x44, 0x1a, 0xec, 0x2c, 0x49, 0x44, 0xbd, 0xc0, 0xd7, 0x8a, 0xfb, 0xd2, 0xc1, 0x16, 0x5e, 0x95,
-	0x7a, 0x1d, 0x6a, 0xd7, 0x0e, 0x59, 0xff, 0x1e, 0xea, 0xb9, 0x74, 0x63, 0x42, 0xe3, 0x39, 0x43,
-	0x9f, 0xc0, 0x36, 0x65, 0x36, 0x8b, 0x93, 0x0d, 0xaa, 0xb6, 0x6b, 0x22, 0x1f, 0x63, 0x01, 0xf5,
-	0x02, 0x97, 0xe0, 0xb4, 0xcd, 0x1f, 0xb5, 0x20, 0x94, 0xda, 0xb3, 0xe4, 0x0a, 0x96, 0xf0, 0xaa,
-	0x44, 0x8f, 0x60, 0x27, 0x4a, 0x8f, 0x5b, 0xde, 0x97, 0x0f, 0x94, 0xb6, 0x92, 0x66, 0x8c, 0x63,
-	0x78, 0xd5, 0xd3, 0x7f, 0x94, 0x60, 0xeb, 0x05, 0xb1, 0xdd, 0xbc, 0x69, 0x69, 0xc3, 0x34, 0x7a,
-	0x08, 0x25, 0x72, 0x19, 0x7a, 0x11, 0xa1, 0x1d, 0x26, 0x9e, 0xb2, 0x8d, 0x33, 0x60, 0xf3, 0x2e,
-	0xcb, 0xb7, 0xdf, 0x65, 0x1e, 0x26, 0xd7, 0xa3, 0x6f, 0xc7, 0xde, 0x77, 0x44, 0xdc, 0x7b, 0x19,
-	0xaf, 0x6b, 0xfd, 0x73, 0xd8, 0x4e, 0xcc, 0xa1, 0x0f, 0x61, 0x8b, 0x47, 0x2c, 0xbd, 0xe2, 0x25,
-	0xa1, 0xc6, 0x3d, 0x62, 0x01, 0x67, 0x81, 0x28, 0xe4, 0x02, 0xa1, 0xbf, 0x97, 0xa0, 0x84, 0xed,
-	0x77, 0xa9, 0xc4, 0x6d, 0x2f, 0x89, 0x95, 0x7c, 0xe1, 0x7f, 0xe4, 0xe5, 0x7c, 0xde, 0x34, 0xd8,
-	0x71, 0xc9, 0x9c, 0x30, 0xe2, 0x0a, 0xe3, 0x45, 0xbc, 0x2a, 0xf9, 0x9a, 0x62, 0x4a, 0xa2, 0x33,
-	0xc2, 0x6c, 0x91, 0x98, 0x32, 0x5e, 0xd7, 0xfa, 0x17, 0xa0, 0x58, 0x91, 0xed, 0x53, 0xdb, 0x11,
-	0x51, 0x3e, 0x02, 0x58, 0x5f, 0x63, 0x7e, 0xb4, 0xfc, 0x58, 0xd4, 0x64, 0xb3, 0x72, 0x11, 0xc8,
-	0x71, 0x74, 0x03, 0xea, 0x39, 0x81, 0x34, 0x1d, 0x47, 0xfc, 0x68, 0xf9, 0xbf, 0x95, 0xc6, 0xfd,
-	0x1b, 0x1a, 0xa2, 0x8d, 0x57, 0xb4, 0xc3, 0xbf, 0x0b, 0x00, 0x59, 0x7a, 0x90, 0x02, 0x3b, 0xe3,
-	0x49, 0xaf, 0x67, 0x8c, 0xc7, 0xea, 0x1d, 0xf4, 0x00, 0x76, 0xd3, 0xe2, 0x7c, 0x68, 0x5a, 0xe7,
-	0x93, 0x51, 0xbf, 0x63, 0x19, 0x7d, 0x55, 0x42, 0xbb, 0x50, 0x33, 0x30, 0x36, 0xf1, 0xf9, 0xd0,
-	0x3c, 0xc7, 0xc6, 0xf3, 0x81, 0x39, 0x54, 0x01, 0xdd, 0x83, 0x7a, 0x02, 0x76, 0x3b, 0xfd, 0x73,
-	0x6c, 0x7c, 0x35, 0x31, 0xc6, 0x96, 0xaa, 0x20, 0x15, 0xca, 0x09, 0x3c, 0x32, 0x4f, 0x07, 0xbd,
-	0xaf, 0xd5, 0x72, 0x36, 0x7d, 0x36, 0x78, 0x8e, 0x3b, 0x16, 0x9f, 0xae, 0xa0, 0x3a, 0x54, 0x52,
-	0x49, 0xc3, 0x7a, 0x65, 0xe2, 0x13, 0xb5, 0x8a, 0xaa, 0x00, 0x09, 0xd4, 0x99, 0x58, 0x2f, 0xd4,
-	0x5a, 0x36, 0xf7, 0xcc, 0xc4, 0xdd, 0x41, 0xbf, 0x6f, 0x0c, 0x55, 0x35, 0x9b, 0xb3, 0x06, 0x67,
-	0x86, 0x39, 0xb1, 0xd4, 0x3a, 0x42, 0x50, 0x4d, 0x20, 0xf3, 0xa5, 0x81, 0x4f, 0xcd, 0x4e, 0x5f,
-	0x45, 0x9b, 0xd8, 0xb3, 0x53, 0xf3, 0x95, 0xba, 0x9b, 0x39, 0x3b, 0x35, 0x7b, 0x27, 0x46, 0x5f,
-	0xdd, 0xcb, 0xc4, 0x3a, 0x5d, 0x13, 0xf3, 0xa5, 0xde, 0xcb, 0x56, 0x35, 0x18, 0x5a, 0x06, 0xc6,
-	0x93, 0x11, 0x87, 0xef, 0x67, 0xf0, 0x64, 0x38, 0x9e, 0x8c, 0x46, 0x09, 0xfb, 0x41, 0x26, 0xd9,
-	0xc7, 0x83, 0x97, 0x06, 0x56, 0x35, 0x54, 0x86, 0x62, 0x3a, 0x6f, 0xaa, 0x1f, 0x64, 0x36, 0x84,
-	0xda, 0xb0, 0x73, 0xaa, 0x36, 0xda, 0x53, 0xa8, 0x9d, 0x90, 0xab, 0x97, 0x3c, 0x4b, 0xfc, 0x5d,
-	0xe3, 0x39, 0x04, 0x99, 0xb0, 0x63, 0x5c, 0x12, 0x27, 0x66, 0x04, 0xa5, 0x21, 0xc8, 0x4e, 0xba,
-	0x71, 0xff, 0x3a, 0x92, 0x1c, 0xa9, 0xde, 0xf8, 0xe1, 0xf7, 0x3f, 0x7f, 0x29, 0xec, 0x35, 0x6a,
-	0xad, 0xe5, 0xd3, 0x16, 0xcb, 0xda, 0xc7, 0xd2, 0x61, 0xf7, 0x2f, 0xe9, 0x7d, 0xe7, 0x37, 0x09,
-	0x7d, 0x03, 0x4a, 0x2f, 0xf0, 0x29, 0xf1, 0x69, 0x4c, 0xfb, 0x5d, 0x7d, 0xb0, 0x51, 0xa2, 0xc3,
-	0x0b, 0xc6, 0x42, 0x7a, 0xdc, 0x6a, 0xcd, 0x3c, 0x76, 0x11, 0x4f, 0x9b, 0x4e, 0xb0, 0x68, 0x39,
-	0xab, 0xbe, 0x3b, 0xcd, 0xff, 0x6f, 0x54, 0xed, 0x39, 0xb9, 0xfc, 0x92, 0x5e, 0x2c, 0x3d, 0x97,
-	0xf3, 0xda, 0xf2, 0xd3, 0xe6, 0xd1, 0x61, 0x41, 0x2a, 0xb4, 0x55, 0x3b, 0x0c, 0xe7, 0x9e, 0x23,
-	0xb2, 0xd6, 0x7a, 0x43, 0x03, 0xbf, 0xad, 0xe5, 0x91, 0xc0, 0x61, 0x84, 0x3d, 0xa1, 0x2c, 0x22,
-	0xf6, 0xe2, 0xf8, 0x06, 0xf7, 0xf8, 0x3f, 0xb9, 0x70, 0xcf, 0x0b, 0x9a, 0x6b, 0x5f, 0x6b, 0x1f,
-	0xdd, 0x52, 0xcf, 0x9d, 0x8e, 0xf8, 0xb7, 0x0e, 0x1d, 0x49, 0xaf, 0xeb, 0xe9, 0x07, 0x55, 0x6b,
-	0xfd, 0x61, 0xf5, 0x6b, 0x41, 0xee, 0xf5, 0xbb, 0xd3, 0x6d, 0xf1, 0x39, 0xf4, 0xd9, 0x3f, 0x01,
-	0x00, 0x00, 0xff, 0xff, 0xa4, 0xf2, 0x26, 0xda, 0x72, 0x09, 0x00, 0x00,
+	// 943 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x95, 0xdd, 0x6e, 0xe3, 0x44,
+	0x14, 0xc7, 0x71, 0x9d, 0xa4, 0xc9, 0x49, 0xfa, 0x35, 0xda, 0x95, 0xa2, 0x68, 0x59, 0x45, 0x86,
+	0x8b, 0x12, 0xb6, 0x71, 0x37, 0x70, 0x81, 0x82, 0x04, 0x9b, 0xb4, 0xab, 0x65, 0xd5, 0x15, 0x5b,
+	0xc6, 0x2d, 0x12, 0x48, 0xb0, 0x9a, 0xd8, 0x47, 0x8e, 0xb7, 0xb1, 0xc7, 0x78, 0xc6, 0xe9, 0x86,
+	0x4b, 0x2e, 0xb9, 0x84, 0x37, 0x40, 0xbc, 0x05, 0x8f, 0xc1, 0x05, 0x2f, 0xc0, 0x63, 0x80, 0x84,
+	0x66, 0x6c, 0x27, 0x36, 0xd5, 0x76, 0x91, 0xb8, 0x6a, 0xcf, 0x99, 0xf3, 0x3b, 0xe7, 0x7f, 0xce,
+	0x19, 0x67, 0x60, 0xcf, 0x15, 0x98, 0x2c, 0x31, 0x89, 0x67, 0xc3, 0x38, 0xe1, 0x92, 0x13, 0xd3,
+	0xf5, 0x66, 0xbd, 0x7b, 0x3e, 0xe7, 0xfe, 0x02, 0x6d, 0x16, 0x07, 0x36, 0x8b, 0x22, 0x2e, 0x99,
+	0x0c, 0x78, 0x24, 0xb2, 0x90, 0xde, 0x03, 0xfd, 0xc7, 0x3d, 0xf2, 0x31, 0x3a, 0x12, 0xd7, 0xcc,
+	0xf7, 0x31, 0xb1, 0x79, 0xac, 0x23, 0x6e, 0x46, 0x5b, 0xe7, 0xd0, 0xbc, 0x08, 0x42, 0xbc, 0xbc,
+	0x7c, 0x7a, 0x4a, 0xfa, 0xd0, 0x0e, 0xb9, 0x90, 0x4e, 0xe0, 0x4f, 0x03, 0x29, 0xba, 0x46, 0xdf,
+	0x38, 0x34, 0x69, 0xd9, 0x45, 0x2c, 0xe8, 0x2c, 0x90, 0x6d, 0x42, 0xb6, 0x74, 0x48, 0xc5, 0x67,
+	0xfd, 0x68, 0x80, 0x79, 0x86, 0x2b, 0xd2, 0x83, 0x66, 0xc8, 0x5e, 0xf2, 0xe4, 0x0c, 0x57, 0x3a,
+	0x55, 0x87, 0xae, 0x6d, 0x72, 0x1f, 0x20, 0x41, 0x3f, 0xe0, 0xd1, 0xe7, 0x2c, 0x44, 0x9d, 0xa5,
+	0x43, 0x4b, 0x1e, 0xcd, 0x06, 0x51, 0xc6, 0x9a, 0x39, 0x9b, 0xdb, 0xe4, 0x7d, 0x68, 0xc9, 0x20,
+	0x44, 0x21, 0x59, 0x18, 0x77, 0x6b, 0x7d, 0xe3, 0xb0, 0x3d, 0xda, 0x19, 0xba, 0xde, 0x6c, 0x58,
+	0xf4, 0x41, 0x37, 0xe7, 0xd6, 0xb7, 0x00, 0x67, 0xb8, 0xa2, 0xf8, 0x5d, 0x8a, 0x42, 0x92, 0x1e,
+	0x98, 0x57, 0xb9, 0x9a, 0xf6, 0xa8, 0xa9, 0x21, 0x75, 0xaa, 0x9c, 0xaa, 0xe4, 0x1c, 0x99, 0xf7,
+	0x3c, 0x5a, 0xac, 0xb4, 0xa0, 0x26, 0x5d, 0xdb, 0xa4, 0x0b, 0xdb, 0x2a, 0x25, 0x4f, 0xa5, 0x2e,
+	0x58, 0xa7, 0x85, 0x69, 0xfd, 0x61, 0xc0, 0x0e, 0x45, 0x97, 0x27, 0xde, 0x7f, 0xa9, 0x71, 0x07,
+	0xea, 0x4b, 0xb6, 0x48, 0x8b, 0x8e, 0x33, 0x43, 0x37, 0x8b, 0x92, 0x79, 0x4c, 0x32, 0xdd, 0x6c,
+	0x9d, 0xae, 0x6d, 0x35, 0x28, 0x29, 0x17, 0x0e, 0xba, 0x3c, 0xf2, 0x84, 0x2e, 0x6e, 0xd2, 0x92,
+	0x87, 0xbc, 0x0b, 0x3b, 0x2e, 0x0f, 0x63, 0x96, 0xe0, 0x24, 0xf2, 0x1c, 0x94, 0xdd, 0x86, 0x96,
+	0x5e, 0x75, 0x2a, 0xfd, 0x4b, 0x4c, 0x44, 0xc0, 0xa3, 0xee, 0x76, 0xdf, 0x38, 0xac, 0xd1, 0xc2,
+	0x2c, 0x77, 0xd6, 0xac, 0x76, 0xf6, 0xab, 0x01, 0x1d, 0xca, 0x22, 0x1f, 0xff, 0xef, 0xf0, 0x2c,
+	0xa8, 0xc9, 0x55, 0x8c, 0x5a, 0xfc, 0xee, 0x68, 0x57, 0x83, 0x3a, 0xf1, 0xc5, 0x2a, 0x46, 0xaa,
+	0xcf, 0x54, 0x9b, 0x51, 0x1a, 0x66, 0x83, 0x14, 0xdd, 0xba, 0x56, 0x52, 0xf2, 0x94, 0x65, 0x36,
+	0xaa, 0x32, 0xdf, 0x83, 0xb6, 0xe3, 0xb2, 0x68, 0x23, 0x72, 0x23, 0xc4, 0xa8, 0x0a, 0xb1, 0x2c,
+	0x68, 0x38, 0x92, 0xc9, 0x54, 0xa7, 0x4b, 0x63, 0x8f, 0x49, 0xf4, 0xf2, 0xa0, 0xc2, 0xb4, 0x96,
+	0x50, 0xfb, 0x0c, 0x99, 0x57, 0x9e, 0x98, 0x51, 0x9d, 0xd8, 0x3d, 0x68, 0xe1, 0xab, 0x38, 0x48,
+	0x50, 0x4c, 0xa4, 0xee, 0xb5, 0x46, 0x37, 0x0e, 0x55, 0xdf, 0x0b, 0xc4, 0x95, 0x13, 0x7c, 0x8f,
+	0x7a, 0x97, 0x26, 0x5d, 0xdb, 0x95, 0x3d, 0xd7, 0xaa, 0x7b, 0xb6, 0xbe, 0x82, 0x46, 0xd6, 0xeb,
+	0xad, 0x63, 0x7e, 0x1b, 0x6a, 0xaa, 0x1b, 0x5d, 0xb6, 0x3d, 0x6a, 0xe9, 0x43, 0x25, 0x97, 0x6a,
+	0xf7, 0xe6, 0x7a, 0x99, 0xa5, 0xeb, 0x65, 0x3d, 0x80, 0xfa, 0x74, 0xc1, 0xdd, 0x2b, 0xf2, 0x0e,
+	0x34, 0x12, 0x5d, 0xa3, 0x6b, 0xf4, 0xcd, 0xc3, 0xf6, 0xa8, 0x9d, 0xad, 0x22, 0xbb, 0xbd, 0xf9,
+	0xd1, 0xe0, 0x3e, 0xb4, 0xd6, 0xcb, 0x21, 0x07, 0xb0, 0xf3, 0xec, 0xb1, 0xe3, 0xbc, 0x78, 0x4e,
+	0x5f, 0x3c, 0xfe, 0xe2, 0x72, 0xf2, 0x6c, 0xff, 0xad, 0xd1, 0xdf, 0x35, 0xd8, 0x3b, 0xc3, 0xd5,
+	0x97, 0x2a, 0xb5, 0x83, 0xc9, 0x32, 0x70, 0x91, 0x7c, 0x08, 0xe6, 0x13, 0x94, 0x64, 0x6f, 0x2d,
+	0x36, 0x5b, 0x46, 0xaf, 0x5c, 0xc0, 0xda, 0xfb, 0xe1, 0xf7, 0x3f, 0x7f, 0xde, 0x6a, 0x91, 0x6d,
+	0x7b, 0xf9, 0xd0, 0xf6, 0x51, 0x92, 0x47, 0xd0, 0x7a, 0x82, 0x92, 0xa2, 0x8b, 0xd1, 0x9b, 0xd8,
+	0xbb, 0x9a, 0xdd, 0x23, 0x3b, 0x39, 0x9b, 0x64, 0xd0, 0xa7, 0xd0, 0x54, 0x19, 0x94, 0x5c, 0x72,
+	0xb0, 0xb9, 0x57, 0x45, 0x0a, 0xd0, 0x2e, 0xdd, 0xbb, 0x75, 0x47, 0x67, 0xd8, 0x25, 0x9d, 0x22,
+	0x83, 0x86, 0x3e, 0x86, 0x86, 0x4a, 0xc0, 0xaf, 0x6f, 0xd6, 0x2f, 0xc3, 0x44, 0xc3, 0x1d, 0x02,
+	0x05, 0xcc, 0xaf, 0x8f, 0x0d, 0x32, 0xc9, 0xf5, 0xab, 0x1f, 0xad, 0xdb, 0xf9, 0x9b, 0xf2, 0x15,
+	0x73, 0x6c, 0xe4, 0x0d, 0x38, 0x31, 0x73, 0xf1, 0xf6, 0x0c, 0xff, 0x96, 0x2f, 0x14, 0x72, 0x6c,
+	0x90, 0x8f, 0xa0, 0xa6, 0x6e, 0x3f, 0xd9, 0xd7, 0xb1, 0xa5, 0x0f, 0xa1, 0x42, 0xef, 0x6b, 0x1a,
+	0x48, 0x53, 0xd1, 0xc2, 0x65, 0xaa, 0xf4, 0x27, 0x50, 0xbf, 0xe0, 0xa9, 0x3b, 0x27, 0xa4, 0x7c,
+	0x0b, 0x2a, 0xc3, 0xcf, 0x3e, 0x96, 0xa2, 0x76, 0xaf, 0xa5, 0x68, 0xa9, 0x98, 0xb1, 0x31, 0x20,
+	0x63, 0x30, 0xcf, 0x53, 0xf9, 0x66, 0x3a, 0x9f, 0x5d, 0x4f, 0xaf, 0x3d, 0x4e, 0x65, 0xc6, 0x36,
+	0x28, 0x86, 0x7c, 0x89, 0xaf, 0x5b, 0x7b, 0x95, 0x1d, 0xe8, 0xb9, 0x27, 0x9a, 0x98, 0xfe, 0x65,
+	0xfc, 0x34, 0xf9, 0xcd, 0x20, 0xdf, 0x40, 0xfb, 0x84, 0x47, 0x02, 0x23, 0x91, 0x8a, 0xd3, 0xa9,
+	0xf5, 0xb4, 0x62, 0x92, 0xc1, 0x5c, 0xca, 0x58, 0x8c, 0x6d, 0xdb, 0x0f, 0xe4, 0x3c, 0x9d, 0x0d,
+	0x5d, 0x1e, 0xda, 0x6e, 0x71, 0xee, 0xcd, 0xca, 0xff, 0xf7, 0x76, 0xd9, 0x02, 0x5f, 0x3d, 0x12,
+	0xf3, 0x65, 0xe0, 0xa9, 0xb8, 0x91, 0xf9, 0x70, 0x78, 0x3c, 0xd8, 0x32, 0xb6, 0x46, 0xfb, 0x2c,
+	0x8e, 0x17, 0x81, 0xab, 0x5f, 0x4b, 0xfb, 0xa5, 0xe0, 0xd1, 0xa8, 0x5b, 0xf6, 0x70, 0x57, 0xa2,
+	0x3c, 0x12, 0x32, 0x41, 0x16, 0x8e, 0x6f, 0xc4, 0x8e, 0x5f, 0x1b, 0x0b, 0x77, 0x03, 0x3e, 0x5c,
+	0xeb, 0x5a, 0xeb, 0x98, 0xb6, 0x4e, 0xbc, 0xd9, 0xb9, 0x7a, 0x92, 0xc5, 0xb9, 0xf1, 0xf5, 0x41,
+	0xfe, 0xee, 0xdb, 0xeb, 0xf7, 0xff, 0x97, 0x2d, 0xf3, 0xe4, 0x74, 0x3a, 0x6b, 0xe8, 0x57, 0xfb,
+	0x83, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x27, 0xaa, 0xf5, 0xdf, 0x19, 0x08, 0x00, 0x00,
 }

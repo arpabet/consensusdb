@@ -16,7 +16,7 @@
  *
  */
 
-package cserver
+package cdb
 
 import (
 	"bytes"
@@ -25,36 +25,42 @@ import (
 	"github.com/golang/snappy"
 )
 
-type ICompressor interface {
-	MetadataFlag() byte
+type Compressor interface {
+
+	MetadataFlag() int32
 	Compress(input []byte) ([]byte, error)
 	Decompress(input []byte) ([]byte, error)
+
 }
 
 var (
+
+	NO_COMPRESSION = &NoCompression{}
+
 	LZ4 = &LZ4Compressor{}
+	LZ4_HIGH = &LZ4HighCompressor{}
 	SNAPPY = &SnappyCompressor{}
+
+	KnownCompressors = map[string]Compressor{
+		"LZ4": LZ4,
+		"LZ4_HIGH": LZ4_HIGH,
+		"SNAPPY": SNAPPY,
+	}
+
 )
 
-var KnownCompressors = map[string]ICompressor {
-	"no": &NoCompressor{},
-	"lz4": LZ4,
-	"lz4_high": &LZ4HighCompressor{},
-	"snappy": SNAPPY,
+type NoCompression struct {
 }
 
-type NoCompressor struct {
-}
-
-func (this*NoCompressor) MetadataFlag() byte {
+func (this*NoCompression) MetadataFlag() int32 {
 	return 0
 }
 
-func (this*NoCompressor) Compress(input []byte) (output []byte, err error) {
+func (this*NoCompression) Compress(input []byte) (output []byte, err error) {
 	return input, nil
 }
 
-func (this*NoCompressor) Decompress(input  []byte) (output []byte, err error) {
+func (this*NoCompression) Decompress(input  []byte) (output []byte, err error) {
 	return input, nil
 }
 
@@ -65,7 +71,7 @@ func (this*NoCompressor) Decompress(input  []byte) (output []byte, err error) {
 type LZ4Compressor struct {
 }
 
-func (this*LZ4Compressor) MetadataFlag() byte {
+func (this*LZ4Compressor) MetadataFlag() int32 {
 	return bitLZ4
 }
 
@@ -102,7 +108,7 @@ func (this*LZ4Compressor) Decompress(input  []byte) (output []byte, err error) {
 type LZ4HighCompressor struct {
 }
 
-func (this*LZ4HighCompressor) MetadataFlag() byte {
+func (this*LZ4HighCompressor) MetadataFlag() int32 {
 	return bitLZ4
 }
 
@@ -140,7 +146,7 @@ func (this*LZ4HighCompressor) Decompress(input  []byte) (output []byte, err erro
 type SnappyCompressor struct {
 }
 
-func (this*SnappyCompressor) MetadataFlag() byte {
+func (this*SnappyCompressor) MetadataFlag() int32 {
 	return bitSnappy
 }
 

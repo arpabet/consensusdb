@@ -49,12 +49,101 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
 package cdb;
 
 
+//
+//  Key-value database service
+//
+
 service KeyValueService {
 
-    rpc Execute (Transaction) returns (TransactionResult) {
+    //
+    // Gets exact match entry
+    //
+    rpc Get(KeyRequest) returns (Record) {
         option (google.api.http) = {
-            put: "/v1/transaction"
+            get: "/v1/get"
+        };
+    }
+
+    //
+    // Gets early or equal timestamp entry
+    //
+    rpc GetRecent(KeyRequest) returns (Record) {
+        option (google.api.http) = {
+            get: "/v1/getrecent"
+        };
+    }
+
+    //
+    // Gets range of timestamps inside a row
+    //
+    rpc GetRange(RangeRequest) returns (Block) {
+        option (google.api.http) = {
+            get: "/v1/getrange"
+        };
+    }
+
+    //
+    // Gets the whole raw of records with all available timestamps with latest versions
+    //
+    rpc GetRow(KeyRequest) returns (stream Block) {
+        option (google.api.http) = {
+            get: "/v1/getrow"
+        };
+    }
+
+    //
+    // Gets the whole region of records
+    //
+    rpc GetRegion(KeyRequest) returns (stream Block) {
+        option (google.api.http) = {
+            get: "/v1/getregion"
+        };
+    }
+
+    //
+    // Gets the whole space of records associated with majorKey
+    //
+    rpc GetSpace(KeyRequest) returns (stream Block) {
+        option (google.api.http) = {
+            get: "/v1/getspace"
+        };
+    }
+
+    //
+    // Gets all records
+    //
+    rpc Scan(ScanRequest) returns (stream Block) {
+        option (google.api.http) = {
+            get: "/v1/scan"
+        };
+    }
+
+    //
+    // Touches the record
+    //
+    rpc Touch(RecordRequest) returns (Status) {
+        option (google.api.http) = {
+            put:  "/v1/touch"
             body: "*"
+        };
+    }
+
+    //
+    // Puts the record
+    //
+    rpc Put(RecordRequest) returns (Status) {
+        option (google.api.http) = {
+            put:  "/v1/put"
+            body: "*"
+        };
+    }
+
+    //
+    // Remove the record
+    //
+    rpc Remove(KeyRequest) returns (Status) {
+        option (google.api.http) = {
+            delete: "/v1/remove"
         };
     }
 
@@ -68,128 +157,85 @@ message TimeUUID {
 
 message Key {
 
-    bytes         majorKey      = 1;   // used as a partition key, good candidate is accountId, if empty - data replicated in all partitions
-    bytes         regionName    = 2;
-    bytes         minorKey      = 3;   // used as a record key in the partition
-    TimeUUID      timestamp     = 4;   // timestamp in TimeUUID if present
+    bytes     majorKey      = 1;   // used as a partition key, good candidate is accountId, if empty - data replicated in all partitions
+    bytes     regionName    = 2;
+    bytes     minorKey      = 3;   // used as a record key in the partition
+    TimeUUID  timestamp     = 4;   // timestamp in TimeUUID if present
 
 }
 
-message TxOperation {
+message KeyRequest {
 
-  Key  key = 1;
+    Key        key            = 1;
+    bool       headOnly       = 2;
 
-  oneof operation {
-    GetOperation     get     = 11;
-    RangeOperation   range   = 12;
-    TouchOperation   touch   = 13;
-    PutOperation     put     = 14;
-    RemoveOperation  remove  = 15;
-  }
+    int32      timeout        = 4;    // SLA of the operation if not 0
 
 }
 
-message GetOperation {
-    bool     headOnly             = 1;
-    uint32   lessOrEqualRecords   = 2;    // goes to early records starts from Key.timestamp, but with last versions
-}
+message RecordRequest {
 
-message RangeOperation {
-    bool     headOnly     = 1;
-    bytes    endMinorKey  = 2;     // finds all records in the range of [minorKey, minorKeyEnd) with timestamp LESS_OR_EQ with last versions
-}
+    Key      key     = 1;
+    bytes    value   = 2;
 
-message TouchOperation {
-    uint32   ttlSeconds     = 1;   // add TTL in seconds in not 0, zero means no TTL
-}
+    int32    metadata       = 3;   // for user 8 bits only, 9 bit deletedBit
+    int64    ttlSeconds     = 4;   // add TTL in seconds if not 0, zero means no TTL
 
-message PutOperation {
+    bool     compareAndSet  = 6;
+    uint64   version        = 7;   // if 0 then putIfAbsent
 
-    bytes    value          = 1;
-
-    bool     compressOnServer = 2;
-    bool     encryptOnServer  = 3;
-
-    uint32   ttlSeconds     = 5;   // add TTL in seconds in not 0, zero means no TTL
-
-    bool     compareAndSet  = 7;
-    uint64   version        = 8;   // if 0 then putIfAbsent
+    int32    timeout        = 8;   // SLA of the operation if not 0
 
 }
 
-message RemoveOperation {
+
+enum RangeType {
+    LESS_OR_EQUAL = 0;
 }
 
-enum StatusCode {
+message RangeRequest {
 
-     SUCCESS = 0;
-     SUCCESS_NOT_UPDATED = 1;  // for compare and put operation that is non-locking algorithm
+    Key        key         = 1;
+    bool       headOnly    = 2;
 
-     ERROR_NOT_FOUND = 10;     // not found: database, namespace, store, table, cache, catalog, etc.
-     ERROR_BAD_REQUEST = 11;   // invalid parameters in request
-     ERROR_POLICY = 12;        // exists record for operation that requires record and vise versa
-     ERROR_MIGRATION = 13;     // data or connections migration occur during operation
-     ERROR_NETWORK = 14;       // all connection errors and network availability
-     ERROR_AUTH = 15;          // security configuration and authentication
-     ERROR_FORBIDDEN = 16;     // authorization
-     ERROR_TIMEOUT = 17;       // all SLA errors
-     ERROR_OVERLOAD = 18;      // all errors related to high load of operations, full queues and etc.
-     ERROR_OVERFLOW = 19;      // all errors related to data space
-     ERROR_LOCKED = 20;        // all tries to update data that was in pessimistic lock
-     ERROR_ABORTED = 21;       // client aborted stream operation
-     ERROR_INTERRUPTED = 22;   // server aborted stream operation
-     ERROR_UNSUPPORTED = 23;   // unsupported commands
-     ERROR_DRIVER = 24;        // data access driver specific errors
-     ERROR_IO = 25;            // file, serialization, network i/o errors
-     ERROR_INTERNAL = 26;      // all unknown errors
+    RangeType  type        = 4;
+    int32      numRecords  = 5;
+
+    int32      timeout     = 6;   // SLA of the operation
+}
+
+message ScanRequest {
+
+    bool       headOnly    = 1;
 
 }
 
-message TxOperationResult {
+message Status {
 
-  StatusCode      status   = 1;
-  string          message  = 2;   // for error it is error message, for success additional information about execution
-
-  repeated Record records  = 3;
+    bool       updated     = 1;
 
 }
 
 message Head {
 
    uint64     version    = 1;
-   fixed64    expiresAt  = 2;
-   TimeUUID   timestamp  = 3;
-   int64      diskSize   = 4;
+   uint64     expiresAt  = 2;
+   int64      diskSize   = 3;
+   int32      metadata   = 4;   // for user 8 bits only, 9 bit deletedBit
 
 }
 
 message Record {
 
-   Head    head   = 1;
-   bytes   value  = 2;
-
-}
-
-message RawRecord {
-
-   Key     key       = 1;
-   Head    head      = 2;
-   bytes   value     = 3;
-   bool    deleted   = 4;
-   bytes   userMeta  = 5;
-
-}
-
-message Transaction {
-
-   repeated TxOperation operations = 1;
-
-}
-
-message TransactionResult {
-
-   repeated TxOperationResult results = 1;
+   Key     key     = 1;
+   Head    head    = 2;     // if exists, then record was found
+   bytes   value   = 3;
 
 }
 
 
+message Block {
+
+  repeated  Record  record = 1;
+
+}

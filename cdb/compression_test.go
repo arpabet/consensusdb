@@ -16,11 +16,10 @@
  *
  */
 
-package cserver_test
+package cdb
 
 import (
 	"testing"
-	"github.com/consensusdb/consensusdb/cserver"
 	"bytes"
 	"fmt"
 	"reflect"
@@ -35,14 +34,14 @@ func TestCompression(t *testing.T) {
 		input[i] = byte(i)
 	}
 
-	for _, v := range cserver.KnownCompressors {
+	for _, v := range KnownCompressors {
 		CompressorTest(t, input, v)
 	}
 
 }
 
 
-func CompressorTest(t *testing.T, input []byte, compression cserver.ICompressor) {
+func CompressorTest(t *testing.T, input []byte, compression Compressor) {
 
 	output, err := compression.Compress(input)
 	if err != nil {

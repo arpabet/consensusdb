@@ -26,9 +26,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	IndexOutOfBoundsError = errors.New("index out of bounds")
-)
 
 const (
 	MaxKeyLength = 65535
@@ -60,7 +57,7 @@ func DecodeKey(entryKey []byte) (*cserverpb.Key, error) {
 	j := 0
 
 	if len < 6 {
-		return nil, IndexOutOfBoundsError
+		return nil, ErrorIndexOutOfBounds
 	}
 
 	//
@@ -71,7 +68,7 @@ func DecodeKey(entryKey []byte) (*cserverpb.Key, error) {
 	j = i + int(majorKeyLen)
 
 	if j > len {
-		return nil, IndexOutOfBoundsError
+		return nil, ErrorIndexOutOfBounds
 	}
 
 	majorKey := b[i:j]
@@ -84,7 +81,7 @@ func DecodeKey(entryKey []byte) (*cserverpb.Key, error) {
 	j = i + int(regionNameLen)
 
 	if j > len {
-		return nil, IndexOutOfBoundsError
+		return nil, ErrorIndexOutOfBounds
 	}
 
 	regionName := b[i:j]
@@ -97,7 +94,7 @@ func DecodeKey(entryKey []byte) (*cserverpb.Key, error) {
 	j = i + int(minorKeyLen)
 
 	if j > len {
-		return nil, IndexOutOfBoundsError
+		return nil, ErrorIndexOutOfBounds
 	}
 
 	minorKey := b[i:j]
@@ -117,7 +114,7 @@ func DecodeKey(entryKey []byte) (*cserverpb.Key, error) {
 	}
 }
 
-func EncodeKey(key *cserverpb.Key) (entryKey, rawKey []byte) {
+func EncodeKey(key *cserverpb.Key) (entryKey, rowKey []byte) {
 
 	majorKeyLen := SanitizeKeyLen(len(key.MajorKey))
 	regionNameLen := SanitizeKeyLen(len(key.RegionName))
@@ -155,9 +152,7 @@ func EncodeKey(key *cserverpb.Key) (entryKey, rawKey []byte) {
 	// TimeUUID
 	//
 	if key.Timestamp != nil {
-		var uuid timeuuid.UUID
-		uuid.SetMostSignificantBits(key.Timestamp.MostSigBits)
-		uuid.SetLeastSignificantBits(key.Timestamp.LeastSigBits)
+		uuid := timeuuid.CreateUUID(key.Timestamp.MostSigBits, key.Timestamp.LeastSigBits)
 		uuid.MarshalSortableBinaryTo(out[i:])
 		return out, out[:i]
 	}
@@ -216,9 +211,7 @@ func EncodeKeyPrefix(key *cserverpb.Key, lastField Field) ([]byte, error) {
 	// TimeUUID
 	//
 	if key.Timestamp != nil {
-		var uuid timeuuid.UUID
-		uuid.SetMostSignificantBits(key.Timestamp.MostSigBits)
-		uuid.SetLeastSignificantBits(key.Timestamp.LeastSigBits)
+		uuid := timeuuid.CreateUUID(key.Timestamp.MostSigBits, key.Timestamp.LeastSigBits)
 		uuid.MarshalSortableBinaryTo(out[i:])
 		i = i + 16
 
@@ -257,9 +250,11 @@ func Equal(left *cserverpb.Key, right *cserverpb.Key) bool {
 		if left.Timestamp.LeastSigBits != right.Timestamp.LeastSigBits {
 			return false
 		}
+		return true
 	}
 
-	return true
+	// if both left and right timestamps are nil
+	return right.Timestamp == nil
 }
 
 

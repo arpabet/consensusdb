@@ -1,0 +1,6 @@
+host: localhost
+httpPort: 4481
+grpcPort: 4482
+numCPU: 1
+dataDir: /tmp/cdb
+

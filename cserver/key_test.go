@@ -77,7 +77,7 @@ func TestKey(t *testing.T) {
 	// With Timestamp
 	//
 
-	uuid := timeuuid.NewUUID(timeuuid.TimebasedUUID)
+	uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
 	uuid.SetTime(time.Now())
 	uuid.SetCounter(rand.Int63())
 

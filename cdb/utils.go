@@ -16,13 +16,12 @@
  *
  */
 
-package c
+package cdb
 
 import (
 	"time"
 	"strconv"
 	"github.com/pkg/errors"
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"os"
 	"io/ioutil"
 	"strings"
@@ -90,31 +89,6 @@ func ParseTtlExpr(ttlExpr string) (ttl time.Duration, err error) {
 
 }
 
-
-func IsUpdateOperation(operation *cserverpb.TxOperation) bool {
-
-	switch operation.Operation.(type) {
-
-	case *cserverpb.TxOperation_Get:
-		return false
-
-	case *cserverpb.TxOperation_Range:
-		return false
-
-	case *cserverpb.TxOperation_Touch:
-		return true
-
-	case *cserverpb.TxOperation_Put:
-		return true
-
-	case *cserverpb.TxOperation_Remove:
-		return true
-
-	}
-
-	return false
-
-}
 
 func CreateDirsIfNotExist(dirs ...string) error {
 
