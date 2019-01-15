@@ -22,7 +22,6 @@ import (
 	rt "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"gopkg.in/ini.v1"
 	"log"
 	"net/http"
 	"os"
@@ -37,10 +36,11 @@ import (
 	"math/rand"
 	"time"
 	"runtime"
+	"go.uber.org/zap"
 )
 
 var (
-	iniFile = flag.String("ini", "consensus.ini", "ini file for initialization")
+	yamlFile = flag.String("conf", "consensus.yaml", "Yaml file for initialization")
 )
 
 func run() error {
@@ -49,42 +49,31 @@ func run() error {
 
 	rand.Seed(time.Now().UnixNano())
 
-	// Use all CPUs
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	log.Println("Load configuration from: " + *yamlFile)
 
-	cfg, err := ini.Load(*iniFile)
+	conf, err := cserver.LoadConfiguration(*yamlFile)
 	if err != nil {
 		return err
 	}
 
-	curdir, _ := os.Getwd()
-	log.Println("Current dir: " + curdir)
+	runtime.GOMAXPROCS(conf.NumCPU)
 
-	log.Println("Loaded configuration from: " + *iniFile)
+	log := zap.NewExample()
 
-	conf, err := cserver.LoadConfiguration(cfg)
+	server, err := cserver.NewServer(conf, log)
 	if err != nil {
 		return err
 	}
 
-	server, err := cserver.NewServer(conf)
-	defer server.Close()
-
-	if err != nil {
-		return err
-	}
-
-	log.Println("GRPC Address: " + conf.GrpcAddress)
+	log.Info("GRPC Address: " + conf.GrpcAddress)
 	go server.ServeGRPC()
 
-	log.Println("HTTP Address: " + conf.HttpAddress)
-	go server.RaftLoop()
-
+	log.Info("HTTP Address: " + conf.HttpAddress)
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	httpServer, err := NewHttpServer(ctx, conf.HttpAddress, conf.GrpcAddress, server.GetRaftMux())
+	httpServer, err := NewHttpServer(ctx, conf)
 	defer httpServer.Close()
 
 	if err != nil {
@@ -101,7 +90,7 @@ func run() error {
 		}
 	}()
 
-	log.Println("server is ready.")
+	log.Info("server is ready.")
 
 	err = httpServer.ListenAndServe()
 	if err != nil {
@@ -126,28 +115,26 @@ func serveWelcome(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveSwagger(w http.ResponseWriter, r *http.Request) {
-	//swagger := http.FileServer(http.Dir("./3rdparty/swagger-ui"))
-	log.Println("request", r.URL.Path)
 	p := strings.TrimPrefix(r.URL.Path, "/swagger/")
-	p = path.Join("3rdparty/swagger-ui/", p)
-	log.Println("request map ", p)
+	p = path.Join("swagger-ui/", p)
 	http.ServeFile(w, r, p)
-
 }
 
-func NewHttpServer(ctx context.Context, httpAddress, grpcAddress string, mux *http.ServeMux) (*http.Server, error) {
+func NewHttpServer(ctx context.Context, conf *cserver.Configuration) (*http.Server, error) {
+
+	mux := http.NewServeMux()
 
 	gwKeyValue := rt.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := cserverpb.RegisterKeyValueServiceHandlerFromEndpoint(ctx, gwKeyValue, "localhost"+grpcAddress, opts)
+	err := cserverpb.RegisterKeyValueServiceHandlerFromEndpoint(ctx, gwKeyValue, conf.GrpcAddress, opts)
 	if err != nil {
 		return nil, err
 	}
-	mux.Handle("/v1/keyvalue", gwKeyValue)
+	mux.Handle("/v1/kv", gwKeyValue)
 	mux.HandleFunc("/swagger/", serveSwagger)
 	mux.HandleFunc("/", serveWelcome)
 	mux.Handle("/metrics", promhttp.Handler())
 
-	return &http.Server{Addr: httpAddress, Handler: mux}, nil
+	return &http.Server{Addr: conf.HttpAddress, Handler: mux}, nil
 
 }

@@ -16,56 +16,59 @@
  *
  */
 
-package cserver_test
+package cdb
 
 import (
 	"testing"
-	"github.com/consensusdb/consensusdb/cserver"
 	"bytes"
 	"reflect"
 	"crypto/cipher"
-	"github.com/consensusdb/consensusdb/c"
+	"github.com/shvid/timeuuid"
+	"time"
+	"math/rand"
 )
 
-var KeySizes = [...]int{128, 192, 256}
 
 func TestEncryption(t *testing.T) {
 
-	hash, err := cserver.GetPasswordHash("test")
+	keychain, err := NewPasswordbasedKeychain("test")
+
 	if err != nil {
-		t.Fatal("fail to hash password", err)
+		t.Fatal("fail to passwordHash password", err)
 	}
 
-	for _, keySize := range KeySizes {
+	uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
+	uuid.SetTime(time.Now())
+	uuid.SetCounter(rand.Int63())
 
-		key := cserver.GetCipherKey(hash, keySize / 8)
+	for _, c := range KnownCiphers {
 
-		for _, c := range cserver.KnownCiphers {
+		key, err := keychain.GetBlockKey([]byte("majorKey"), uuid, c.KeyLengthBits())
+		if err != nil {
+			t.Fatal("fail to get key", err)
+		}
 
-			block, err := c.Create(key)
-			if err != nil {
-				t.Fatal("fail to create cipher", err)
-			}
+		block, err := c.Create(key)
+		if err != nil {
+			t.Fatal("fail to create cipher", err)
+		}
 
-			for _, mode := range cserver.KnownCipherModes {
+		for _, mode := range KnownCipherModes {
 
-				RunCipherTest(t, mode, block)
-
-			}
+			RunCipherTest(t, mode, block)
 
 		}
 
-
-
 	}
+
 
 }
 
-func RunCipherTest(t *testing.T, mode cserver.ICipherMode, block cipher.Block) {
+func RunCipherTest(t *testing.T, mode CipherMode, block cipher.Block) {
 
-	original := []byte("alexshvid")
+	original := []byte("a")
 
-	plaintext := c.CopyOf(original)
+	plaintext := CopyOf(original)
 	ciphertext, err := mode.Encrypt(block, plaintext)
 
 	if !bytes.Equal(plaintext, original) {
@@ -76,7 +79,7 @@ func RunCipherTest(t *testing.T, mode cserver.ICipherMode, block cipher.Block) {
 		t.Fatal("fail to encrypt", err, " for ", reflect.TypeOf(mode))
 	}
 
-	keepCiphertext := c.CopyOf(ciphertext)
+	keepCiphertext := CopyOf(ciphertext)
 	actual, err := mode.Decrypt(block, ciphertext)
 
 	if !bytes.Equal(ciphertext, keepCiphertext) {

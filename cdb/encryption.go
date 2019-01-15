@@ -16,7 +16,7 @@
  *
  */
 
-package cserver
+package cdb
 
 import (
 	"crypto/aes"
@@ -26,40 +26,20 @@ import (
 	"github.com/pkg/errors"
 )
 
-var KnownKeySizes = [...]int{128, 192, 256}
 
-func GetKeyLength(keySize int) (int, error) {
+type Cipher interface {
 
-	for _, v := range KnownKeySizes {
+	MetadataFlag() int32
 
-		if v == keySize {
-			return keySize / 8, nil
-		}
-
-	}
-
-	return 0, errors.New("invalid key size")
-}
-
-
-type ICipher interface {
+	KeyLengthBits() int
 
 	Create(key []byte) (cipher.Block, error)
 
 }
 
-var KnownCiphers = map[string]ICipher {
-	"AES": &AESCipher{},
-}
+type CipherMode interface {
 
-type NoCipher struct {
-}
-
-func (this *NoCipher) Create(key []byte) (cipher.Block, error) {
-	return nil, errors.New("NoCipher")
-}
-
-type ICipherMode interface {
+	MetadataFlag() int32
 
 	Encrypt(block cipher.Block, plaintext[]byte) ([]byte, error)
 
@@ -67,7 +47,51 @@ type ICipherMode interface {
 
 }
 
+
+var (
+
+	NO_ENCRYPTION = &NoBlockCipher{}
+
+	AES = &AESBlockCipher{256}
+
+	NO_ENCRYPTION_MODE = &NoCipherMode{}
+
+	GCM = &GCMCipherMode{}
+	CFB = &CFBCipherMode{}
+
+
+	KnownCiphers = map[string]Cipher{
+		"AES": AES,
+	}
+
+	KnownCipherModes = map[string]CipherMode{
+		"GCM": GCM,
+		"CFB": CFB,
+	}
+
+
+)
+
+type NoBlockCipher struct {
+}
+
+func (this* NoBlockCipher) MetadataFlag() int32 {
+	return 0
+}
+
+func (this* NoBlockCipher) KeyLengthBits() int {
+	return 0
+}
+
+func (this *NoBlockCipher) Create(key []byte) (cipher.Block, error) {
+	return nil, errors.New("NoCipher")
+}
+
 type NoCipherMode struct {
+}
+
+func (this *NoCipherMode) MetadataFlag() int32 {
+	return 0
 }
 
 func (this *NoCipherMode) Encrypt(block cipher.Block, plaintext[]byte) ([]byte, error) {
@@ -78,15 +102,14 @@ func (this *NoCipherMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte
 	return ciphertext, nil
 }
 
-var KnownCipherModes = map[string]ICipherMode {
-	"GCM": &GCMMode{},
-	"CFB": &CFBMode{},
+type GCMCipherMode struct {
 }
 
-type GCMMode struct {
+func (this *GCMCipherMode) MetadataFlag() int32 {
+	return bitGCM
 }
 
-func (this *GCMMode) Encrypt(block cipher.Block, plaintext[]byte) ([]byte, error) {
+func (this *GCMCipherMode) Encrypt(block cipher.Block, plaintext[]byte) ([]byte, error) {
 
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
@@ -103,7 +126,7 @@ func (this *GCMMode) Encrypt(block cipher.Block, plaintext[]byte) ([]byte, error
 
 }
 
-func (this *GCMMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
+func (this *GCMCipherMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
 
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
@@ -121,10 +144,14 @@ func (this *GCMMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, err
 
 }
 
-type CFBMode struct {
+type CFBCipherMode struct {
 }
 
-func (this *CFBMode) Encrypt(block cipher.Block, plaintext []byte) ([]byte, error) {
+func (this *CFBCipherMode) MetadataFlag() int32 {
+	return bitCFB
+}
+
+func (this *CFBCipherMode) Encrypt(block cipher.Block, plaintext []byte) ([]byte, error) {
 
 	blockSize := block.BlockSize()
 
@@ -141,7 +168,7 @@ func (this *CFBMode) Encrypt(block cipher.Block, plaintext []byte) ([]byte, erro
 	return ciphertext, nil
 }
 
-func (this *CFBMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
+func (this *CFBCipherMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
 
 	blockSize := block.BlockSize()
 
@@ -155,10 +182,19 @@ func (this *CFBMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, err
 	return plaintext, nil
 }
 
-type AESCipher struct {
+type AESBlockCipher struct {
+	keyLengthBits int
 }
 
-func (this *AESCipher) Create(key []byte) (cipher.Block, error) {
+func (this* AESBlockCipher) MetadataFlag() int32 {
+	return bitAES
+}
+
+func (this* AESBlockCipher) KeyLengthBits() int {
+	return this.keyLengthBits
+}
+
+func (this *AESBlockCipher) Create(key []byte) (cipher.Block, error) {
 	return aes.NewCipher(key)
 }
 

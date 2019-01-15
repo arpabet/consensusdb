@@ -16,40 +16,49 @@
  *
  */
 
-package cserver
+package cdb
 
 import (
 	"golang.org/x/crypto/bcrypt"
+	"github.com/pkg/errors"
+	"github.com/shvid/timeuuid"
 )
 
-type ISecurityContext interface {
+var (
+	ErrorInvalidKeyLength = errors.New("invalid key length")
+)
 
-	GetEncryptionKey(majorKey []byte, timestamp uint64, keyLen int) ([]byte, error)
+type Keychain interface {
 
-}
-
-type SimpleSecurityContext struct {
-
-	hash  []byte
+	GetBlockKey(majorKey []byte, timestamp timeuuid.UUID, keyLenBits int) ([]byte, error)
 
 }
 
-func NewSimpleSecurityContext(password string) (context *SimpleSecurityContext, err error) {
+type PasswordbasedKeychain struct {
 
-	context = new(SimpleSecurityContext)
+	passwordHash []byte
 
-	context.hash, err = GetPasswordHash(password)
+}
 
+func NewPasswordbasedKeychain(password string) (kc *PasswordbasedKeychain, err error) {
+	kc = new(PasswordbasedKeychain)
+	kc.passwordHash, err = getPasswordHash(password)
 	return
 }
 
-func (this* SimpleSecurityContext) GetEncryptionKey(majorKey []byte, timestamp uint64, keyLen int) ([]byte, error) {
+func (this*PasswordbasedKeychain) GetBlockKey(majorKey []byte, timestamp timeuuid.UUID, keyLenBits int) ([]byte, error) {
 
-	return this.hash[:keyLen], nil
+	keyLenBytes := keyLenBits / 8
+
+	if keyLenBytes > len(this.passwordHash) {
+		return nil, ErrorInvalidKeyLength
+	}
+
+	return this.passwordHash[:keyLenBytes], nil
 
 }
 
-func GetPasswordHash(password string) ([]byte, error) {
+func getPasswordHash(password string) ([]byte, error) {
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
@@ -60,8 +69,5 @@ func GetPasswordHash(password string) ([]byte, error) {
 
 }
 
-func GetCipherKey(hash []byte, keyLen int) ([]byte) {
-	return hash[:keyLen]
-}
 
 

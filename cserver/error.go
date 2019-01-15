@@ -16,10 +16,14 @@
  *
  */
 
-package c
+package cserver
 
-type Value interface {
-	Unpack(interface{}) error
-}
+import "github.com/pkg/errors"
 
+var (
+	ErrorIndexOutOfBounds = errors.New("index out of bounds")
+	ErrorEmptyKey = errors.New("empty key")
+	ErrorWrongSize = errors.New("wrong size")
+	ErrorUnsupportedOperation = errors.New("unsupported operation")
+)
 
