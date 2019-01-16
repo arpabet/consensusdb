@@ -112,6 +112,7 @@ func TestSuit(t *testing.T) {
 	}
 
 	RunPitOneTests(t, client, regionName)
+	RunSpaceTests(t, client, "CHAT")
 
 }
 
@@ -790,5 +791,165 @@ func RunPitOneTests(t *testing.T, client cdb.Client, regionName string) {
 		t.Fatal("entry must have the same timestamp")
 	}
 
+	//
+	// Search out of range request
+	//
+
+	keyWrong := cdb.NewKey().WithMajorKey("pitTwo").WithRegionName(regionName).WithMinorKey("def").WithMaxTimestamp().Build()
+
+	block, err = client.GetRange(cdb.NewRangeRequest(keyWrong).WithNumRecords(10))
+
+	if err != nil {
+		t.Fatal("get range failed", err)
+	}
+
+	if len(block) != 0 {
+		t.Fatal("expected no records, because of different major key")
+	}
+
 }
 
+func RunSpaceTests(t *testing.T, client cdb.Client, regionName string) {
+
+	key := cdb.NewKey().WithMajorKey("alice").WithRegionName(regionName).WithMinorKey("bob")
+
+	hiMessage := []byte("hi")
+	hiTimestamp := int64(1514764800)
+
+	// creates TimeUUID with hashed message and timestamp
+	status, err := client.Put(cdb.NewRecord(key.WithNamedTimestamp(hiMessage, hiTimestamp).Build(), hiMessage))
+
+	if err != nil {
+		t.Fatal("put failed", err)
+	}
+
+	if !status.Updated() {
+		t.Fatal("entry must be created", err)
+	}
+
+
+	hdudMessage := []byte("how do you do?")
+	hdudTimestamp := int64(1514764800)
+
+	status, err = client.Put(cdb.NewRecord(key.WithNamedTimestamp(hdudMessage, hdudTimestamp).Build(), hdudMessage))
+
+	if err != nil {
+		t.Fatal("put failed", err)
+	}
+
+	if !status.Updated() {
+		t.Fatal("entry must be created", err)
+	}
+
+	okMessage := []byte("ok")
+	okTimestamp := int64(1514764801)
+
+	status, err = client.Put(cdb.NewRecord(key.WithNamedTimestamp(okMessage, okTimestamp).Build(), okMessage))
+
+	if err != nil {
+		t.Fatal("put failed", err)
+	}
+
+	if !status.Updated() {
+		t.Fatal("entry must be created", err)
+	}
+
+	chat := make(chan cdb.Block)
+	go client.GetRow(cdb.NewRequest(key), chat)
+
+	list := ReadAll(chat)
+
+	if len(list) != 3 {
+		t.Fatal("expected 3 messages", err)
+	}
+
+	/*
+	for _, rec := range list {
+		fmt.Print("Record ", string(rec.Value()), "\n")
+	}
+	*/
+
+	//
+	// Send message to eve
+	//
+
+	keyEve := cdb.NewKey().WithMajorKey("alice").WithRegionName(regionName).WithMinorKey("eve")
+
+	status, err = client.Put(cdb.NewRecord(keyEve.WithNamedTimestamp(hiMessage, hiTimestamp).Build(), hiMessage))
+
+	if err != nil {
+		t.Fatal("put failed", err)
+	}
+
+	if !status.Updated() {
+		t.Fatal("entry must be created", err)
+	}
+
+	//
+	// read all messages in alice:CHAT region
+	//
+	
+	chat = make(chan cdb.Block)
+	go client.GetRegion(cdb.NewRequest(key), chat)
+
+	list = ReadAll(chat)
+
+	if len(list) != 4 {
+		t.Fatal("expected 4 messages", err)
+	}
+
+	//
+	// read all messages in 'alice' space
+	//
+
+	chat = make(chan cdb.Block)
+	go client.GetSpace(cdb.NewRequest(key), chat)
+
+	list = ReadAll(chat)
+
+	if len(list) != 4 {
+		t.Fatal("expected 4 messages", err)
+	}
+
+	//
+	// read all records in DB
+	//
+
+	chat = make(chan cdb.Block)
+	go client.Scan(cdb.NewScanRequest(), chat)
+
+	list = ReadAll(chat)
+
+	/*
+	for _, rec := range list {
+		fmt.Print("rec=", rec, "\n")
+	}
+	*/
+
+	if len(list) < 4 {
+		t.Fatal("expected 4 or more messages", err)
+	}
+
+}
+
+
+func ReadAll(blockC <-chan cdb.Block) []cdb.Record {
+
+	list := make([]cdb.Record, 0, 100)
+
+	for {
+		block, ok := <- blockC
+
+		if !ok {
+			break
+		}
+
+		for _, rec := range block {
+			list = append(list, rec)
+		}
+
+	}
+
+	return list
+
+}

@@ -23,45 +23,10 @@ import (
 	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"github.com/shvid/timeuuid"
 	"math/rand"
+	"fmt"
 )
 
-/**
-	Key interface
- */
 
-type Key interface {
-
-	MajorKey()   []byte
-	RegionName() []byte
-	MinorKey()   []byte
-	Timestamp()  timeuuid.UUID
-
-	toProto()  *cserverpb.Key
-
-}
-
-type EmptyKey struct {
-}
-
-var emptyValue = []byte{}
-var emptyKey = EmptyKey{}
-
-func (t EmptyKey) MajorKey() []byte {
-	return emptyValue
-}
-
-func (t EmptyKey) RegionName()  []byte {
-	return emptyValue
-}
-func (t EmptyKey) MinorKey()   []byte {
-	return emptyValue
-}
-func (t EmptyKey) Timestamp()  timeuuid.UUID {
-	return timeuuid.Empty
-}
-func (t EmptyKey) toProto()  *cserverpb.Key {
-	return new(cserverpb.Key)
-}
 /**
 	Key builder
  */
@@ -116,6 +81,15 @@ func (t KeyBuilder) MinorKey() []byte {
 	return t.key.MinorKey
 }
 
+func (t KeyBuilder) String() string {
+	if t.key.Timestamp != nil {
+		return fmt.Sprint(ToPrintable(t.MajorKey()), "/", ToPrintable(t.RegionName()), "/", ToPrintable(t.MinorKey()), "/", t.Timestamp())
+	} else {
+		return fmt.Sprint(ToPrintable(t.MajorKey()), "/", ToPrintable(t.RegionName()), "/", ToPrintable(t.MinorKey()))
+	}
+}
+
+
 /**
 	Generates random value for the second part of TimeUUID
  */
@@ -164,6 +138,11 @@ func (t KeyBuilder) WithMaxTimestamp() KeyBuilder {
 	uuidMax.SetMaxCounter()
 
 	t.key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: uuidMax.MostSignificantBits(), LeastSigBits: uuidMax.LeastSignificantBits() }
+	return t;
+}
+
+func (t KeyBuilder) RemoveTimestamp() KeyBuilder {
+	t.key.Timestamp = nil
 	return t;
 }
 
@@ -250,6 +229,27 @@ func (t RangeRequestBuilder) WithTimeout(timeout int) RangeRequestBuilder {
 }
 
 func (t RangeRequestBuilder) build() *cserverpb.RangeRequest {
+	return t.request;
+}
+
+/**
+	Scan request builder
+ */
+
+type ScanRequestBuilder struct {
+	request  *cserverpb.ScanRequest
+}
+
+func NewScanRequest() ScanRequestBuilder {
+	return ScanRequestBuilder{ request: &cserverpb.ScanRequest{} }
+}
+
+func (t ScanRequestBuilder) HeadOnly() ScanRequestBuilder {
+	t.request.HeadOnly = true
+	return t;
+}
+
+func (t ScanRequestBuilder) build() *cserverpb.ScanRequest {
 	return t.request;
 }
 

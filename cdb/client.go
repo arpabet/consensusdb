@@ -24,6 +24,16 @@ import (
 	"google.golang.org/grpc"
 	"io"
 	"context"
+	"github.com/shvid/timeuuid"
+	"fmt"
+)
+
+var (
+
+  emptyValue = []byte{}
+  emptyKey = EmptyKey{}
+  emptyHead = EmptyHead{}
+
 )
 
 
@@ -42,6 +52,56 @@ type StatusResponse struct {
 func (t StatusResponse) Updated() bool {
 	return t.status.Updated
 }
+func (t StatusResponse) String() string {
+	if t.status.Updated {
+		return "Updated"
+	} else {
+		return "NotUpdated"
+	}
+}
+
+/**
+	Key interface
+ */
+
+type Key interface {
+
+	MajorKey()   []byte
+	RegionName() []byte
+	MinorKey()   []byte
+	Timestamp()  timeuuid.UUID
+
+	toProto()  *cserverpb.Key
+
+}
+
+type EmptyKey struct {
+}
+
+func (t EmptyKey) MajorKey() []byte {
+	return emptyValue
+}
+
+func (t EmptyKey) RegionName()  []byte {
+	return emptyValue
+}
+
+func (t EmptyKey) MinorKey()   []byte {
+	return emptyValue
+}
+
+func (t EmptyKey) Timestamp()  timeuuid.UUID {
+	return timeuuid.Empty
+}
+
+func (t EmptyKey) toProto()  *cserverpb.Key {
+	return new(cserverpb.Key)
+}
+
+func (t EmptyKey) String() string {
+	return ""
+}
+
 
 /**
 	Head interface
@@ -59,8 +119,6 @@ type Head interface {
 type EmptyHead struct {
 }
 
-var emptyHead = EmptyHead{}
-
 func (t EmptyHead) Version() uint64 {
 	return 0
 }
@@ -75,6 +133,10 @@ func (t EmptyHead) DiskSize() int64 {
 
 func (t EmptyHead) Metadata() int32 {
 	return 0
+}
+
+func (t EmptyHead) String() string {
+	return ""
 }
 
 type HeadResponse struct {
@@ -95,6 +157,10 @@ func (t HeadResponse) DiskSize() int64 {
 
 func (t HeadResponse) Metadata() int32 {
 	return t.head.Metadata
+}
+
+func (t HeadResponse) String() string {
+	return fmt.Sprint(t.head)
 }
 
 /**
@@ -134,6 +200,10 @@ func (t RecordResponse) Value() []byte {
 
 func (t RecordResponse) Exist() bool {
 	return t.exist
+}
+
+func (t RecordResponse) String() string {
+	return fmt.Sprint(t.key, "=value[", len(t.value), "] (", t.head, ")")
 }
 
 func ParseRecord(record *cserverpb.Record, keychain Keychain) (rec Record, err error) {
@@ -300,7 +370,7 @@ type Client interface {
 
 	GetSpace(KeyRequestBuilder, chan<- Block) error;
 
-	Scan(headOnly bool, receiver chan<- Block) error;
+	Scan(ScanRequestBuilder, chan<- Block) error;
 
 	Touch(RecordRequestBuilder) (Status, error);
 
@@ -332,7 +402,6 @@ func NewClient(grpcAddress string, keychain Keychain) (*DefaultClient, error) {
 	}
 
 	var cli = &DefaultClient{conn, cserverpb.NewKeyValueServiceClient(conn), keychain}
-
 	return cli, nil
 }
 
@@ -371,17 +440,14 @@ func (cli *DefaultClient) streamLoop(receiver blockReceiver, blockC chan<- Block
 	for {
 
 		block, err := receiver.Recv()
-
 		if err == io.EOF {
 			return nil
 		}
-
 		if err != nil {
 			return err
 		}
 
 		outBlock, err := ParseBlock(block, cli.keychain)
-
 		if err != nil {
 			return err
 		}
@@ -397,7 +463,6 @@ func (cli *DefaultClient) GetRow(builder KeyRequestBuilder, blockC chan<- Block)
 	defer close(blockC)
 
 	stream, err := cli.kvService.GetRow(context.Background(), builder.build())
-
 	if err != nil {
 		return err
 	}
@@ -410,7 +475,6 @@ func (cli *DefaultClient) GetRegion(builder KeyRequestBuilder, blockC chan<- Blo
 	defer close(blockC)
 
 	stream, err := cli.kvService.GetRegion(context.Background(), builder.build())
-
 	if err != nil {
 		return err
 	}
@@ -423,7 +487,6 @@ func (cli *DefaultClient) GetSpace(builder KeyRequestBuilder, blockC chan<- Bloc
 	defer close(blockC)
 
 	stream, err := cli.kvService.GetSpace(context.Background(), builder.build())
-
 	if err != nil {
 		return err
 	}
@@ -431,12 +494,11 @@ func (cli *DefaultClient) GetSpace(builder KeyRequestBuilder, blockC chan<- Bloc
 	return cli.streamLoop(stream, blockC)
 }
 
-func (cli *DefaultClient) Scan(headOnly bool, blockC chan<- Block) error {
+func (cli *DefaultClient) Scan(builder ScanRequestBuilder, blockC chan<- Block) error {
 
 	defer close(blockC)
 
-	stream, err := cli.kvService.Scan(context.Background(), &cserverpb.ScanRequest{ HeadOnly: headOnly })
-
+	stream, err := cli.kvService.Scan(context.Background(), builder.build())
 	if err != nil {
 		return err
 	}
