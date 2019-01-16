@@ -28,7 +28,6 @@ import (
 	"bytes"
 	"log"
 	"math/rand"
-	"go.uber.org/zap"
 	"github.com/shvid/timeuuid"
 	"fmt"
 )
@@ -66,9 +65,7 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create configuration", err)
 	}
 
-	log := zap.NewExample()
-
-	server, err := cserver.NewServer(conf, log)
+	server, err := cserver.NewServer(conf)
 	defer server.Close()
 
 	if err != nil {

@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"runtime"
 	"github.com/consensusdb/consensusdb/cdb"
+	"os"
 )
 
 type Configuration struct {
@@ -38,7 +39,7 @@ type Configuration struct {
 	HttpAddress            string
 	GrpcAddress            string
 
-	DataDir                string  `yaml:"DataDir"`
+	DataDir                string  `yaml:"dataDir"`
 
 	KeyDir                 string
 	ValueDir               string
@@ -46,7 +47,7 @@ type Configuration struct {
 	SnapDir                string
 	LogDir                 string
 
-	NumCPU				   int     `yaml:"NumCPU"`    // use all of <= 0
+	NumCPU				   int     `yaml:"numCPU"`    // use all of <= 0
 
 }
 
@@ -87,14 +88,18 @@ func NewDefaultConfiguration(dataDir string) (conf *Configuration, err error) {
 func initialize(conf *Configuration) error {
 
 	if len(conf.Host) == 0 {
-		return errors.New("host is empty")
+		return errors.New("yaml: host is empty")
 	}
 
 	conf.HttpAddress = fmt.Sprint(conf.Host, ":", conf.HttpPort)
 	conf.GrpcAddress = fmt.Sprint(conf.Host, ":", conf.GrpcPort)
 
 	if len(conf.DataDir) == 0 {
-		return errors.New("dataDir is empty")
+		return errors.New("yaml: dataDir is empty")
+	}
+
+	if _, err := os.Stat(conf.DataDir); os.IsNotExist(err) {
+		return errors.Errorf("dataDir is not exist: %s", conf.DataDir)
 	}
 
 	conf.KeyDir = filepath.Join(conf.DataDir, "key")

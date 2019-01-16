@@ -43,13 +43,20 @@ var (
 	yamlFile = flag.String("conf", "consensus.yaml", "Yaml file for initialization")
 )
 
-func run() error {
 
-	log.Println("Starting...")
+func NewLogger(logdir, filename string) (*zap.Logger, error) {
+	cfg := zap.NewDevelopmentConfig()
+	cfg.OutputPaths = []string{
+		filename,
+	}
+	return cfg.Build()
+}
+
+func run() error {
 
 	rand.Seed(time.Now().UnixNano())
 
-	log.Println("Load configuration from: " + *yamlFile)
+	log.Printf("Load configuration from %s\n", *yamlFile)
 
 	conf, err := cserver.LoadConfiguration(*yamlFile)
 	if err != nil {
@@ -58,17 +65,15 @@ func run() error {
 
 	runtime.GOMAXPROCS(conf.NumCPU)
 
-	log := zap.NewExample()
-
-	server, err := cserver.NewServer(conf, log)
+	server, err := cserver.NewServer(conf)
 	if err != nil {
 		return err
 	}
 
-	log.Info("GRPC Address: " + conf.GrpcAddress)
+	log.Printf("GRPC Address: %s\n", conf.GrpcAddress)
 	go server.ServeGRPC()
 
-	log.Info("HTTP Address: " + conf.HttpAddress)
+	log.Printf("HTTP Address: %s\n", conf.HttpAddress)
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -90,7 +95,7 @@ func run() error {
 		}
 	}()
 
-	log.Info("server is ready.")
+	log.Println("Server is ready.")
 
 	err = httpServer.ListenAndServe()
 	if err != nil {
