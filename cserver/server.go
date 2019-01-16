@@ -26,6 +26,7 @@ import (
 	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
+	"path"
 )
 
 type DefaultServer struct {
@@ -57,7 +58,20 @@ func (this *DefaultServer) Close() {
 
 }
 
-func NewServer(conf *Configuration, log *zap.Logger) (server *DefaultServer, err error) {
+func NewLogger(logdir, filename string) (*zap.Logger, error) {
+	cfg := zap.NewDevelopmentConfig()
+	cfg.OutputPaths = []string{
+		path.Join(logdir, filename),
+	}
+	return cfg.Build()
+}
+
+func NewServer(conf *Configuration) (server *DefaultServer, err error) {
+
+	log, err := NewLogger(conf.LogDir, "cdb.log")
+	if err != nil {
+		return nil, err
+	}
 
 	log.Info("StartServer", zap.String("dataDir", conf.DataDir))
 
