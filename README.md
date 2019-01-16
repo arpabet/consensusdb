@@ -28,10 +28,9 @@ Data colocated by majorKey in data nodes, grouped by regionName to reference dif
 ### Dependencies
 
 ```
-go get "gopkg.in/ini.v1"
-go get "github.com/dsnet/compress/bzip2"
+go get "gopkg.in/yaml.v2"
 go get "github.com/pierrec/lz4"
-go get "github.com/gobwas/glob"
+go get "github.com/golang/snappy"
 go get "google.golang.org/grpc"
 go get "github.com/grpc-ecosystem/grpc-gateway/runtime"
 go get "github.com/golang/protobuf/jsonpb"
@@ -155,7 +154,7 @@ dataDir: /tmp/cdb
 
 ### Influencers
 
-* [MDCC] (http://mdcc.cs.berkeley.edu/)
+* [MDCC](http://mdcc.cs.berkeley.edu/)
 * [Megastore](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36971.pdf)
 * [Calvin](http://cs.yale.edu/homes/thomson/publications/calvin-sigmod12.pdf)
 
