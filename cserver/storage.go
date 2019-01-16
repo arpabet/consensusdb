@@ -88,6 +88,20 @@ func (this *KeyValueStorageCtx) Close() error {
 	return nil
 }
 
+func FetchRecord(key *cserverpb.Key, item *badger.Item, headOnly bool) (*cserverpb.Record, error) {
+
+	if headOnly {
+		return RecordNotFetched(key, item), nil
+	}
+
+	data, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, errors.Errorf("fetch value failed: ", err)
+	}
+
+	return RecordFetched(key, item, data), nil
+
+}
 
 func (this *KeyValueStorageCtx) Get(keyRequest *cserverpb.KeyRequest) (*cserverpb.Record, error) {
 
@@ -102,25 +116,16 @@ func (this *KeyValueStorageCtx) Get(keyRequest *cserverpb.KeyRequest) (*cserverp
 
 	item, err := txn.Get(entryKey)
 	if err != nil {
-		return RecordNotFound(keyRequest.Key), nil
+
+		if err == badger.ErrKeyNotFound {
+			return RecordNotFound(keyRequest.Key), nil
+		} else {
+			return nil, err
+		}
+
 	}
 
 	return FetchRecord(keyRequest.Key, item, keyRequest.HeadOnly)
-}
-
-func FetchRecord(key *cserverpb.Key, item *badger.Item, headOnly bool) (*cserverpb.Record, error) {
-
-	if headOnly {
-		return RecordNotFetched(key, item), nil
-	}
-
-	data, err := item.ValueCopy(nil)
-	if err != nil {
-		return nil, errors.Errorf("fetch value failed: ", err)
-	}
-
-	return RecordFetched(key, item, data), nil
-
 }
 
 func (this *KeyValueStorageCtx) GetRecent(keyRequest *cserverpb.KeyRequest) (*cserverpb.Record, error) {
@@ -148,7 +153,12 @@ func (this *KeyValueStorageCtx) GetRecent(keyRequest *cserverpb.KeyRequest) (*cs
 	iter.Seek(entryKey)
 
 	if iter.Valid() {
-		return FetchRecord(keyRequest.Key, iter.Item(), keyRequest.HeadOnly);
+		item := iter.Item()
+		actualKey, err := DecodeKey(item.Key())
+		if err != nil {
+			return nil, err
+		}
+		return FetchRecord(actualKey, iter.Item(), keyRequest.HeadOnly);
 	} else {
 		return RecordNotFound(keyRequest.Key), nil
 	}
@@ -350,8 +360,13 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *cserverpb.RecordRequest) (*
 	item, err := txn.Get(entryKey)
 
 	if err != nil {
-		// not found, not an error
-		return &cserverpb.Status{ Updated: false}, nil
+
+		if err == badger.ErrKeyNotFound {
+			return &cserverpb.Status{ Updated: false}, nil
+		} else {
+			return nil, err
+		}
+
 	}
 
 	data, err := item.ValueCopy(nil)
@@ -372,6 +387,8 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *cserverpb.RecordRequest) (*
 	if err != nil {
 		return nil, errors.Errorf("update entry error: ", err)
 	}
+
+	txn.Commit()
 
 	return &cserverpb.Status{ Updated: true}, nil
 
@@ -409,7 +426,7 @@ func (this *KeyValueStorageCtx) Put(recordRequest *cserverpb.RecordRequest) (*cs
 
 	}
 
-	entry := &badger.Entry{ Key: entryKey, Value: recordRequest.Value }
+	entry := &badger.Entry{ Key: entryKey, Value: recordRequest.Value, UserMeta: byte(recordRequest.Metadata) }
 
 	if recordRequest.TtlSeconds > 0 {
 		ttl := time.Duration(recordRequest.TtlSeconds) * time.Second
@@ -422,6 +439,8 @@ func (this *KeyValueStorageCtx) Put(recordRequest *cserverpb.RecordRequest) (*cs
 	if err != nil {
 		return nil, errors.Errorf("update entry error: ", err)
 	}
+
+	txn.Commit()
 
 	return &cserverpb.Status{ Updated: true}, nil
 
@@ -443,6 +462,8 @@ func (this *KeyValueStorageCtx) Remove(keyRequest *cserverpb.KeyRequest) (*cserv
 	if err != nil {
 		return nil, errors.Errorf("delete entry error: ", err)
 	}
+
+	txn.Commit()
 
 	return &cserverpb.Status{ Updated: true}, nil
 

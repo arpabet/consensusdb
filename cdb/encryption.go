@@ -26,6 +26,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	errorCiphertextTooShort = errors.New("ciphertext too short")
+)
 
 type Cipher interface {
 
@@ -72,6 +75,21 @@ var (
 
 )
 
+type NoCipher struct {
+}
+
+func (this* NoCipher) BlockSize() int {
+	return 1;
+}
+
+func (this* NoCipher) Encrypt(dst, src []byte) {
+	copy(dst, src)
+}
+
+func (this* NoCipher) Decrypt(dst, src []byte) {
+	copy(dst, src)
+}
+
 type NoBlockCipher struct {
 }
 
@@ -84,7 +102,7 @@ func (this* NoBlockCipher) KeyLengthBits() int {
 }
 
 func (this *NoBlockCipher) Create(key []byte) (cipher.Block, error) {
-	return nil, errors.New("NoCipher")
+	return &NoCipher{}, nil
 }
 
 type NoCipherMode struct {
@@ -135,7 +153,7 @@ func (this *GCMCipherMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byt
 
 	nonceSize := gcm.NonceSize()
 	if len(ciphertext) < nonceSize {
-		return nil, errors.New("ciphertext too short")
+		return ciphertext, errorCiphertextTooShort
 	}
 
 	nonce, encrypted := ciphertext[:nonceSize], ciphertext[nonceSize:]
@@ -158,7 +176,7 @@ func (this *CFBCipherMode) Encrypt(block cipher.Block, plaintext []byte) ([]byte
 	ciphertext := make([]byte, blockSize + len(plaintext))
 	iv := ciphertext[:blockSize]
 
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+	if _, err := rand.Read(iv); err != nil {
 		return nil, err
 	}
 
@@ -171,6 +189,10 @@ func (this *CFBCipherMode) Encrypt(block cipher.Block, plaintext []byte) ([]byte
 func (this *CFBCipherMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
 
 	blockSize := block.BlockSize()
+
+	if len(ciphertext) < blockSize {
+		return ciphertext, errorCiphertextTooShort
+	}
 
 	iv, encrypted := ciphertext[:blockSize], ciphertext[blockSize:]
 
