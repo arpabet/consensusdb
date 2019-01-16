@@ -93,6 +93,7 @@ func TestSuit(t *testing.T) {
 	RunCompareAndSetTests(t, client, regionName)
 	RunWithTtlTests(t, client, regionName)
 
+
 	for _, c := range cdb.KnownCompressors {
 
 		RunCompressionTests(t, client, regionName, c, []byte{})
@@ -110,6 +111,10 @@ func TestSuit(t *testing.T) {
 
 		}
 	}
+
+	RunEncryptionTests(t, client, cdb.NO_COMPRESSION, cdb.AES, cdb.CFB, regionName, []byte{})
+	RunEncryptionTests(t, client, cdb.NO_COMPRESSION, cdb.AES, cdb.CFB, regionName, []byte("a"))
+	RunEncryptionTests(t, client, cdb.NO_COMPRESSION, cdb.AES, cdb.CFB, regionName, payload)
 
 	RunPitOneTests(t, client, regionName)
 	RunSpaceTests(t, client, "CHAT")
