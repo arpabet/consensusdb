@@ -147,6 +147,26 @@ func (t KeyBuilder) WithTimestamp(uuid timeuuid.UUID) KeyBuilder {
 	return t;
 }
 
+func (t KeyBuilder) WithMinTimestamp() KeyBuilder {
+
+	uuidMin := timeuuid.NewUUID(timeuuid.TimebasedVer1)
+	uuidMin.SetTime100NanosUnsigned(0)
+	uuidMin.SetMinCounter()
+
+	t.key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: uuidMin.MostSignificantBits(), LeastSigBits: uuidMin.LeastSignificantBits() }
+	return t;
+}
+
+func (t KeyBuilder) WithMaxTimestamp() KeyBuilder {
+
+	uuidMax := timeuuid.NewUUID(timeuuid.TimebasedVer1)
+	uuidMax.SetTime100NanosUnsigned(math.MaxUint64)
+	uuidMax.SetMaxCounter()
+
+	t.key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: uuidMax.MostSignificantBits(), LeastSigBits: uuidMax.LeastSignificantBits() }
+	return t;
+}
+
 func (t KeyBuilder) Timestamp() timeuuid.UUID {
 	return GetTimeUUID(t.key)
 }

@@ -31,11 +31,20 @@ import (
 	"go.uber.org/zap"
 	"github.com/shvid/timeuuid"
 	"fmt"
-	"math"
 )
 
 
 func TestSuit(t *testing.T) {
+
+	//
+	//  Create Payload
+	//
+
+	payload := make([]byte, 1000, 1000)
+
+	for i := 0; i < 1000; i = i+1 {
+		payload[i] = byte(i)
+	}
 
 	println("DatasetTest executed")
 
@@ -83,9 +92,25 @@ func TestSuit(t *testing.T) {
 	RunCRUIDTests(t, client, regionName)
 	RunCompareAndSetTests(t, client, regionName)
 	RunWithTtlTests(t, client, regionName)
-	RunCompressionTests(t, client, regionName)
-	RunEncryptionTests(t, client, cdb.CFB, regionName)
-	RunEncryptionTests(t, client, cdb.GCM, regionName)
+
+	for _, c := range cdb.KnownCompressors {
+
+		RunCompressionTests(t, client, regionName, c, []byte{})
+		RunCompressionTests(t, client, regionName, c, []byte("a"))
+		RunCompressionTests(t, client, regionName, c,  payload)
+
+		for _, cipher := range cdb.KnownCiphers {
+
+			for _, mode := range cdb.KnownCipherModes {
+
+				RunEncryptionTests(t, client, c, cipher, mode, regionName, []byte{})
+				RunEncryptionTests(t, client, c, cipher, mode, regionName, []byte("a"))
+				RunEncryptionTests(t, client, c, cipher, mode, regionName, payload)
+			}
+
+		}
+	}
+
 	RunPitOneTests(t, client, regionName)
 
 }
@@ -434,25 +459,15 @@ func RunWithTtlTests(t *testing.T, client cdb.Client, regionName string) {
 }
 
 
-func RunCompressionTests(t *testing.T, client cdb.Client, regionName string) {
+func RunCompressionTests(t *testing.T, client cdb.Client, regionName string, compressor cdb.Compressor, payload []byte) {
 
 	key := cdb.NewKey().WithMajorKey("compression").WithRegionName(regionName).WithMinorKey("def").Build()
-
-	//
-	//  Create Payload
-	//
-
-	payload := make([]byte, 1000, 1000)
-
-	for i := 0; i < 1000; i = i+1 {
-		payload[i] = byte(i)
-	}
 
 	//
 	//  Test Put
 	//
 
-	status, err := client.Put(cdb.NewRecord(key, payload).UseCompression(cdb.LZ4_HIGH))
+	status, err := client.Put(cdb.NewRecord(key, payload).UseCompression(compressor))
 
 	if err != nil {
 		t.Fatal("fail to put entry: ", err)
@@ -501,21 +516,15 @@ func RunCompressionTests(t *testing.T, client cdb.Client, regionName string) {
 }
 
 
-func RunEncryptionTests(t *testing.T, client cdb.Client, cipherMode cdb.CipherMode, regionName string) {
+func RunEncryptionTests(t *testing.T, client cdb.Client, compressor cdb.Compressor, cipher cdb.Cipher, cipherMode cdb.CipherMode, regionName string, payload []byte) {
 
 	key := cdb.NewKey().WithMajorKey("encryption").WithRegionName(regionName).WithMinorKey("def").Build()
-
-	//
-	//  One letter with no padding is a very good test
-	//
-
-	payload := []byte("a")
 
 	//
 	//  Test Put
 	//
 
-	status, err := client.Put(cdb.NewRecord(key, payload).UseEncryption(cdb.AES, cipherMode))
+	status, err := client.Put(cdb.NewRecord(key, payload).UseCompression(compressor).UseEncryption(cipher, cipherMode))
 
 	if err != nil {
 		t.Fatal("put failed")
@@ -727,11 +736,7 @@ func RunPitOneTests(t *testing.T, client cdb.Client, regionName string) {
 	//  Search max timestamp
 	//
 
-	uuidMax := timeuuid.NewUUID(timeuuid.TimebasedVer1)
-	uuidMax.SetTime100NanosUnsigned(math.MaxUint64)
-	uuidMax.SetMaxCounter()
-
-	keyMax := cdb.NewKey().WithMajorKey("pitOne").WithRegionName(regionName).WithMinorKey("def").WithTimestamp(uuidMax).Build()
+	keyMax := cdb.NewKey().WithMajorKey("pitOne").WithRegionName(regionName).WithMinorKey("def").WithMaxTimestamp().Build()
 
 	rec, err = client.GetRecent(cdb.NewRequest(keyMax).HeadOnly())
 
@@ -751,7 +756,7 @@ func RunPitOneTests(t *testing.T, client cdb.Client, regionName string) {
 	//  Search search with different minorKey (would be a different prefix)
 	//
 
-	keyMaxWrong := cdb.NewKey().WithMajorKey("pitOne").WithRegionName(regionName).WithMinorKey("deff").WithTimestamp(uuidMax).Build()
+	keyMaxWrong := cdb.NewKey().WithMajorKey("pitOne").WithRegionName(regionName).WithMinorKey("deff").WithMaxTimestamp().Build()
 
 	rec, err = client.GetRecent(cdb.NewRequest(keyMaxWrong).HeadOnly())
 

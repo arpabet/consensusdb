@@ -10,19 +10,18 @@ transactions
 
 * gRPC interface for database clients
 * HTTP REST JSON interface for any clients
-* For now works as a single data node, but in future I will add cluster support through etcd
 * Engine - badger (similar to rocksdb, but faster)
-* Supports point-in-time data
-* Supports compression
-* Supports encryption
+* Supports point-in-time data by TimeUUID
+* Supports compression: Snappy, LZ4
+* Supports encryption: AES on GCM, CFB
 * Very fast
-* Pure golang
+* Pure golang implementation
 
 # Current Status
-* developing the simple one-node version
+* developing a simple one-node version
 
 # Design
-Data colocated by majorKey in data nodes, grouped by regionName to reference different types of data, use the minorKey to access an entry.
+Data colocated by majorKey in data nodes, grouped by regionName to reference different types of data, accessible by minorKey and ordered by TimeUUID.
 
 # Quick start
 
@@ -64,9 +63,10 @@ open http://localhost:4481/
 
 ### Run
 ```
-mkdir /tmp/bigbagger
-./bigbagger
-curl -d "@create.json" -H "Content-Type: application/json" -X POST http://localhost:4481/v1/region
+mkdir /tmp/cdb
+./consensusdb
+./consensusdb  --conf=consensus.yaml
+
 ```
 
 ### Check
@@ -75,67 +75,69 @@ curl -d "@create.json" -H "Content-Type: application/json" -X POST http://localh
 lsof -n -i:$PORT | grep LISTEN
 ```
 
-You have to see that bigbagger is listening 4481 and 4482 ports
+You have to see that consensusdb is listening 4481 and 4482 ports
 
 ### Go Client Example
 
 ```
 //
-// connect to BigBagger server
+//  create keychain for data encryption on client side
 //
 
-client, err := bbclient.NewClient(grpcAddress)
+keychain, err := cdb.NewPasswordbasedKeychain("alex")
+
+//
+//  create client instance
+//
+
+client, err := cdb.NewClient("localhost:4482", keychain)
 defer client.Close()
 
 //
-// Create Region TEST
+//  create timeuuid (optional)
 //
 
-region := new(bbproto.Region)
-region.Version = "1.0"
-region.Name = "TEST"
-region.Ttl = "1D"     // one day
-
-err = client.CreateRegion(region)
+uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
+uuid.SetUnixTimeMillis(1514764800)
+uuid.SetMinCounter()
 
 //
-// Put
+//  create key with timeuuid
 //
 
-op = bbclient.Put("TEST", []byte("key"), []byte("value")).OverrideTtl(1000)
-
-res = client.Execute(op)
+key := cdb.NewKey().WithMajorKey("alex").WithRegionName("ACCOUNT").WithMinorKey("balance").WithTimestamp(uuid).Build()
+value := []byte("1245.90")
 
 //
-// Get
+//  putIfAbsent record with LZ4 compression, AES:CFB encryption with TTL one day and on SLA 100 milliseconds
 //
 
-op = bbclient.Get("TEST", []byte("key"))
+status, err := client.Put(cdb.NewRecord(key, value).UseCompression(cdb.LZ4).UseEncryption(cdb.AES, cdb.CFB).OnlyIfAbsent().WithTtlSeconds(86400).WithTimeout(100))
 
-res = client.Execute(op)
+//
+// get record metadata onlt
+//
 
-if res.IsError() {
-    fmt.Print("get error: ", res.GetError())
-    return
-}
+rec, err := client.Get(cdb.NewRequest(key).HeadOnly())
 
-data := res.GetRecord().Value()
+//
+// find the last balance record
+//
 
-// Put PIT Value
+keyMax := cdb.NewKey().WithMajorKey("alex").WithRegionName("ACCOUNT").WithMinorKey("balance").WithMaxTimestamp().Build()
+rec, err := client.GetRecent(cdb.NewRequest(keyMax).HeadOnly())
 
-op = bbclient.Put("TEST", []byte("key"), []byte("value")).WithTimestamp(1514764800)
+//
+// find 100 messages early or equal key's timestamp
+//
 
-res = client.Execute(op)
+rec, err := client.GetRange(cdb.NewRangeRequest(key).WithNumRecords(100))
 
-// Get Last PIT Value
+//
+// remove record
+//
 
-op = bbclient.Range("TEST", []byte("key"), 1).WithTimestamp(math.MaxUint64)
-
-res = client.Execute(op)
-
-if res.Exists() {
-   data = res.GetRecord().Value()
-}
+status, err := client.Remove(cdb.NewRequest(key))
 
 ```
 
@@ -144,37 +146,16 @@ if res.Exists() {
 Simple configuration example
 
 ```
-
-[server]
-httpAddress=:4481
-grpcAddress=:4482
-
-[database]
-dataDir=/tmp/bigbagger
-
-[compression]
-# supported compressors:  NO, FLATE, GZIP, LZW, ZLIB, BZIP2, LZ4
-compressor=LZ4
-# supported levels: 0, 1, 6, 9 (whereas 6 is default)
-level=9
-
-[encryption]
-# supported ciphers: NO, AES
-cipher=AES
-# supported modes:  NO, GCM, CFB
-mode=CFB
-# supported key size in bits:  0, 128, 192, 256
-keySize=256
-# key will be retrieved from security context
-topo=password
-
-[security]
-password=PUT_YOUR_PASSWORD
-
+host: localhost
+httpPort: 4481
+grpcPort: 4482
+numCPU: 1
+dataDir: /tmp/cdb
 ```
 
 ### Influencers
 
+* [MDCC] (http://mdcc.cs.berkeley.edu/)
 * [Megastore](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36971.pdf)
 * [Calvin](http://cs.yale.edu/homes/thomson/publications/calvin-sigmod12.pdf)
 
