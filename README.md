@@ -21,7 +21,15 @@ transactions
 * developing a simple one-node version
 
 # Design
-Data colocated by majorKey in data nodes, grouped by regionName to reference different types of data, accessible by minorKey and ordered by TimeUUID.
+Data collocated by majorKey in data nodes, grouped by regionName to reference different types of data, accessible by minorKey and TimeUUID.
+All data records are ordered by majorKey/regionName/minorKey/TimeUUID(timestamp, counter)
+
+# Best practices
+* Use userId in key.MajorKey, for example "accountNumber", "nickname", "email" or and other primary identifier.
+* Use table name in key.RegionName as upper case, for example "ACCOUNT", "PROFILE", "CHAT", "AUTH"
+* Use other userId in key.MinorKey with whom we record interraction or type of the event, for example "accountNum", "login", "def"
+* Create TimeUUID based on event content and timestamp (this approach is good for MDC)
+* Store event with TimeUUID, store record without TimeUUID
 
 # Quick start
 
