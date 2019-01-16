@@ -29,6 +29,9 @@ import (
 	"log"
 	"math/rand"
 	"go.uber.org/zap"
+	"github.com/shvid/timeuuid"
+	"fmt"
+	"math"
 )
 
 
@@ -81,8 +84,9 @@ func TestSuit(t *testing.T) {
 	RunCompareAndSetTests(t, client, regionName)
 	RunWithTtlTests(t, client, regionName)
 	RunCompressionTests(t, client, regionName)
-	RunEncryptionTests(t, client, regionName)
-	//RunPitOneTests(t, client, regionName)
+	RunEncryptionTests(t, client, cdb.CFB, regionName)
+	RunEncryptionTests(t, client, cdb.GCM, regionName)
+	RunPitOneTests(t, client, regionName)
 
 }
 
@@ -235,7 +239,7 @@ func RunCompareAndSetTests(t *testing.T, client cdb.Client, regionName string) {
 		t.Fatal("get failed")
 	}
 
-	if bytes.Equal(firstValue, rec.Value()) {
+	if !bytes.Equal(firstValue, rec.Value()) {
 		t.Fatal("wrong value returned")
 	}
 
@@ -271,7 +275,7 @@ func RunCompareAndSetTests(t *testing.T, client cdb.Client, regionName string) {
 		t.Fatal("get failed")
 	}
 
-	if bytes.Equal(secondValue, rec.Value()) {
+	if !bytes.Equal(secondValue, rec.Value()) {
 		t.Fatal("wrong value returned")
 	}
 
@@ -451,7 +455,7 @@ func RunCompressionTests(t *testing.T, client cdb.Client, regionName string) {
 	status, err := client.Put(cdb.NewRecord(key, payload).UseCompression(cdb.LZ4_HIGH))
 
 	if err != nil {
-		t.Fatal("fail to put entry")
+		t.Fatal("fail to put entry: ", err)
 	}
 
 	if !status.Updated() {
@@ -497,7 +501,7 @@ func RunCompressionTests(t *testing.T, client cdb.Client, regionName string) {
 }
 
 
-func RunEncryptionTests(t *testing.T, client cdb.Client, regionName string) {
+func RunEncryptionTests(t *testing.T, client cdb.Client, cipherMode cdb.CipherMode, regionName string) {
 
 	key := cdb.NewKey().WithMajorKey("encryption").WithRegionName(regionName).WithMinorKey("def").Build()
 
@@ -511,7 +515,7 @@ func RunEncryptionTests(t *testing.T, client cdb.Client, regionName string) {
 	//  Test Put
 	//
 
-	status, err := client.Put(cdb.NewRecord(key, payload).UseEncryption(cdb.AES, cdb.CFB))
+	status, err := client.Put(cdb.NewRecord(key, payload).UseEncryption(cdb.AES, cipherMode))
 
 	if err != nil {
 		t.Fatal("put failed")
@@ -528,7 +532,7 @@ func RunEncryptionTests(t *testing.T, client cdb.Client, regionName string) {
 	rec, err := client.Get(cdb.NewRequest(key).HeadOnly())
 
 	if err != nil {
-		t.Fatal("get failed")
+		t.Fatal("get failed", err)
 	}
 
 	if !rec.Exist() {
@@ -553,126 +557,233 @@ func RunEncryptionTests(t *testing.T, client cdb.Client, regionName string) {
 		t.Fatal("entry not found")
 	}
 
-	if bytes.Equal(payload, rec.Value()) {
+	if !bytes.Equal(payload, rec.Value()) {
 		t.Fatal("actual value is wrong")
 	}
 
 }
 
-/*
+
 func RunPitOneTests(t *testing.T, client cdb.Client, regionName string) {
 
 	uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
 	uuid.SetUnixTimeMillis(1514764800)
-	uuid.SetCounter(rand.Int63())
+	uuid.SetMinCounter()
+
+	fmt.Print("uuid=", uuid, "\n")
+
+	if uuid.Counter() != 0 {
+		t.Fatal("uuid must have min counter", uuid)
+	}
+
+	key := cdb.NewKey().WithMajorKey("pitOne").WithRegionName(regionName).WithMinorKey("def").WithTimestamp(uuid).Build()
+	value := []byte("value")
 
 	//
 	//  Test Put
 	//
 
-	op := cdb.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(uuid)
+	status, err := client.Put(cdb.NewRecord(key, value))
 
-	res := client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to put entry ", res.GetError())
+	if err != nil {
+		t.Fatal("put failed")
 	}
 
+	if !status.Updated() {
+		t.Fatal("record must be updated")
+	}
 
 	//
 	//  Exact Lookup Head
 	//
 
-	op = cdb.Get(set, []byte("pit1")).HeadOnly().WithTimestamp(uuid)
+	rec, err := client.Get(cdb.NewRequest(key).HeadOnly())
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to head entry ", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if !res.Exists() {
+	if !rec.Exist() {
 		t.Fatal("entry not found")
 	}
 
-	fmt.Print("res.GetHead().GetTimestamp()=", res.GetRecord().Head().Timestamp(), "\n")
-
-	if !res.GetRecord().Head().Timestamp().Equal(uuid) {
-		t.Fatal("wrong timestamp")
+	if !key.Timestamp().Equal(rec.Key().Timestamp()) {
+		t.Fatal("entry must have the same timestamp")
 	}
 
 	//
-	//  Lower Lookup Head
+	//  Next Key Lookup
 	//
 
-	op = cdb.Get(set, []byte("pit2")).HeadOnly()
+	uuidNext := timeuuid.NewUUID(timeuuid.TimebasedVer1)
+	uuidNext.SetUnixTimeMillis(1514764800)
+	uuidNext.SetCounter(1)
 
-	res = client.Execute(op)
+	keyNext := cdb.NewKey().WithMajorKey("pitOne").WithRegionName(regionName).WithMinorKey("def").WithTimestamp(uuidNext).Build()
 
-	if res.IsError() {
-		t.Fatal("fail to head entry ", res.GetError())
+	rec, err = client.Get(cdb.NewRequest(keyNext).HeadOnly())
+
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if res.Exists() {
-		t.Fatal("absent entry found")
+	if rec.Exist() {
+		t.Fatal("entry must not be found, it is the exact lookup")
+	}
+
+	//
+	//  Next Recent Key Lookup (less case) with same timestamp
+	//
+
+	rec, err = client.GetRecent(cdb.NewRequest(keyNext).HeadOnly())
+
+	if err != nil {
+		t.Fatal("get failed")
+	}
+
+	if !rec.Exist() {
+		t.Fatal("entry must be found")
+	}
+
+	if !key.Timestamp().Equal(rec.Key().Timestamp()) {
+		t.Fatal("entry must have the same timestamp")
+	}
+
+	//
+	//  Recent Key Lookup (equal case) with same timestamp
+	//
+
+	rec, err = client.GetRecent(cdb.NewRequest(key).HeadOnly())
+
+	if err != nil {
+		t.Fatal("get failed")
+	}
+
+	if !rec.Exist() {
+		t.Fatal("entry must be found")
+	}
+
+	if !key.Timestamp().Equal(rec.Key().Timestamp()) {
+		t.Fatal("entry must have the same timestamp")
+	}
+
+	// Increment milliseconds
+
+	uuidNext = timeuuid.NewUUID(timeuuid.TimebasedVer1)
+	uuidNext.SetUnixTimeMillis(1514764801)
+	uuidNext.SetMinCounter()
+
+	//
+	//  Next Recent Key Lookup (less case) with same timestamp
+	//
+
+	rec, err = client.GetRecent(cdb.NewRequest(keyNext).HeadOnly())
+
+	if err != nil {
+		t.Fatal("get failed")
+	}
+
+	if !rec.Exist() {
+		t.Fatal("entry must be found")
+	}
+
+	if !key.Timestamp().Equal(rec.Key().Timestamp()) {
+		t.Fatal("entry must have the same timestamp")
+	}
+
+	//
+	//  Recent Key Lookup (equal case) with same timestamp
+	//
+
+	rec, err = client.GetRecent(cdb.NewRequest(key).HeadOnly())
+
+	if err != nil {
+		t.Fatal("get failed")
+	}
+
+	if !rec.Exist() {
+		t.Fatal("entry must be found")
+	}
+
+	if !key.Timestamp().Equal(rec.Key().Timestamp()) {
+		t.Fatal("entry must have the same timestamp")
 	}
 
 	//
 	//  Test Second Put
 	//
 
-	op = cdb.Put(set, []byte("pit1"), []byte("value")).WithTimestamp(uuid)
+	status, err = client.Put(cdb.NewRecord(keyNext, value))
 
-	res = client.Execute(op)
-
-	if res.IsError() {
-		t.Fatal("fail to put entry ", res.GetError())
+	if err != nil {
+		t.Fatal("second put failed")
 	}
 
+	if !status.Updated() {
+		t.Fatal("entry must be updated")
+	}
 
 	//
-	//  Exact Lookup Head
+	//  Search max timestamp
 	//
 
 	uuidMax := timeuuid.NewUUID(timeuuid.TimebasedVer1)
 	uuidMax.SetTime100NanosUnsigned(math.MaxUint64)
 	uuidMax.SetMaxCounter()
 
-	op = cdb.GetEarly(set, []byte("pit1"), 1).HeadOnly().WithTimestamp(uuidMax)
+	keyMax := cdb.NewKey().WithMajorKey("pitOne").WithRegionName(regionName).WithMinorKey("def").WithTimestamp(uuidMax).Build()
 
-	res = client.Execute(op)
+	rec, err = client.GetRecent(cdb.NewRequest(keyMax).HeadOnly())
 
-	if res.IsError() {
-		t.Fatal("fail to head entry ", res.GetError())
+	if err != nil {
+		t.Fatal("get failed")
 	}
 
-	if !res.Exists() {
-		t.Fatal("entry not found")
+	if !rec.Exist() {
+		t.Fatal("entry must be found")
 	}
 
-	fmt.Print("res.GetHead().GetTimestamp()=", res.GetRecord().Head().Timestamp(), "\n")
-
-	if !res.GetRecord().Head().Timestamp().Equal(uuid) {
-		t.Fatal("wrong timestamp")
+	if !keyNext.Timestamp().Equal(rec.Key().Timestamp()) {
+		t.Fatal("entry must have the same timestamp")
 	}
 
 	//
-	//  Lower Lookup Head
+	//  Search search with different minorKey (would be a different prefix)
 	//
 
-	op = cdb.GetEarly(set, []byte("pit2"), 1).HeadOnly()
+	keyMaxWrong := cdb.NewKey().WithMajorKey("pitOne").WithRegionName(regionName).WithMinorKey("deff").WithTimestamp(uuidMax).Build()
 
-	res = client.Execute(op)
+	rec, err = client.GetRecent(cdb.NewRequest(keyMaxWrong).HeadOnly())
 
-	if res.IsError() {
-		t.Fatal("fail to head entry ", res.GetError())
+	if err != nil {
+		t.Fatal("get failed", err)
 	}
 
-	if res.Exists() {
-		t.Fatal("absent entry found")
+	if rec.Exist() {
+		t.Fatal("entry must not found")
 	}
 
+	//
+	//  Range lookup, records come in DESC order
+	//
+
+	block, err := client.GetRange(cdb.NewRangeRequest(keyMax).WithNumRecords(10))
+
+	if err != nil {
+		t.Fatal("get range failed", err)
+	}
+
+	if len(block) != 2 {
+		t.Fatal("expected to be found a two records")
+	}
+
+	if !key.Timestamp().Equal(block[1].Key().Timestamp()) {
+		t.Fatal("entry must have the same timestamp")
+	}
+
+	if !keyNext.Timestamp().Equal(block[0].Key().Timestamp()) {
+		t.Fatal("entry must have the same timestamp")
+	}
 
 }
 
-*/
