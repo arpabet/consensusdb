@@ -25,6 +25,7 @@ import (
 	"os"
 	"io/ioutil"
 	"strings"
+	"unicode"
 )
 
 const (
@@ -45,6 +46,16 @@ func CopyOf(src []byte) []byte {
 	dst := make([]byte, len(src))
 	copy(dst, src)
 	return dst
+}
+
+func ToPrintable(data []byte) interface{} {
+	str := string(data)
+	for _, r := range str {
+		if r > unicode.MaxASCII || !unicode.IsPrint(r) {
+			return data
+		}
+	}
+	return str
 }
 
 func ParseTtlExpr(ttlExpr string) (ttl time.Duration, err error) {

@@ -114,7 +114,7 @@ value := []byte("1245.90")
 status, err := client.Put(cdb.NewRecord(key, value).UseCompression(cdb.LZ4).UseEncryption(cdb.AES, cdb.CFB).OnlyIfAbsent().WithTtlSeconds(86400).WithTimeout(100))
 
 //
-// get record metadata onlt
+// get record metadata only
 //
 
 rec, err := client.Get(cdb.NewRequest(key).HeadOnly())

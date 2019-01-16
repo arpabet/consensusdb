@@ -289,7 +289,11 @@ func (this *KeyValueStorageCtx) GetArea(keyRequest *cserverpb.KeyRequest, lastFi
 
 	}
 
-	return nil
+	if len(records) > 0 {
+		err = sender.Send( &cserverpb.Block{ Record: records } )
+	}
+
+	return err
 
 }
 
@@ -308,6 +312,8 @@ func (this *KeyValueStorageCtx) Scan(scanRequest *cserverpb.ScanRequest, sender 
 
 	iter := txn.NewIterator(options)
 	defer iter.Close()
+
+	iter.Rewind()
 
 	records := make([]*cserverpb.Record, 0, defBlockSize)
 	for ; iter.Valid(); iter.Next() {
@@ -341,6 +347,13 @@ func (this *KeyValueStorageCtx) Scan(scanRequest *cserverpb.ScanRequest, sender 
 
 		}
 
+	}
+
+	if len(records) > 0 {
+		err := sender.Send( &cserverpb.Block{ Record: records } )
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
