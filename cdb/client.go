@@ -26,6 +26,7 @@ import (
 	"context"
 	"github.com/shvid/timeuuid"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -175,6 +176,8 @@ type Record interface {
 	Exist() bool
 	Value() []byte
 
+	Parse(pb proto.Message) error
+
 }
 
 type RecordResponse struct {
@@ -200,6 +203,18 @@ func (t RecordResponse) Value() []byte {
 
 func (t RecordResponse) Exist() bool {
 	return t.exist
+}
+
+func (t RecordResponse) Parse(pb proto.Message) error {
+	if len(t.value) > 0 {
+		err := proto.Unmarshal(t.value, pb)
+		if err != nil {
+			return err
+		}
+	} else {
+		pb.Reset()
+	}
+	return nil
 }
 
 func (t RecordResponse) String() string {

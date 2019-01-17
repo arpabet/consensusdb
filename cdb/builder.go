@@ -24,6 +24,7 @@ import (
 	"github.com/shvid/timeuuid"
 	"math/rand"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 )
 
 
@@ -264,6 +265,7 @@ type RecordRequestBuilder struct {
 	cipher      Cipher
 	cipherMode  CipherMode
 	value       []byte
+	pb          proto.Message
 }
 
 func NewRecord(key Key, value []byte) RecordRequestBuilder {
@@ -278,6 +280,12 @@ func NewRecord(key Key, value []byte) RecordRequestBuilder {
 
 func NewRecordRequest(key Key) RecordRequestBuilder {
 	return NewRecord(key, emptyValue)
+}
+
+func NewProtoRecord(key Key, pb proto.Message) RecordRequestBuilder {
+	b := NewRecord(key, emptyValue)
+	b.pb = pb
+	return b
 }
 
 func (t RecordRequestBuilder) SetMetadata(metadata int32) RecordRequestBuilder {
@@ -309,6 +317,13 @@ func (t RecordRequestBuilder) CompareAndSet(version uint64) RecordRequestBuilder
 
 func (t RecordRequestBuilder) SetValue(value []byte) RecordRequestBuilder {
 	t.value = value
+	t.pb = nil
+	return t;
+}
+
+func (t RecordRequestBuilder) PackValue(pb proto.Message) RecordRequestBuilder {
+	t.value = emptyValue
+	t.pb = pb
 	return t;
 }
 
@@ -332,6 +347,15 @@ func (t RecordRequestBuilder) WithTimeout(timeout int) RecordRequestBuilder {
 }
 
 func (t RecordRequestBuilder) build(keychain Keychain) (*cserverpb.RecordRequest, error) {
+
+	// override t.value
+	if t.pb != nil && len(t.value) == 0 {
+		var err error
+		t.value, err = proto.Marshal(t.pb)
+		if err != nil {
+			return t.request, err
+		}
+	}
 
 	value, err := PackValue(t.key, t.value, t.compressor, t.cipher, t.cipherMode, keychain)
 	if err != nil {
