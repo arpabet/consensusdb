@@ -138,3 +138,24 @@ func CountFilesInDir(dir, ext string) int {
 	return cnt
 
 }
+
+func ReadAll(blockC <-chan Block) []Record {
+
+	list := make([]Record, 0, 100)
+
+	for {
+		block, ok := <- blockC
+
+		if !ok {
+			break
+		}
+
+		for _, rec := range block {
+			list = append(list, rec)
+		}
+
+	}
+
+	return list
+
+}
