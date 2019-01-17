@@ -24,6 +24,7 @@ import (
 	"github.com/consensusdb/consensusdb/cserver/cserverpb"
 	"github.com/shvid/timeuuid"
 	"github.com/pkg/errors"
+	"github.com/consensusdb/consensusdb/cdb"
 )
 
 
@@ -51,7 +52,7 @@ func SanitizeKeyLen(len int) int {
 
 func DecodeKey(entryKey []byte) (*cserverpb.Key, error) {
 
-	b := entryKey
+	b := cdb.CopyOf(entryKey)
 
 	len := len(b)
 	j := 0
