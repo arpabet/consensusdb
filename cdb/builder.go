@@ -321,7 +321,7 @@ func (t RecordRequestBuilder) SetValue(value []byte) RecordRequestBuilder {
 	return t;
 }
 
-func (t RecordRequestBuilder) PackValue(pb proto.Message) RecordRequestBuilder {
+func (t RecordRequestBuilder) WithValue(pb proto.Message) RecordRequestBuilder {
 	t.value = emptyValue
 	t.pb = pb
 	return t;

@@ -859,7 +859,7 @@ func RunSpaceTests(t *testing.T, client cdb.Client, regionName string) {
 	chat := make(chan cdb.Block)
 	go client.GetRow(cdb.NewRequest(key), chat)
 
-	list := ReadAll(chat)
+	list := cdb.ReadAll(chat)
 
 	if len(list) != 3 {
 		t.Fatal("expected 3 messages", err)
@@ -894,7 +894,7 @@ func RunSpaceTests(t *testing.T, client cdb.Client, regionName string) {
 	chat = make(chan cdb.Block)
 	go client.GetRegion(cdb.NewRequest(key), chat)
 
-	list = ReadAll(chat)
+	list = cdb.ReadAll(chat)
 
 	if len(list) != 4 {
 		t.Fatal("expected 4 messages", err)
@@ -907,7 +907,7 @@ func RunSpaceTests(t *testing.T, client cdb.Client, regionName string) {
 	chat = make(chan cdb.Block)
 	go client.GetSpace(cdb.NewRequest(key), chat)
 
-	list = ReadAll(chat)
+	list = cdb.ReadAll(chat)
 
 	if len(list) != 4 {
 		t.Fatal("expected 4 messages", err)
@@ -920,7 +920,7 @@ func RunSpaceTests(t *testing.T, client cdb.Client, regionName string) {
 	chat = make(chan cdb.Block)
 	go client.Scan(cdb.NewScanRequest(), chat)
 
-	list = ReadAll(chat)
+	list = cdb.ReadAll(chat)
 
 	/*
 	for _, rec := range list {
@@ -934,24 +934,3 @@ func RunSpaceTests(t *testing.T, client cdb.Client, regionName string) {
 
 }
 
-
-func ReadAll(blockC <-chan cdb.Block) []cdb.Record {
-
-	list := make([]cdb.Record, 0, 100)
-
-	for {
-		block, ok := <- blockC
-
-		if !ok {
-			break
-		}
-
-		for _, rec := range block {
-			list = append(list, rec)
-		}
-
-	}
-
-	return list
-
-}
