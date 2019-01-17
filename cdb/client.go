@@ -176,7 +176,7 @@ type Record interface {
 	Exist() bool
 	Value() []byte
 
-	Parse(pb proto.Message) error
+	ParseTo(pb proto.Message) error
 
 }
 
@@ -205,7 +205,7 @@ func (t RecordResponse) Exist() bool {
 	return t.exist
 }
 
-func (t RecordResponse) Parse(pb proto.Message) error {
+func (t RecordResponse) ParseTo(pb proto.Message) error {
 	if len(t.value) > 0 {
 		err := proto.Unmarshal(t.value, pb)
 		if err != nil {
