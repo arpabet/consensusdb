@@ -19,34 +19,35 @@
 package cdb
 
 import (
-	"golang.org/x/crypto/bcrypt"
 	"github.com/pkg/errors"
 	"github.com/shvid/timeuuid"
+	"crypto/sha256"
 )
 
 var (
 	ErrorInvalidKeyLength = errors.New("invalid key length")
 )
 
+type BlockKey []byte
+
 type Keychain interface {
 
-	GetBlockKey(majorKey []byte, timestamp timeuuid.UUID, keyLenBits int) ([]byte, error)
+	GetBlockKey(majorKey []byte, timestamp timeuuid.UUID, keyLenBits int) (BlockKey, error)
 
 }
 
 type PasswordbasedKeychain struct {
 
-	passwordHash []byte
+	passwordHash [32]byte
 
 }
 
 func NewPasswordbasedKeychain(password string) (kc *PasswordbasedKeychain, err error) {
-	kc = new(PasswordbasedKeychain)
-	kc.passwordHash, err = getPasswordHash(password)
-	return
+	kc = &PasswordbasedKeychain { passwordHash: sha256.Sum256([]byte(password)) }
+	return kc, nil
 }
 
-func (this*PasswordbasedKeychain) GetBlockKey(majorKey []byte, timestamp timeuuid.UUID, keyLenBits int) ([]byte, error) {
+func (this*PasswordbasedKeychain) GetBlockKey(majorKey []byte, timestamp timeuuid.UUID, keyLenBits int) (BlockKey, error) {
 
 	keyLenBytes := keyLenBits / 8
 
@@ -54,20 +55,17 @@ func (this*PasswordbasedKeychain) GetBlockKey(majorKey []byte, timestamp timeuui
 		return nil, ErrorInvalidKeyLength
 	}
 
-	return this.passwordHash[:keyLenBytes], nil
+	return CopyOf(this.passwordHash[:keyLenBytes]), nil
 
 }
 
-func getPasswordHash(password string) ([]byte, error) {
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
+func (b BlockKey) clear() {
+	size := len(b)
+	for i := 0; i < size; i = i + 1 {
+		b[i] = 0
 	}
-
-	return hash, nil
-
 }
+
 
 
 

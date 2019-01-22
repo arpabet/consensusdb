@@ -20,7 +20,7 @@
 package cserver
 
 import (
-	"gopkg.in/yaml.v2"
+	"github.com/go-yaml/yaml"
 	"path/filepath"
 	"io/ioutil"
 	"github.com/pkg/errors"

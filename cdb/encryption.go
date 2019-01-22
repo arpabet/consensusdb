@@ -24,6 +24,7 @@ import (
 	"io"
 	"crypto/rand"
 	"github.com/pkg/errors"
+	"fmt"
 )
 
 var (
@@ -90,6 +91,10 @@ func (this* NoCipher) Decrypt(dst, src []byte) {
 	copy(dst, src)
 }
 
+func (this *NoCipher) String() string {
+	return "NO_CIPHER"
+}
+
 type NoBlockCipher struct {
 }
 
@@ -105,6 +110,10 @@ func (this *NoBlockCipher) Create(key []byte) (cipher.Block, error) {
 	return &NoCipher{}, nil
 }
 
+func (this *NoBlockCipher) String() string {
+	return "NO_BLOCK_CIPHER"
+}
+
 type NoCipherMode struct {
 }
 
@@ -118,6 +127,10 @@ func (this *NoCipherMode) Encrypt(block cipher.Block, plaintext[]byte) ([]byte, 
 
 func (this *NoCipherMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byte, error) {
 	return ciphertext, nil
+}
+
+func (this *NoCipherMode) String() string {
+	return "NO_CIPHER_MODE"
 }
 
 type GCMCipherMode struct {
@@ -162,6 +175,10 @@ func (this *GCMCipherMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byt
 
 }
 
+func (this *GCMCipherMode) String() string {
+	return "GCM"
+}
+
 type CFBCipherMode struct {
 }
 
@@ -204,6 +221,10 @@ func (this *CFBCipherMode) Decrypt(block cipher.Block, ciphertext []byte) ([]byt
 	return plaintext, nil
 }
 
+func (this *CFBCipherMode) String() string {
+	return "CFB"
+}
+
 type AESBlockCipher struct {
 	keyLengthBits int
 }
@@ -218,5 +239,9 @@ func (this* AESBlockCipher) KeyLengthBits() int {
 
 func (this *AESBlockCipher) Create(key []byte) (cipher.Block, error) {
 	return aes.NewCipher(key)
+}
+
+func (this *AESBlockCipher) String() string {
+	return fmt.Sprintf("AES-%d", this.keyLengthBits)
 }
 
