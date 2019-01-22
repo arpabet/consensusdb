@@ -64,6 +64,10 @@ func (this*NoCompression) Decompress(input  []byte) (output []byte, err error) {
 	return input, nil
 }
 
+func (this *NoCompression) String() string {
+	return "NO_COMPRESSION"
+}
+
 //
 //  LZ4 Compressor
 //
@@ -99,6 +103,10 @@ func (this*LZ4Compressor) Decompress(input  []byte) (output []byte, err error) {
 
 	return ioutil.ReadAll(r)
 
+}
+
+func (this *LZ4Compressor) String() string {
+	return "LZ4"
 }
 
 //
@@ -139,6 +147,10 @@ func (this*LZ4HighCompressor) Decompress(input  []byte) (output []byte, err erro
 
 }
 
+func (this *LZ4HighCompressor) String() string {
+	return "LZ4_HIGH"
+}
+
 //
 //  Snappy Compressor
 //
@@ -156,4 +168,8 @@ func (this*SnappyCompressor) Compress(input []byte) (output []byte, err error) {
 
 func (this*SnappyCompressor) Decompress(input []byte) (output []byte, err error) {
 	return snappy.Decode(nil, input)
+}
+
+func (this *SnappyCompressor) String() string {
+	return "Snappy"
 }

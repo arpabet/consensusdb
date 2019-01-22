@@ -39,3 +39,29 @@ const (
 
 )
 
+func VerboseMetadata(metadata int32) string {
+
+	str := make([]byte, 0, 32)
+
+	if metadata & bitLZ4 > 0 {
+		str = append(str, 'L','Z','4', ';')
+	}
+
+	if metadata & bitSnappy > 0 {
+		str = append(str, 'S','n','a','p','p','y', ';')
+	}
+
+	if metadata & bitAES > 0 {
+		str = append(str, 'A','E','S', ';')
+	}
+
+	if metadata & bitGCM > 0 {
+		str = append(str, 'G','C','M', ';')
+	}
+
+	if metadata & bitCFB > 0 {
+		str = append(str, 'C','F','B', ';')
+	}
+
+	return string(str)
+}

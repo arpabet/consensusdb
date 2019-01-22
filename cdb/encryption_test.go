@@ -31,6 +31,12 @@ import (
 
 func TestEncryption(t *testing.T) {
 
+	input := make([]byte, 1000, 1000)
+
+	for i := 0; i < 1000; i = i+1 {
+		input[i] = byte(i)
+	}
+
 	keychain, err := NewPasswordbasedKeychain("test")
 
 	if err != nil {
@@ -47,6 +53,7 @@ func TestEncryption(t *testing.T) {
 		if err != nil {
 			t.Fatal("fail to get key", err)
 		}
+		defer key.clear()
 
 		block, err := c.Create(key)
 		if err != nil {
@@ -55,7 +62,10 @@ func TestEncryption(t *testing.T) {
 
 		for _, mode := range KnownCipherModes {
 
-			RunCipherTest(t, mode, block)
+			RunCipherTest(t, mode, block, []byte(""))
+			RunCipherTest(t, mode, block, []byte("a"))
+			RunCipherTest(t, mode, block, []byte("alex"))
+			RunCipherTest(t, mode, block, input)
 
 		}
 
@@ -64,9 +74,8 @@ func TestEncryption(t *testing.T) {
 
 }
 
-func RunCipherTest(t *testing.T, mode CipherMode, block cipher.Block) {
+func RunCipherTest(t *testing.T, mode CipherMode, block cipher.Block, original []byte) {
 
-	original := []byte("a")
 
 	plaintext := CopyOf(original)
 	ciphertext, err := mode.Encrypt(block, plaintext)

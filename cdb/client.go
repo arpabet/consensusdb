@@ -266,6 +266,7 @@ func PackValue(key Key, value []byte, compressor Compressor, cipher Cipher, ciph
 		if err != nil {
 			return output, err
 		}
+		defer blockKey.clear()
 		block, err := cipher.Create(blockKey)
 		if err != nil {
 			return output, err
@@ -284,10 +285,13 @@ func UnpackValue(key Key, value []byte, compressor Compressor, cipher Cipher, ci
 	output = value
 
 	if cipher != NO_ENCRYPTION && cipherMode != NO_ENCRYPTION_MODE {
+
 		blockKey, err := keychain.GetBlockKey(key.MajorKey(), key.Timestamp(), cipher.KeyLengthBits())
 		if err != nil {
 			return output, err
 		}
+		defer blockKey.clear()
+
 		block, err := cipher.Create(blockKey)
 		if err != nil {
 			return output, err

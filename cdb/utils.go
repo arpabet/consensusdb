@@ -139,6 +139,28 @@ func CountFilesInDir(dir, ext string) int {
 
 }
 
+func ReadAllKeys(blockC <-chan Block) []Key {
+
+	list := make([]Key, 0, 100)
+
+	for {
+		block, ok := <- blockC
+
+		if !ok {
+			break
+		}
+
+		for _, rec := range block {
+			list = append(list, rec.Key())
+		}
+
+	}
+
+	return list
+
+}
+
+
 func ReadAll(blockC <-chan Block) []Record {
 
 	list := make([]Record, 0, 100)
