@@ -37,6 +37,8 @@ import (
 	"time"
 	"runtime"
 	"go.uber.org/zap"
+	"io/ioutil"
+	"fmt"
 )
 
 var (
@@ -56,7 +58,7 @@ func run() error {
 
 	rand.Seed(time.Now().UnixNano())
 
-	log.Printf("Load configuration from %s\n", *yamlFile)
+	fmt.Printf("Load configuration from %s\n", *yamlFile)
 
 	conf, err := cserver.LoadConfiguration(*yamlFile)
 	if err != nil {
@@ -70,10 +72,10 @@ func run() error {
 		return err
 	}
 
-	log.Printf("GRPC Address: %s\n", conf.GrpcAddress)
+	fmt.Printf("GRPC Address: %s\n", conf.GrpcAddress)
 	go server.ServeGRPC()
 
-	log.Printf("HTTP Address: %s\n", conf.HttpAddress)
+	fmt.Printf("HTTP Address: %s\n", conf.HttpAddress)
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -95,7 +97,7 @@ func run() error {
 		}
 	}()
 
-	log.Println("Server is ready.")
+	fmt.Println("Server is ready.")
 
 	err = httpServer.ListenAndServe()
 	if err != nil {
@@ -106,11 +108,21 @@ func run() error {
 }
 
 func main() {
+	os.Exit(doMain())
+}
+
+func doMain() int {
+
+	log.SetOutput(ioutil.Discard)
+
 	flag.Parse()
 
 	if err := run(); err != nil {
-		log.Fatal(err)
+		fmt.Fprintf(os.Stderr, "Error executing run: %s\n", err.Error())
+		return 1
 	}
+
+	return 0
 }
 
 var welcomeTpl = template.Must(template.ParseFiles("templates/welcome.tmpl"))
