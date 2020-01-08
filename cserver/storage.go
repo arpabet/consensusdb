@@ -71,7 +71,7 @@ func OpenKeyValueStorage(conf *Configuration, log *zap.Logger) (context *KeyValu
 
 	context = &KeyValueStorageCtx{conf: conf, log: log}
 
-	opts := badger.DefaultOptions
+	opts := badger.DefaultOptions(conf.DataDir)
 	opts.Dir = conf.KeyDir
 	opts.ValueDir = conf.ValueDir
 	context.db, err = badger.Open(opts)
@@ -96,7 +96,7 @@ func FetchRecord(key *cserverpb.Key, item *badger.Item, headOnly bool) (*cserver
 
 	data, err := item.ValueCopy(nil)
 	if err != nil {
-		return nil, errors.Errorf("fetch value failed: ", err)
+		return nil, errors.Errorf("fetch value failed: %v", err)
 	}
 
 	return RecordFetched(key, item, data), nil
@@ -384,7 +384,7 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *cserverpb.RecordRequest) (*
 
 	data, err := item.ValueCopy(nil)
 	if err != nil {
-		return nil, errors.Errorf("fetch in touch error: ", err)
+		return nil, errors.Errorf("fetch in touch error: %v", err)
 	}
 
 	entry := &badger.Entry{ Key: entryKey, Value:data, UserMeta: item.UserMeta()  }
@@ -398,7 +398,7 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *cserverpb.RecordRequest) (*
 	err = txn.SetEntry(entry)
 
 	if err != nil {
-		return nil, errors.Errorf("update entry error: ", err)
+		return nil, errors.Errorf("update entry error: %v", err)
 	}
 
 	txn.Commit()
@@ -450,7 +450,7 @@ func (this *KeyValueStorageCtx) Put(recordRequest *cserverpb.RecordRequest) (*cs
 	err := txn.SetEntry(entry)
 
 	if err != nil {
-		return nil, errors.Errorf("update entry error: ", err)
+		return nil, errors.Errorf("update entry error: %v", err)
 	}
 
 	txn.Commit()
@@ -473,7 +473,7 @@ func (this *KeyValueStorageCtx) Remove(keyRequest *cserverpb.KeyRequest) (*cserv
 	err := txn.Delete(entryKey)
 
 	if err != nil {
-		return nil, errors.Errorf("delete entry error: ", err)
+		return nil, errors.Errorf("delete entry error: %v", err)
 	}
 
 	txn.Commit()
