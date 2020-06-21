@@ -199,7 +199,7 @@
 
 [[projects]]
   digest = "1:0af0a30d9220bbf6af1c2c36d8d4dbf6415e1096cb2cbb2d00a4e0449603335d"
-  name = "github.com/shvid/timeuuid"
+  name = "github.com/consensusdb/timeuuid"
   packages = ["."]
   pruneopts = "UT"
   revision = "87994d63a7dc53e7ed775b2d03bcea0f0d4544cf"
@@ -436,7 +436,7 @@
     "github.com/pierrec/lz4",
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus/promhttp",
-    "github.com/shvid/timeuuid",
+    "github.com/consensusdb/timeuuid",
     "go.uber.org/atomic",
     "go.uber.org/zap",
     "golang.org/x/net/context",

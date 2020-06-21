@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2018-present Alexander Shvid and Contributors
+ * Copyright 2020-present Arpabet, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@ import (
 	"bytes"
 	"reflect"
 	"crypto/cipher"
-	"github.com/shvid/timeuuid"
+	"github.com/consensusdb/timeuuid"
 	"time"
 	"math/rand"
 )

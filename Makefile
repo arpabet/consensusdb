@@ -8,7 +8,7 @@
 IMAGE := consensusdb
 VERSION := $(shell git describe --tags --always --dirty)
 TAG := $(VERSION)
-REGISTRY := shvid
+REGISTRY := arpabet
 PWD := $(shell pwd)
 
 all: run
