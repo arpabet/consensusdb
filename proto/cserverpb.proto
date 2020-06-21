@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2018-present Alexander Shvid and other authors
+ * Copyright 2020-present Arpabet Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,7 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
         contact: {
             name: "ConsensusDB";
             url: "https://github.com/consensusdb/consensusdb";
-            email: "alex@shvid.com";
+            email: "a@shvid.com";
         };
     };
     schemes: HTTP;

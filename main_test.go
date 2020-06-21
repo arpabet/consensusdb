@@ -1,6 +1,6 @@
 /*
  *
- * Copyright 2020-present Arpabet, Inc.
+ * Copyright 2020-present Arpabet Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -52,7 +52,7 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create keychain", err)
 	}
 
-	rootDir, err := ioutil.TempDir("/tmp", "consensusdb_test")
+	rootDir, err := ioutil.TempDir("tmp", "consensusdb_test")
 
 	if err != nil {
 		t.Fatal("fail to create tmp dir ", err)
