@@ -1,5 +1,5 @@
 #!/bin/bash
 
-protoc proto/*.proto -I proto --go_out=plugins=grpc:. --grpc-gateway_out=logtostderr=true,allow_delete_body=true:. --swagger_out=logtostderr=true,allow_delete_body=true:.
+protoc proto/*.proto -I proto -I third_party -I $GOPATH/src/github.com/protocolbuffers/protobuf/src --go_out=plugins=grpc:. --grpc-gateway_out=logtostderr=true,allow_delete_body=true:. --swagger_out=logtostderr=true,allow_delete_body=true:.
 
-cp cserverpb.swagger.json swagger-ui/
+mv cserverpb.swagger.json swagger-ui/
