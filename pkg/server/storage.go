@@ -79,6 +79,7 @@ func OpenKeyValueStorage(conf *Configuration, log *zap.Logger) (context *KeyValu
 		opts.TableLoadingMode = options.FileIO
 		opts.ValueLogLoadingMode = options.FileIO
 	}
+	opts.CompactL0OnClose = true
 	context.db, err = badger.Open(opts)
 	return context, err
 
