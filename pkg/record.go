@@ -16,33 +16,33 @@
  *
  */
 
-package cserver
+package pkg
 
 import (
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
+	"github.com/consensusdb/consensusdb/pkg/pb"
 	"github.com/dgraph-io/badger"
 )
 
-func RecordNotFound(key *cserverpb.Key) *cserverpb.Record {
-	return &cserverpb.Record {  Key: key }
+func RecordNotFound(key *pb.Key) *pb.Record {
+	return &pb.Record {  Key: key }
 }
 
-func RecordNotFetched(key *cserverpb.Key, item *badger.Item) *cserverpb.Record {
-	head := &cserverpb.Head{
+func RecordNotFetched(key *pb.Key, item *badger.Item) *pb.Record {
+	head := &pb.Head{
 		Version: item.Version(),
 		ExpiresAt:item.ExpiresAt(),
 		DiskSize: item.EstimatedSize(),
 		Metadata: int32(item.UserMeta()),
 	}
-	return &cserverpb.Record {  Key: key, Head: head }
+	return &pb.Record {  Key: key, Head: head }
 }
 
-func RecordFetched(key *cserverpb.Key, item *badger.Item, data []byte) *cserverpb.Record {
-	head := &cserverpb.Head{
+func RecordFetched(key *pb.Key, item *badger.Item, data []byte) *pb.Record {
+	head := &pb.Head{
 		Version: item.Version(),
 		ExpiresAt:item.ExpiresAt(),
 		DiskSize: item.EstimatedSize(),
 		Metadata: int32(item.UserMeta()),
 	}
-	return &cserverpb.Record {  Key: key, Head: head, Value: data }
+	return &pb.Record {  Key: key, Head: head, Value: data }
 }

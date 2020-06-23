@@ -21,7 +21,7 @@ package main_test
 import (
 	"testing"
 	"io/ioutil"
-	"github.com/consensusdb/consensusdb/cserver"
+	"github.com/consensusdb/consensusdb/pkg"
 	"time"
 	"github.com/consensusdb/consensusdb/cdb"
 	"os"
@@ -60,16 +60,16 @@ func TestSuit(t *testing.T) {
 
 	defer os.RemoveAll(rootDir)
 
-	conf, err := cserver.NewDefaultConfiguration(rootDir)
+	conf, err := pkg.NewDefaultConfiguration(rootDir)
 	if err != nil {
 		t.Fatal("fail to create configuration", err)
 	}
 
-	server, err := cserver.NewServer(conf)
+	server, err := pkg.NewServer(conf)
 	defer server.Close()
 
 	if err != nil {
-		t.Fatal("fail to create a cserver ", err)
+		t.Fatal("fail to create a pkg ", err)
 		return
 	}
 

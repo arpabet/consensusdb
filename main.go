@@ -28,8 +28,8 @@ import (
 	"path"
 	"strings"
 	"text/template"
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
-	"github.com/consensusdb/consensusdb/cserver"
+	"github.com/consensusdb/consensusdb/pkg/pb"
+	"github.com/consensusdb/consensusdb/pkg"
 	"os/signal"
 	"flag"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -60,14 +60,14 @@ func run() error {
 
 	fmt.Printf("Load configuration from %s\n", *yamlFile)
 
-	conf, err := cserver.LoadConfiguration(*yamlFile)
+	conf, err := pkg.LoadConfiguration(*yamlFile)
 	if err != nil {
 		return err
 	}
 
 	runtime.GOMAXPROCS(conf.NumCPU)
 
-	server, err := cserver.NewServer(conf)
+	server, err := pkg.NewServer(conf)
 	if err != nil {
 		return err
 	}
@@ -137,13 +137,13 @@ func serveSwagger(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, p)
 }
 
-func NewHttpServer(ctx context.Context, conf *cserver.Configuration) (*http.Server, error) {
+func NewHttpServer(ctx context.Context, conf *pkg.Configuration) (*http.Server, error) {
 
 	mux := http.NewServeMux()
 
 	gwKeyValue := rt.NewServeMux()
 	opts := []grpc.DialOption{grpc.WithInsecure()}
-	err := cserverpb.RegisterKeyValueServiceHandlerFromEndpoint(ctx, gwKeyValue, conf.GrpcAddress, opts)
+	err := pb.RegisterKeyValueServiceHandlerFromEndpoint(ctx, gwKeyValue, conf.GrpcAddress, opts)
 	if err != nil {
 		return nil, err
 	}

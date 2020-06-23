@@ -3,52 +3,64 @@
 ConsensusDB Database
 
 a (near-)linearly scalable shared-nothing database system that
-provides high availability, strong consistency, and full ACID
-transactions
+provides high availability without consistency and transactions
+
+primary purpose of this time-based database is immutable data storage for analytics
+
+multiple nodes can write in parallel on local disk, data replicated between nodes by subscription pointers, no leader elected
+no minimum nodes setup required, multi-datacenter support by own ssh keys from the list of known
+
+no partitioning of data, all nodes have full data copy, but own write-a-head log with subscribers
 
 # Description
 
-* gRPC interface for database clients
-* HTTP REST JSON interface for any clients
+* gRPC interface for database clients and nodes with common CA
+* HTTPS REST JSON interface for any clients with common CA
 * Engine - badger (similar to rocksdb, but faster)
 * Supports point-in-time data by TimeUUID
 * Supports compression: Snappy, LZ4
-* Supports encryption: AES on GCM, CFB
+* Supports encryption: AES on GCM, AES on CFB
+* Data storage is sealed by default, all payloads are encrypted
 * Very fast
+* Multi-tenant architecture
 * Pure golang implementation
 
 # Current Status
-* developing a simple one-node version
+* active developing
 
 # Design
 Data collocated by majorKey in data nodes, grouped by regionName to reference different types of data, accessible by minorKey and TimeUUID.
 All data records are ordered by majorKey/regionName/minorKey/TimeUUID(timestamp, counter)
+MajorKey points to the tenant, that how multi-tenant architecture is supported.
 
 # Best practices
-* Use userId in key.MajorKey, for example "accountNumber", "nickname", "email" or and other primary identifier.
-* Use table name in key.RegionName as upper case, for example "ACCOUNT", "PROFILE", "CHAT", "AUTH"
-* Use other userId in key.MinorKey with whom we record interraction or type of the event, for example "accountNum", "login", "def"
-* Create TimeUUID based on event content and timestamp (this approach is good for MDC)
+* Use userId in key.MajorKey, for example "accountNumber", "nickname", "incremental id" or other primary identifier in multi-tenant systems.
+* Use table name in key.RegionName in upper case, for example "ACCOUNT", "PROFILE", "CHAT", "AUTH".
+* Use other userId in key.MinorKey with whom we record interaction or type of the event, for example "accountNum", "login"
+* Create TimeUUID based on event content and timestamp for multi-datacenter support (MDC)
 * Store event with TimeUUID, store record without TimeUUID
 
 # Quick start
 
-### Dependencies
+Build, Run, Write Client
 
+### Prerequisites
+
+Checkout libs:
 ```
-go get "gopkg.in/yaml.v2"
-go get "github.com/pierrec/lz4"
-go get "github.com/golang/snappy"
-go get "google.golang.org/grpc"
-go get "github.com/grpc-ecosystem/grpc-gateway/runtime"
-go get "github.com/golang/protobuf/jsonpb"
+%GOPATH%\src\github.com\grpc-ecosystem\grpc-gateway v1.14.6
+%GOPATH%\src\github.com\protocolbuffers\protobuf v3.12.3
 ```
 
-Init submodules
-
+Install plugins:
 ```
-git submodule update --init --recursive
-rm -rf vendor/go.etcd.io/etcd/vendor/go.uber.org/zap/
+%GOPATH%\src\github.com\grpc-ecosystem\grpc-gateway\protoc-gen-grpc-gateway>go install
+%GOPATH%\src\github.com\grpc-ecosystem\grpc-gateway\protoc-gen-swagger>go install
+```
+
+Generate GRPC stubs from protos: 
+```
+genproto.bat
 ```
 
 ### Build

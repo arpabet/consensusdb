@@ -16,14 +16,14 @@
  *
  */
 
-package cserver
+package pkg
 
 import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"log"
 	"net"
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
+	"github.com/consensusdb/consensusdb/pkg/pb"
 	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"path"
@@ -92,70 +92,70 @@ func NewServer(conf *Configuration) (server *DefaultServer, err error) {
 //
 // Gets exact match entry
 //
-func (this *DefaultServer) Get(ctx context.Context, keyRequest *cserverpb.KeyRequest) (*cserverpb.Record, error) {
+func (this *DefaultServer) Get(ctx context.Context, keyRequest *pb.KeyRequest) (*pb.Record, error) {
 	return this.kv.Get(keyRequest)
 }
 
 //
 // Gets early or equal timestamp entry
 //
-func (this *DefaultServer) GetRecent(ctx context.Context, keyRequest *cserverpb.KeyRequest) (*cserverpb.Record, error) {
+func (this *DefaultServer) GetRecent(ctx context.Context, keyRequest *pb.KeyRequest) (*pb.Record, error) {
 	return this.kv.GetRecent(keyRequest)
 }
 
 //
 // Gets range of timestamps inside a row
 //
-func (this *DefaultServer) GetRange(ctx context.Context, rangeRequest *cserverpb.RangeRequest) (*cserverpb.Block, error) {
+func (this *DefaultServer) GetRange(ctx context.Context, rangeRequest *pb.RangeRequest) (*pb.Block, error) {
 	return this.kv.GetRange(rangeRequest)
 }
 
 //
 // Gets the whole raw of records with all available timestamps with latest versions
 //
-func (this *DefaultServer) GetRow(keyRequest *cserverpb.KeyRequest, response cserverpb.KeyValueService_GetRowServer) error {
+func (this *DefaultServer) GetRow(keyRequest *pb.KeyRequest, response pb.KeyValueService_GetRowServer) error {
 	return this.kv.GetArea(keyRequest, MinorKeyField, response)
 }
 
 //
 // Gets the whole region of records
 //
-func (this *DefaultServer) GetRegion(keyRequest *cserverpb.KeyRequest, response cserverpb.KeyValueService_GetRegionServer) error {
+func (this *DefaultServer) GetRegion(keyRequest *pb.KeyRequest, response pb.KeyValueService_GetRegionServer) error {
 	return this.kv.GetArea(keyRequest, RegionNameField, response)
 }
 
 //
 // Gets the whole space of records associated with majorKey
 //
-func (this *DefaultServer) GetSpace(keyRequest *cserverpb.KeyRequest, response cserverpb.KeyValueService_GetSpaceServer) error {
+func (this *DefaultServer) GetSpace(keyRequest *pb.KeyRequest, response pb.KeyValueService_GetSpaceServer) error {
 	return this.kv.GetArea(keyRequest, MajorKeyField, response)
 }
 
 //
 // Gets all records
 //
-func (this *DefaultServer) Scan(scanRequest *cserverpb.ScanRequest, response cserverpb.KeyValueService_ScanServer) error {
+func (this *DefaultServer) Scan(scanRequest *pb.ScanRequest, response pb.KeyValueService_ScanServer) error {
 	return this.kv.Scan(scanRequest, response)
 }
 
 //
 // Touches the record
 //
-func (this *DefaultServer) Touch(ctx context.Context,  recordRequest *cserverpb.RecordRequest) (*cserverpb.Status, error) {
+func (this *DefaultServer) Touch(ctx context.Context,  recordRequest *pb.RecordRequest) (*pb.Status, error) {
 	return this.kv.Touch(recordRequest)
 }
 
 //
 // Puts the record
 //
-func (this *DefaultServer) Put(ctx context.Context, recordRequest *cserverpb.RecordRequest) (*cserverpb.Status, error) {
+func (this *DefaultServer) Put(ctx context.Context, recordRequest *pb.RecordRequest) (*pb.Status, error) {
 	return this.kv.Put(recordRequest)
 }
 
 //
 // Remove the record
 //
-func (this *DefaultServer) Remove(ctx context.Context, keyRequest *cserverpb.KeyRequest) (*cserverpb.Status, error) {
+func (this *DefaultServer) Remove(ctx context.Context, keyRequest *pb.KeyRequest) (*pb.Status, error) {
 	return this.kv.Remove(keyRequest)
 }
 
@@ -169,11 +169,11 @@ func (this *DefaultServer) ServeGRPC() error {
 		return err
 	}
 
-	// Create new grpc cserver
+	// Create new grpc pkg
 	this.grpcServer = grpc.NewServer()
 
 	// Register services
-	cserverpb.RegisterKeyValueServiceServer(this.grpcServer, this)
+	pb.RegisterKeyValueServiceServer(this.grpcServer, this)
 
 	// Start serving requests
 	return this.grpcServer.Serve(listen)

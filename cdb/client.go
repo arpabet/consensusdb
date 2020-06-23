@@ -20,7 +20,7 @@
 package cdb
 
 import (
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
+	"github.com/consensusdb/consensusdb/pkg/pb"
 	"google.golang.org/grpc"
 	"io"
 	"context"
@@ -47,7 +47,7 @@ type Status interface {
 }
 
 type StatusResponse struct {
-	status  *cserverpb.Status
+	status  *pb.Status
 }
 
 func (t StatusResponse) Updated() bool {
@@ -72,7 +72,7 @@ type Key interface {
 	MinorKey()   []byte
 	Timestamp()  timeuuid.UUID
 
-	toProto()  *cserverpb.Key
+	toProto()  *pb.Key
 
 }
 
@@ -95,8 +95,8 @@ func (t EmptyKey) Timestamp()  timeuuid.UUID {
 	return timeuuid.Empty
 }
 
-func (t EmptyKey) toProto()  *cserverpb.Key {
-	return new(cserverpb.Key)
+func (t EmptyKey) toProto()  *pb.Key {
+	return new(pb.Key)
 }
 
 func (t EmptyKey) String() string {
@@ -141,7 +141,7 @@ func (t EmptyHead) String() string {
 }
 
 type HeadResponse struct {
-	head   *cserverpb.Head
+	head   *pb.Head
 }
 
 func (t HeadResponse) Version() uint64 {
@@ -221,7 +221,7 @@ func (t RecordResponse) String() string {
 	return fmt.Sprint(t.key, "=value[", len(t.value), "] (", t.head, ")")
 }
 
-func ParseRecord(record *cserverpb.Record, keychain Keychain) (rec Record, err error) {
+func ParseRecord(record *pb.Record, keychain Keychain) (rec Record, err error) {
 
 	var key Key
 
@@ -352,7 +352,7 @@ func DecodeMetadata(metadata int32) (Compressor, Cipher, CipherMode) {
  type Block []Record
 
 
- func ParseBlock(block *cserverpb.Block, keychain Keychain) (Block, error) {
+ func ParseBlock(block *pb.Block, keychain Keychain) (Block, error) {
 
  	if block.Record != nil {
 
@@ -401,7 +401,7 @@ type Client interface {
 
 type DefaultClient struct {
 	conn               *grpc.ClientConn
-	kvService 		   cserverpb.KeyValueServiceClient
+	kvService 		   pb.KeyValueServiceClient
 	keychain           Keychain
 }
 
@@ -420,7 +420,7 @@ func NewClient(grpcAddress string, keychain Keychain) (*DefaultClient, error) {
 		return nil, err
 	}
 
-	var cli = &DefaultClient{conn, cserverpb.NewKeyValueServiceClient(conn), keychain}
+	var cli = &DefaultClient{conn, pb.NewKeyValueServiceClient(conn), keychain}
 	return cli, nil
 }
 
@@ -450,7 +450,7 @@ func (cli *DefaultClient) GetRange(builder RangeRequestBuilder) (Block, error) {
 
 type blockReceiver interface {
 
-	Recv() (*cserverpb.Block, error)
+	Recv() (*pb.Block, error)
 
 }
 
