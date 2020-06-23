@@ -20,8 +20,8 @@ package server
 
 import (
 	"github.com/consensusdb/consensusdb/pkg/pb"
-	"github.com/dgraph-io/badger"
-	"github.com/dgraph-io/badger/options"
+	badger "github.com/dgraph-io/badger/v2"
+	"github.com/dgraph-io/badger/v2/options"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"time"

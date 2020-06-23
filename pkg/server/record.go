@@ -20,7 +20,7 @@ package server
 
 import (
 	"github.com/consensusdb/consensusdb/pkg/pb"
-	"github.com/dgraph-io/badger"
+	badger "github.com/dgraph-io/badger/v2"
 )
 
 func RecordNotFound(key *pb.Key) *pb.Record {
