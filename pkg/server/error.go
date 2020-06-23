@@ -16,7 +16,7 @@
  *
  */
 
-package pkg
+package server
 
 import "github.com/pkg/errors"
 

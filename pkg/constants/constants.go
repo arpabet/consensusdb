@@ -16,33 +16,10 @@
  *
  */
 
-package main
+package constants
 
-import (
-	"github.com/consensusdb/consensusdb/cmd"
-	"github.com/consensusdb/consensusdb/pkg/constants"
-	"log"
-	"math/rand"
-	"os"
-	"time"
-)
+var ApplicationName = "consensusdb"
 
-var (
-	Version   string
-	Built     string
-)
+var Copyright = "(c) Arpabet Inc. 2020. All Rights Reserved."
 
-func main() {
 
-	constants.ParseFlags()
-
-	log.SetPrefix(constants.ApplicationName + ": ")
-	log.SetFlags(0)
-
-	rand.Seed(time.Now().UnixNano())
-
-	constants.SetAppInfo(Version, Built)
-
-	os.Exit(cmd.Run(os.Args[1:]))
-
-}

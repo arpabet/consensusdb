@@ -16,14 +16,14 @@
  *
  */
 
-package pkg
+package server
 
 import (
-	"testing"
-	"github.com/consensusdb/consensusdb/pkg/pb"
 	"fmt"
+	"github.com/consensusdb/consensusdb/pkg/pb"
 	"github.com/consensusdb/timeuuid"
 	"math/rand"
+	"testing"
 	"time"
 )
 

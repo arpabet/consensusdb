@@ -16,33 +16,25 @@
  *
  */
 
-package main
+package cmd
 
 import (
-	"github.com/consensusdb/consensusdb/cmd"
+	"fmt"
 	"github.com/consensusdb/consensusdb/pkg/constants"
-	"log"
-	"math/rand"
-	"os"
-	"time"
 )
 
-var (
-	Version   string
-	Built     string
-)
 
-func main() {
+type versionCommand struct {
+}
 
-	constants.ParseFlags()
+func (t *versionCommand) Desc() string {
+	return "show version"
+}
 
-	log.SetPrefix(constants.ApplicationName + ": ")
-	log.SetFlags(0)
+func (t *versionCommand) Run(args []string) error {
 
-	rand.Seed(time.Now().UnixNano())
-
-	constants.SetAppInfo(Version, Built)
-
-	os.Exit(cmd.Run(os.Args[1:]))
-
+	appInfo := constants.GetAppInfo()
+	fmt.Printf("ConsensusDB [Version %s, Build %s]\n", appInfo.Version, appInfo.Build)
+	fmt.Printf("%s\n", constants.Copyright)
+	return nil
 }

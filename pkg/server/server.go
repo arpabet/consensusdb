@@ -16,25 +16,25 @@
  *
  */
 
-package pkg
+package server
 
 import (
+	"github.com/consensusdb/consensusdb/pkg/pb"
+	"go.uber.org/atomic"
+	"go.uber.org/zap"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"log"
 	"net"
-	"github.com/consensusdb/consensusdb/pkg/pb"
-	"go.uber.org/atomic"
-	"go.uber.org/zap"
 	"path"
 )
 
 type DefaultServer struct {
 
-	grpcServer       *grpc.Server
-	conf             *Configuration
-	log              *zap.Logger
-	kv               KeyValueStorage
+	grpcServer *grpc.Server
+	conf       *Configuration
+	log        *zap.Logger
+	kv         KeyValueStorage
 
 	shuttingDown     atomic.Bool
 

@@ -17,7 +17,7 @@
  */
 
 
-package pkg
+package server
 
 import (
 	"gopkg.in/yaml.v2"
@@ -46,6 +46,8 @@ type Configuration struct {
 	WalDir                 string
 	SnapDir                string
 	LogDir                 string
+
+	FileIO                 bool    `yaml:"fileIO"`
 
 	NumCPU				   int     `yaml:"numCPU"`    // use all of <= 0
 
@@ -79,6 +81,7 @@ func NewDefaultConfiguration(dataDir string) (conf *Configuration, err error) {
 	conf.GrpcPort = 8442
 
 	conf.DataDir = dataDir
+	conf.FileIO = true
 
 	err = initialize(conf)
 	return conf, err

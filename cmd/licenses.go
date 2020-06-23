@@ -16,33 +16,24 @@
  *
  */
 
-package main
+package cmd
 
 import (
-	"github.com/consensusdb/consensusdb/cmd"
 	"github.com/consensusdb/consensusdb/pkg/constants"
-	"log"
-	"math/rand"
-	"os"
-	"time"
 )
 
-var (
-	Version   string
-	Built     string
-)
 
-func main() {
-
-	constants.ParseFlags()
-
-	log.SetPrefix(constants.ApplicationName + ": ")
-	log.SetFlags(0)
-
-	rand.Seed(time.Now().UnixNano())
-
-	constants.SetAppInfo(Version, Built)
-
-	os.Exit(cmd.Run(os.Args[1:]))
+type licensesCommand struct {
 
 }
+func (t *licensesCommand) Desc() string {
+	return "show all licenses"
+}
+
+func (t *licensesCommand) Run(args []string) error {
+	print(constants.GetLicenses())
+	return nil
+}
+
+
+
