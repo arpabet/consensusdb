@@ -18,6 +18,11 @@
 
 package cmd
 
+import (
+	"fmt"
+	"github.com/consensusdb/consensusdb/pkg/util"
+	"strings"
+)
 
 type unsealCommand struct {
 }
@@ -28,6 +33,15 @@ func (t *unsealCommand) Desc() string {
 
 func (t *unsealCommand) Run(args []string) error {
 
-	println("unseal")
+	value := util.PromptPassword("Enter master key: ")
+	value = strings.TrimSpace(value)
+
+	key, err := util.ParseMasterKey(value)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("master key = %v\n", key)
+
 	return nil
 }

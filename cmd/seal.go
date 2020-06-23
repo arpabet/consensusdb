@@ -18,16 +18,23 @@
 
 package cmd
 
+import (
+	"github.com/consensusdb/consensusdb/pkg/util"
+)
 
 type sealCommand struct {
 }
 
 func (t *sealCommand) Desc() string {
-	return "seal database"
+	return "generate master key for database"
 }
 
 func (t *sealCommand) Run(args []string) error {
-
-	println("seal")
-	return nil
+	println("Generated master key:")
+	if key, err := util.GenerateMasterKey(); err == nil {
+		println(key)
+		return nil
+	} else {
+		return err
+	}
 }
