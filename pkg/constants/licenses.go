@@ -19,12 +19,12 @@
 package constants
 
 import (
-	"github.com/consensusdb/consensusdb/pkg/res"
+	"github.com/consensusdb/consensusdb/pkg/resources"
 	"strings"
 )
 
 func GetLicenses() string {
-	if content, err := res.Asset("licenses.txt"); err == nil {
+	if content, err := resources.Asset("licenses.txt"); err == nil {
 		return filterLines(string(content), ApplicationName)
 	}
 	return ""

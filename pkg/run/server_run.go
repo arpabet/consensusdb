@@ -21,8 +21,10 @@ package run
 import (
 	"fmt"
 	"github.com/consensusdb/consensusdb/pkg/constants"
+	"github.com/consensusdb/consensusdb/pkg/swagger"
 	"github.com/consensusdb/consensusdb/pkg/pb"
-	server2 "github.com/consensusdb/consensusdb/pkg/server"
+	srv "github.com/consensusdb/consensusdb/pkg/server"
+	"github.com/consensusdb/consensusdb/pkg/util"
 	rt "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
@@ -34,7 +36,6 @@ import (
 	"path"
 	"runtime"
 	"strings"
-	"text/template"
 )
 
 
@@ -52,14 +53,14 @@ func ServerRun() error {
 
 	fmt.Printf("Load configuration from %s\n", yamlFile)
 
-	conf, err := server2.LoadConfiguration(yamlFile)
+	conf, err := srv.LoadConfiguration(yamlFile)
 	if err != nil {
 		return err
 	}
 
 	runtime.GOMAXPROCS(conf.NumCPU)
 
-	server, err := server2.NewServer(conf)
+	server, err := srv.NewServer(conf)
 	if err != nil {
 		return err
 	}
@@ -99,7 +100,7 @@ func ServerRun() error {
 	return nil
 }
 
-var welcomeTpl = template.Must(template.ParseFiles("templates/welcome.tmpl"))
+var welcomeTpl = util.MustAssetTemplate("templates/welcome.tmpl")
 
 func serveWelcome(w http.ResponseWriter, r *http.Request) {
 	welcomeTpl.Execute(w, r)
@@ -107,11 +108,11 @@ func serveWelcome(w http.ResponseWriter, r *http.Request) {
 
 func serveSwagger(w http.ResponseWriter, r *http.Request) {
 	p := strings.TrimPrefix(r.URL.Path, "/swagger/")
-	p = path.Join("swagger-ui/", p)
+	p = path.Join("swagger/", p)
 	http.ServeFile(w, r, p)
 }
 
-func NewHttpServer(ctx context.Context, conf *server2.Configuration) (*http.Server, error) {
+func NewHttpServer(ctx context.Context, conf *srv.Configuration) (*http.Server, error) {
 
 	mux := http.NewServeMux()
 
@@ -122,7 +123,8 @@ func NewHttpServer(ctx context.Context, conf *server2.Configuration) (*http.Serv
 		return nil, err
 	}
 	mux.Handle("/v1/kv", gwKeyValue)
-	mux.HandleFunc("/swagger/", serveSwagger)
+	mux.Handle("/swagger/", util.GzipHandler(http.FileServer(swagger.AssetFile())))
+	//mux.HandleFunc("/swagger/", serveSwagger)
 	mux.HandleFunc("/", serveWelcome)
 	mux.Handle("/metrics", promhttp.Handler())
 
