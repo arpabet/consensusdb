@@ -25,6 +25,7 @@ require (
 	github.com/frankban/quicktest v1.9.0 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible
 	github.com/prometheus/client_golang v1.7.0
+	golang.org/x/crypto v0.0.0-20190510104115-cbcb75029529
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	google.golang.org/genproto v0.0.0-20200513103714-09dca8ec2884
 	google.golang.org/protobuf v1.23.0

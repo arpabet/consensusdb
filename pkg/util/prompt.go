@@ -16,14 +16,34 @@
  *
  */
 
-package constants
+package util
 
-import "encoding/base64"
+import (
+	"bufio"
+	"os"
+	"strings"
+	"syscall"
+	"golang.org/x/crypto/ssh/terminal"
+)
 
-var ApplicationName = "consensusdb"
+func Prompt(request string) string {
+	reader := bufio.NewReader(os.Stdin)
+	print(request)
+	text, _ := reader.ReadString('\n')
+	return strings.TrimSpace(text)
+}
 
-var Copyright = "(c) Arpabet Inc. 2020. All Rights Reserved."
+func PromptPassword(request string) string {
+	print(request)
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	if err == nil {
+		println()
+		password := string(bytePassword)
+		return strings.TrimSpace(password)
+	} else {
+		reader := bufio.NewReader(os.Stdin)
+		text, _ := reader.ReadString('\n')
+		return strings.TrimSpace(text)
+	}
+}
 
-var KeySize = 32  // 256-bit AES key
-
-var Encoding = base64.RawURLEncoding
