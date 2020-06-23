@@ -16,33 +16,18 @@
  *
  */
 
-package main
+package cmd
 
-import (
-	"github.com/consensusdb/consensusdb/cmd"
-	"github.com/consensusdb/consensusdb/pkg/constants"
-	"log"
-	"math/rand"
-	"os"
-	"time"
-)
 
-var (
-	Version   string
-	Built     string
-)
+type sealCommand struct {
+}
 
-func main() {
+func (t *sealCommand) Desc() string {
+	return "seal database"
+}
 
-	constants.ParseFlags()
+func (t *sealCommand) Run(args []string) error {
 
-	log.SetPrefix(constants.ApplicationName + ": ")
-	log.SetFlags(0)
-
-	rand.Seed(time.Now().UnixNano())
-
-	constants.SetAppInfo(Version, Built)
-
-	os.Exit(cmd.Run(os.Args[1:]))
-
+	println("seal")
+	return nil
 }

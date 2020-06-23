@@ -16,33 +16,10 @@
  *
  */
 
-package main
+package util
 
-import (
-	"github.com/consensusdb/consensusdb/cmd"
-	"github.com/consensusdb/consensusdb/pkg/constants"
-	"log"
-	"math/rand"
-	"os"
-	"time"
-)
+func IsMmapAvailable() {
 
-var (
-	Version   string
-	Built     string
-)
 
-func main() {
-
-	constants.ParseFlags()
-
-	log.SetPrefix(constants.ApplicationName + ": ")
-	log.SetFlags(0)
-
-	rand.Seed(time.Now().UnixNano())
-
-	constants.SetAppInfo(Version, Built)
-
-	os.Exit(cmd.Run(os.Args[1:]))
 
 }

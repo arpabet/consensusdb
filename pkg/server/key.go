@@ -16,15 +16,15 @@
  *
  */
 
-package pkg
+package server
 
 import (
-	"encoding/binary"
 	"bytes"
+	"encoding/binary"
+	"github.com/consensusdb/consensusdb/cdb"
 	"github.com/consensusdb/consensusdb/pkg/pb"
 	"github.com/consensusdb/timeuuid"
 	"github.com/pkg/errors"
-	"github.com/consensusdb/consensusdb/cdb"
 )
 
 

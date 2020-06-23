@@ -10,15 +10,19 @@ VERSION := $(shell git describe --tags --always --dirty)
 TAG := $(VERSION)
 REGISTRY := arpabet
 PWD := $(shell pwd)
+NOW := $(shell date +"%m-%d-%Y")
 
 all: run
 
 version:
 	@echo $(TAG)
 
+bindata:
+	go-bindata -pkg res -o pkg/res/bindata.go -nocompress -nomemcopy -prefix "resources/" resources/...
+
 build: version
 	go test -cover ./...
-	go build
+	go build  -v -ldflags "-X main.Version=$(VERSION) -X main.Built=$(NOW)"
 
 run: build
 	env COS=dev ./consensusdb
@@ -37,3 +41,5 @@ docker-push: docker
 	docker tag ${REGISTRY}/${IMAGE}:${TAG} ${REGISTRY}/${IMAGE}:latest
 	docker push ${REGISTRY}/${IMAGE}:latest
 
+licenses:
+	go-licenses csv "github.com/consensusdb/consensusdb" > resources/licenses.txt

@@ -16,11 +16,12 @@
  *
  */
 
-package pkg
+package server
 
 import (
-	"github.com/dgraph-io/badger"
 	"github.com/consensusdb/consensusdb/pkg/pb"
+	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/options"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"time"
@@ -74,8 +75,11 @@ func OpenKeyValueStorage(conf *Configuration, log *zap.Logger) (context *KeyValu
 	opts := badger.DefaultOptions(conf.DataDir)
 	opts.Dir = conf.KeyDir
 	opts.ValueDir = conf.ValueDir
+	if conf.FileIO {
+		opts.TableLoadingMode = options.FileIO
+		opts.ValueLogLoadingMode = options.FileIO
+	}
 	context.db, err = badger.Open(opts)
-
 	return context, err
 
 }

@@ -16,33 +16,19 @@
  *
  */
 
-package main
+package constants
 
-import (
-	"github.com/consensusdb/consensusdb/cmd"
-	"github.com/consensusdb/consensusdb/pkg/constants"
-	"log"
-	"math/rand"
-	"os"
-	"time"
-)
+import "flag"
 
 var (
-	Version   string
-	Built     string
+	yamlFile = flag.String("conf", "consensus.yaml", "Yaml file for initialization")
 )
 
-func main() {
-
-	constants.ParseFlags()
-
-	log.SetPrefix(constants.ApplicationName + ": ")
-	log.SetFlags(0)
-
-	rand.Seed(time.Now().UnixNano())
-
-	constants.SetAppInfo(Version, Built)
-
-	os.Exit(cmd.Run(os.Args[1:]))
-
+func ParseFlags() {
+	flag.Parse()
 }
+
+func GetConfigFile() string {
+	return *yamlFile
+}
+

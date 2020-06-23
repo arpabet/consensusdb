@@ -46,6 +46,11 @@ Build, Run, Write Client
 
 ### Prerequisites
 
+Install tools:
+```
+go get github.com/google/go-licenses
+```
+
 Checkout libs:
 ```
 %GOPATH%\src\github.com\grpc-ecosystem\grpc-gateway v1.14.6
