@@ -20,9 +20,9 @@ syntax = "proto3";
 
 import "google/api/annotations.proto";
 
-option go_package = "cserver/cserverpb";
+option go_package = "pkg/pb";
 option java_multiple_files = true;
-option java_package = "io.github.consensusdb";
+option java_package = "com.consensusdb";
 option java_outer_classname = "CdbProtos";
 option objc_class_prefix = "CDB";
 
@@ -35,7 +35,7 @@ option (grpc.gateway.protoc_gen_swagger.options.openapiv2_swagger) = {
         contact: {
             name: "ConsensusDB";
             url: "https://github.com/consensusdb/consensusdb";
-            email: "a@shvid.com";
+            email: "alex@consensusdb.com";
         };
     };
     schemes: HTTP;

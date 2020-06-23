@@ -20,7 +20,7 @@ package cdb
 
 import (
 	"math"
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
+	"github.com/consensusdb/consensusdb/pkg/pb"
 	"github.com/consensusdb/timeuuid"
 	"math/rand"
 	"fmt"
@@ -33,11 +33,11 @@ import (
  */
 
 type KeyBuilder struct {
-	key *cserverpb.Key
+	key *pb.Key
 }
 
 func NewKey() KeyBuilder {
-	return KeyBuilder { key: &cserverpb.Key{} }
+	return KeyBuilder { key: &pb.Key{} }
 }
 
 func (t KeyBuilder) WithMajorKey(majorKey string) KeyBuilder {
@@ -99,7 +99,7 @@ func (t KeyBuilder) WithRandTimestamp(timestampMillis int64) KeyBuilder {
 	uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
 	uuid.SetUnixTimeMillis(timestampMillis)
 	uuid.SetCounter(rand.Int63())
-	t.key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
+	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
 	return t;
 }
 
@@ -113,12 +113,12 @@ func (t KeyBuilder) WithNamedTimestamp(name []byte, timestampMillis int64) KeyBu
 	uuid, _ := timeuuid.NameUUIDFromBytes(name, timeuuid.NamebasedVer5)
 	// it will override uuid to Time-based UUID
 	uuid.SetUnixTimeMillis(timestampMillis)
-	t.key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
+	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
 	return t;
 }
 
 func (t KeyBuilder) WithTimestamp(uuid timeuuid.UUID) KeyBuilder {
-	t.key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
+	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
 	return t;
 }
 
@@ -128,7 +128,7 @@ func (t KeyBuilder) WithMinTimestamp() KeyBuilder {
 	uuidMin.SetTime100NanosUnsigned(0)
 	uuidMin.SetMinCounter()
 
-	t.key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: uuidMin.MostSignificantBits(), LeastSigBits: uuidMin.LeastSignificantBits() }
+	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: uuidMin.MostSignificantBits(), LeastSigBits: uuidMin.LeastSignificantBits() }
 	return t;
 }
 
@@ -138,7 +138,7 @@ func (t KeyBuilder) WithMaxTimestamp() KeyBuilder {
 	uuidMax.SetTime100NanosUnsigned(math.MaxUint64)
 	uuidMax.SetMaxCounter()
 
-	t.key.Timestamp = &cserverpb.TimeUUID{ MostSigBits: uuidMax.MostSignificantBits(), LeastSigBits: uuidMax.LeastSignificantBits() }
+	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: uuidMax.MostSignificantBits(), LeastSigBits: uuidMax.LeastSignificantBits() }
 	return t;
 }
 
@@ -151,7 +151,7 @@ func (t KeyBuilder) Timestamp() timeuuid.UUID {
 	return GetTimeUUID(t.key)
 }
 
-func GetTimeUUID(key *cserverpb.Key) timeuuid.UUID {
+func GetTimeUUID(key *pb.Key) timeuuid.UUID {
 	if key.Timestamp != nil {
 		return timeuuid.CreateUUID(key.Timestamp.MostSigBits, key.Timestamp.LeastSigBits)
 	} else {
@@ -163,7 +163,7 @@ func (t KeyBuilder) Build() Key {
 	return t
 }
 
-func (t KeyBuilder) toProto() *cserverpb.Key {
+func (t KeyBuilder) toProto() *pb.Key {
 	return t.key
 }
 
@@ -172,11 +172,11 @@ func (t KeyBuilder) toProto() *cserverpb.Key {
  */
 
 type KeyRequestBuilder struct {
-	request *cserverpb.KeyRequest
+	request *pb.KeyRequest
 }
 
 func NewRequest(key Key) KeyRequestBuilder {
-	return KeyRequestBuilder { request: &cserverpb.KeyRequest{ Key: key.toProto() } }
+	return KeyRequestBuilder { request: &pb.KeyRequest{ Key: key.toProto() } }
 }
 
 func (t KeyRequestBuilder) HeadOnly() KeyRequestBuilder {
@@ -192,7 +192,7 @@ func (t KeyRequestBuilder) WithTimeout(timeout int) KeyRequestBuilder {
 	return t;
 }
 
-func (t KeyRequestBuilder) build() *cserverpb.KeyRequest {
+func (t KeyRequestBuilder) build() *pb.KeyRequest {
 	return t.request;
 }
 
@@ -201,11 +201,11 @@ func (t KeyRequestBuilder) build() *cserverpb.KeyRequest {
  */
 
 type RangeRequestBuilder struct {
-	request *cserverpb.RangeRequest
+	request *pb.RangeRequest
 }
 
 func NewRangeRequest(key Key) RangeRequestBuilder {
-	return RangeRequestBuilder { request: &cserverpb.RangeRequest{ Key: key.toProto(), Type: cserverpb.RangeType_LESS_OR_EQUAL, NumRecords: 1 } }
+	return RangeRequestBuilder { request: &pb.RangeRequest{ Key: key.toProto(), Type: pb.RangeType_LESS_OR_EQUAL, NumRecords: 1 } }
 }
 
 func (t RangeRequestBuilder) WithNumRecords(numRecords int) RangeRequestBuilder {
@@ -229,7 +229,7 @@ func (t RangeRequestBuilder) WithTimeout(timeout int) RangeRequestBuilder {
 	return t;
 }
 
-func (t RangeRequestBuilder) build() *cserverpb.RangeRequest {
+func (t RangeRequestBuilder) build() *pb.RangeRequest {
 	return t.request;
 }
 
@@ -238,11 +238,11 @@ func (t RangeRequestBuilder) build() *cserverpb.RangeRequest {
  */
 
 type ScanRequestBuilder struct {
-	request  *cserverpb.ScanRequest
+	request  *pb.ScanRequest
 }
 
 func NewScanRequest() ScanRequestBuilder {
-	return ScanRequestBuilder{ request: &cserverpb.ScanRequest{} }
+	return ScanRequestBuilder{ request: &pb.ScanRequest{} }
 }
 
 func (t ScanRequestBuilder) HeadOnly() ScanRequestBuilder {
@@ -250,7 +250,7 @@ func (t ScanRequestBuilder) HeadOnly() ScanRequestBuilder {
 	return t;
 }
 
-func (t ScanRequestBuilder) build() *cserverpb.ScanRequest {
+func (t ScanRequestBuilder) build() *pb.ScanRequest {
 	return t.request;
 }
 
@@ -260,7 +260,7 @@ func (t ScanRequestBuilder) build() *cserverpb.ScanRequest {
 
 type RecordRequestBuilder struct {
 	key         Key
-	request     *cserverpb.RecordRequest
+	request     *pb.RecordRequest
 	compressor  Compressor
 	cipher      Cipher
 	cipherMode  CipherMode
@@ -271,7 +271,7 @@ type RecordRequestBuilder struct {
 func NewRecord(key Key, value []byte) RecordRequestBuilder {
 	return RecordRequestBuilder {
 		key:        key,
-		request: 	&cserverpb.RecordRequest{ Key: key.toProto(), Metadata: 0 },
+		request: 	&pb.RecordRequest{ Key: key.toProto(), Metadata: 0 },
 		compressor: NO_COMPRESSION,
 		cipher: 	NO_ENCRYPTION,
 		cipherMode: NO_ENCRYPTION_MODE,
@@ -346,7 +346,7 @@ func (t RecordRequestBuilder) WithTimeout(timeout int) RecordRequestBuilder {
 	return t;
 }
 
-func (t RecordRequestBuilder) build(keychain Keychain) (*cserverpb.RecordRequest, error) {
+func (t RecordRequestBuilder) build(keychain Keychain) (*pb.RecordRequest, error) {
 
 	// override t.value
 	if t.pb != nil && len(t.value) == 0 {

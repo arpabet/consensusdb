@@ -16,11 +16,11 @@
  *
  */
 
-package cserver
+package pkg
 
 import (
 	"github.com/dgraph-io/badger"
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
+	"github.com/consensusdb/consensusdb/pkg/pb"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"time"
@@ -33,27 +33,27 @@ const (
 
 type BlockSender interface {
 
-	Send(*cserverpb.Block) error
+	Send(*pb.Block) error
 
 }
 
 type KeyValueStorage interface {
 
-	Get(keyRequest *cserverpb.KeyRequest) (*cserverpb.Record, error);
+	Get(keyRequest *pb.KeyRequest) (*pb.Record, error);
 
-	GetRecent(keyRequest *cserverpb.KeyRequest) (*cserverpb.Record, error);
+	GetRecent(keyRequest *pb.KeyRequest) (*pb.Record, error);
 
-	GetRange(rangeRequest *cserverpb.RangeRequest) (*cserverpb.Block, error);
+	GetRange(rangeRequest *pb.RangeRequest) (*pb.Block, error);
 
-	GetArea(keyRequest *cserverpb.KeyRequest, lastField Field, sender BlockSender) error;
+	GetArea(keyRequest *pb.KeyRequest, lastField Field, sender BlockSender) error;
 
-	Scan(scanRequest *cserverpb.ScanRequest, sender BlockSender) error;
+	Scan(scanRequest *pb.ScanRequest, sender BlockSender) error;
 
-	Touch(recordRequest *cserverpb.RecordRequest) (*cserverpb.Status, error);
+	Touch(recordRequest *pb.RecordRequest) (*pb.Status, error);
 
-	Put(recordRequest *cserverpb.RecordRequest) (*cserverpb.Status, error);
+	Put(recordRequest *pb.RecordRequest) (*pb.Status, error);
 
-	Remove(keyRequest *cserverpb.KeyRequest) (*cserverpb.Status, error);
+	Remove(keyRequest *pb.KeyRequest) (*pb.Status, error);
 
 	Close() error
 
@@ -88,7 +88,7 @@ func (this *KeyValueStorageCtx) Close() error {
 	return nil
 }
 
-func FetchRecord(key *cserverpb.Key, item *badger.Item, headOnly bool) (*cserverpb.Record, error) {
+func FetchRecord(key *pb.Key, item *badger.Item, headOnly bool) (*pb.Record, error) {
 
 	if headOnly {
 		return RecordNotFetched(key, item), nil
@@ -103,7 +103,7 @@ func FetchRecord(key *cserverpb.Key, item *badger.Item, headOnly bool) (*cserver
 
 }
 
-func (this *KeyValueStorageCtx) Get(keyRequest *cserverpb.KeyRequest) (*cserverpb.Record, error) {
+func (this *KeyValueStorageCtx) Get(keyRequest *pb.KeyRequest) (*pb.Record, error) {
 
 	if keyRequest.Key == nil {
 		return nil, ErrorEmptyKey
@@ -128,7 +128,7 @@ func (this *KeyValueStorageCtx) Get(keyRequest *cserverpb.KeyRequest) (*cserverp
 	return FetchRecord(keyRequest.Key, item, keyRequest.HeadOnly)
 }
 
-func (this *KeyValueStorageCtx) GetRecent(keyRequest *cserverpb.KeyRequest) (*cserverpb.Record, error) {
+func (this *KeyValueStorageCtx) GetRecent(keyRequest *pb.KeyRequest) (*pb.Record, error) {
 
 	if keyRequest.Key == nil {
 		return nil, ErrorEmptyKey
@@ -165,13 +165,13 @@ func (this *KeyValueStorageCtx) GetRecent(keyRequest *cserverpb.KeyRequest) (*cs
 
 }
 
-func (this *KeyValueStorageCtx) GetRange(rangeRequest *cserverpb.RangeRequest) (*cserverpb.Block, error) {
+func (this *KeyValueStorageCtx) GetRange(rangeRequest *pb.RangeRequest) (*pb.Block, error) {
 
 	if rangeRequest.Key == nil {
 		return nil, ErrorEmptyKey
 	}
 
-	if rangeRequest.Type != cserverpb.RangeType_LESS_OR_EQUAL {
+	if rangeRequest.Type != pb.RangeType_LESS_OR_EQUAL {
 		return nil, ErrorUnsupportedOperation
 	}
 
@@ -181,7 +181,7 @@ func (this *KeyValueStorageCtx) GetRange(rangeRequest *cserverpb.RangeRequest) (
 		return nil, ErrorWrongSize
 	}
 
-	records := make([]*cserverpb.Record, 0, size)
+	records := make([]*pb.Record, 0, size)
 
 	entryKey, rowKey := EncodeKey(rangeRequest.Key)
 
@@ -224,11 +224,11 @@ func (this *KeyValueStorageCtx) GetRange(rangeRequest *cserverpb.RangeRequest) (
 		i = i + 1
 	}
 
-	return &cserverpb.Block { Record: records }, nil
+	return &pb.Block { Record: records }, nil
 
 }
 
-func (this *KeyValueStorageCtx) GetArea(keyRequest *cserverpb.KeyRequest, lastField Field, sender BlockSender) error {
+func (this *KeyValueStorageCtx) GetArea(keyRequest *pb.KeyRequest, lastField Field, sender BlockSender) error {
 
 	if keyRequest.Key == nil {
 		return ErrorEmptyKey
@@ -255,7 +255,7 @@ func (this *KeyValueStorageCtx) GetArea(keyRequest *cserverpb.KeyRequest, lastFi
 
 	iter.Seek(keyPrefix)
 
-	records := make([]*cserverpb.Record, 0, defBlockSize)
+	records := make([]*pb.Record, 0, defBlockSize)
 	for ; iter.Valid(); iter.Next() {
 
 		item := iter.Item()
@@ -278,19 +278,19 @@ func (this *KeyValueStorageCtx) GetArea(keyRequest *cserverpb.KeyRequest, lastFi
 
 		if len(records) == defBlockSize {
 
-			err = sender.Send( &cserverpb.Block{ Record: records } )
+			err = sender.Send( &pb.Block{ Record: records } )
 			if err != nil {
 				return err
 			}
 
-			records = make([]*cserverpb.Record, 0, defBlockSize)
+			records = make([]*pb.Record, 0, defBlockSize)
 
 		}
 
 	}
 
 	if len(records) > 0 {
-		err = sender.Send( &cserverpb.Block{ Record: records } )
+		err = sender.Send( &pb.Block{ Record: records } )
 	}
 
 	return err
@@ -298,7 +298,7 @@ func (this *KeyValueStorageCtx) GetArea(keyRequest *cserverpb.KeyRequest, lastFi
 }
 
 
-func (this *KeyValueStorageCtx) Scan(scanRequest *cserverpb.ScanRequest, sender BlockSender) error {
+func (this *KeyValueStorageCtx) Scan(scanRequest *pb.ScanRequest, sender BlockSender) error {
 
 	txn := this.db.NewTransaction(false)
 	defer txn.Discard()
@@ -315,7 +315,7 @@ func (this *KeyValueStorageCtx) Scan(scanRequest *cserverpb.ScanRequest, sender 
 
 	iter.Rewind()
 
-	records := make([]*cserverpb.Record, 0, defBlockSize)
+	records := make([]*pb.Record, 0, defBlockSize)
 	for ; iter.Valid(); iter.Next() {
 
 		item := iter.Item()
@@ -338,19 +338,19 @@ func (this *KeyValueStorageCtx) Scan(scanRequest *cserverpb.ScanRequest, sender 
 
 		if len(records) == defBlockSize {
 
-			err = sender.Send( &cserverpb.Block{ Record: records } )
+			err = sender.Send( &pb.Block{ Record: records } )
 			if err != nil {
 				return err
 			}
 
-			records = make([]*cserverpb.Record, 0, defBlockSize)
+			records = make([]*pb.Record, 0, defBlockSize)
 
 		}
 
 	}
 
 	if len(records) > 0 {
-		err := sender.Send( &cserverpb.Block{ Record: records } )
+		err := sender.Send( &pb.Block{ Record: records } )
 		if err != nil {
 			return err
 		}
@@ -359,7 +359,7 @@ func (this *KeyValueStorageCtx) Scan(scanRequest *cserverpb.ScanRequest, sender 
 	return nil
 }
 
-func (this *KeyValueStorageCtx) Touch(recordRequest *cserverpb.RecordRequest) (*cserverpb.Status, error) {
+func (this *KeyValueStorageCtx) Touch(recordRequest *pb.RecordRequest) (*pb.Status, error) {
 
 	if recordRequest.Key == nil {
 		return nil, ErrorEmptyKey
@@ -375,7 +375,7 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *cserverpb.RecordRequest) (*
 	if err != nil {
 
 		if err == badger.ErrKeyNotFound {
-			return &cserverpb.Status{ Updated: false}, nil
+			return &pb.Status{ Updated: false}, nil
 		} else {
 			return nil, err
 		}
@@ -403,11 +403,11 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *cserverpb.RecordRequest) (*
 
 	txn.Commit()
 
-	return &cserverpb.Status{ Updated: true}, nil
+	return &pb.Status{ Updated: true}, nil
 
 }
 
-func (this *KeyValueStorageCtx) Put(recordRequest *cserverpb.RecordRequest) (*cserverpb.Status, error) {
+func (this *KeyValueStorageCtx) Put(recordRequest *pb.RecordRequest) (*pb.Status, error) {
 
 	if recordRequest.Key == nil {
 		return nil, ErrorEmptyKey
@@ -426,7 +426,7 @@ func (this *KeyValueStorageCtx) Put(recordRequest *cserverpb.RecordRequest) (*cs
 			// absent
 
 			if recordRequest.Version != 0 {
-				return &cserverpb.Status{ Updated: false}, nil
+				return &pb.Status{ Updated: false}, nil
 			}
 
 			// putIfAbsent
@@ -434,7 +434,7 @@ func (this *KeyValueStorageCtx) Put(recordRequest *cserverpb.RecordRequest) (*cs
 		} else if recordRequest.Version != item.Version() {
 
 			// wrong version CAS
-			return &cserverpb.Status{ Updated: false}, nil
+			return &pb.Status{ Updated: false}, nil
 		}
 
 	}
@@ -455,11 +455,11 @@ func (this *KeyValueStorageCtx) Put(recordRequest *cserverpb.RecordRequest) (*cs
 
 	txn.Commit()
 
-	return &cserverpb.Status{ Updated: true}, nil
+	return &pb.Status{ Updated: true}, nil
 
 }
 
-func (this *KeyValueStorageCtx) Remove(keyRequest *cserverpb.KeyRequest) (*cserverpb.Status, error) {
+func (this *KeyValueStorageCtx) Remove(keyRequest *pb.KeyRequest) (*pb.Status, error) {
 
 	if keyRequest.Key == nil {
 		return nil, ErrorEmptyKey
@@ -478,6 +478,6 @@ func (this *KeyValueStorageCtx) Remove(keyRequest *cserverpb.KeyRequest) (*cserv
 
 	txn.Commit()
 
-	return &cserverpb.Status{ Updated: true}, nil
+	return &pb.Status{ Updated: true}, nil
 
 }

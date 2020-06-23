@@ -16,11 +16,11 @@
  *
  */
 
-package cserver
+package pkg
 
 import (
 	"testing"
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
+	"github.com/consensusdb/consensusdb/pkg/pb"
 	"fmt"
 	"github.com/consensusdb/timeuuid"
 	"math/rand"
@@ -41,7 +41,7 @@ func TestKey(t *testing.T) {
 
 
 
-	key := &cserverpb.Key{MajorKey: majorKey, RegionName: regionName, MinorKey: minorKey}
+	key := &pb.Key{MajorKey: majorKey, RegionName: regionName, MinorKey: minorKey}
 
 	entryKey, rawKey := EncodeKey(key)
 
@@ -83,7 +83,7 @@ func TestKey(t *testing.T) {
 
 	fmt.Print("timbased uuid=", uuid.String(), "\n")
 
-	key.Timestamp = &cserverpb.TimeUUID{ MostSigBits:uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
+	key.Timestamp = &pb.TimeUUID{ MostSigBits:uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
 
 	entryKey, rawKey = EncodeKey(key)
 

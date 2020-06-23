@@ -17,7 +17,7 @@
  */
 
 
-package cserver
+package pkg
 
 import (
 	"gopkg.in/yaml.v2"

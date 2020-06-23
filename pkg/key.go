@@ -16,12 +16,12 @@
  *
  */
 
-package cserver
+package pkg
 
 import (
 	"encoding/binary"
 	"bytes"
-	"github.com/consensusdb/consensusdb/cserver/cserverpb"
+	"github.com/consensusdb/consensusdb/pkg/pb"
 	"github.com/consensusdb/timeuuid"
 	"github.com/pkg/errors"
 	"github.com/consensusdb/consensusdb/cdb"
@@ -50,7 +50,7 @@ func SanitizeKeyLen(len int) int {
 }
 
 
-func DecodeKey(entryKey []byte) (*cserverpb.Key, error) {
+func DecodeKey(entryKey []byte) (*pb.Key, error) {
 
 	b := cdb.CopyOf(entryKey)
 
@@ -106,16 +106,16 @@ func DecodeKey(entryKey []byte) (*cserverpb.Key, error) {
 	if j <= len - SizeOfUUID {
 		var uuid timeuuid.UUID
 		uuid.UnmarshalSortableBinary(b[j:])
-		return &cserverpb.Key{MajorKey: majorKey, RegionName: regionName, MinorKey: minorKey,
-			Timestamp: &cserverpb.TimeUUID{
+		return &pb.Key{MajorKey: majorKey, RegionName: regionName, MinorKey: minorKey,
+			Timestamp: &pb.TimeUUID{
 				MostSigBits: uuid.MostSignificantBits(),
 				LeastSigBits: uuid.LeastSignificantBits()}}, nil
 	} else {
-		return &cserverpb.Key{MajorKey: majorKey, RegionName: regionName, MinorKey: minorKey}, nil
+		return &pb.Key{MajorKey: majorKey, RegionName: regionName, MinorKey: minorKey}, nil
 	}
 }
 
-func EncodeKey(key *cserverpb.Key) (entryKey, rowKey []byte) {
+func EncodeKey(key *pb.Key) (entryKey, rowKey []byte) {
 
 	majorKeyLen := SanitizeKeyLen(len(key.MajorKey))
 	regionNameLen := SanitizeKeyLen(len(key.RegionName))
@@ -162,7 +162,7 @@ func EncodeKey(key *cserverpb.Key) (entryKey, rowKey []byte) {
 
 }
 
-func EncodeKeyPrefix(key *cserverpb.Key, lastField Field) ([]byte, error) {
+func EncodeKeyPrefix(key *pb.Key, lastField Field) ([]byte, error) {
 
 	majorKeyLen := SanitizeKeyLen(len(key.MajorKey))
 	regionNameLen := SanitizeKeyLen(len(key.RegionName))
@@ -227,7 +227,7 @@ func EncodeKeyPrefix(key *cserverpb.Key, lastField Field) ([]byte, error) {
 }
 
 
-func Equal(left *cserverpb.Key, right *cserverpb.Key) bool {
+func Equal(left *pb.Key, right *pb.Key) bool {
 
 	if !bytes.Equal(left.MajorKey, right.MajorKey) {
 		return false

@@ -16,7 +16,7 @@
  *
  */
 
-package cserver
+package pkg
 
 import "github.com/pkg/errors"
 
