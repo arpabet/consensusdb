@@ -1,30 +1,17 @@
 /*
- *
- * Copyright 2020-present Arpabet Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * Copyright (c) 2025 Karagatan LLC.
+ * SPDX-License-Identifier: BUSL-1.1
  */
 
 
 package cdb
 
 import (
-	"github.com/consensusdb/consensusdb/pkg/pb"
+	"go.arpabet.com/consensusdb/pkg/pb"
 	"google.golang.org/grpc"
 	"io"
 	"context"
-	"github.com/consensusdb/timeuuid"
+	"go.arpabet.com/uuid"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 )
@@ -70,7 +57,7 @@ type Key interface {
 	MajorKey()   []byte
 	RegionName() []byte
 	MinorKey()   []byte
-	Timestamp()  timeuuid.UUID
+	Timestamp()  uuid.UUID
 
 	toProto()  *pb.Key
 
@@ -91,8 +78,8 @@ func (t EmptyKey) MinorKey()   []byte {
 	return emptyValue
 }
 
-func (t EmptyKey) Timestamp()  timeuuid.UUID {
-	return timeuuid.Empty
+func (t EmptyKey) Timestamp()  uuid.UUID {
+	return uuid.Empty
 }
 
 func (t EmptyKey) toProto()  *pb.Key {

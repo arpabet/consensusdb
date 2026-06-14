@@ -48,7 +48,7 @@ Build, Run, Write Client
 
 Install tools:
 ```
-go get github.com/google/go-licenses
+go install github.com/google/go-licenses@latest
 ```
 
 Checkout libs:
@@ -118,18 +118,18 @@ client, err := cdb.NewClient("localhost:4482", keychain)
 defer client.Close()
 
 //
-//  create timeuuid (optional)
+//  create uuid (optional)
 //
 
-uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
-uuid.SetUnixTimeMillis(1514764800)
-uuid.SetMinCounter()
+id := uuid.New(uuid.TimebasedVer1)
+id.SetUnixTimeMillis(1514764800)
+id.SetMinCounter()
 
 //
-//  create key with timeuuid
+//  create key with uuid
 //
 
-key := cdb.NewKey().WithMajorKey("alex").WithRegionName("ACCOUNT").WithMinorKey("balance").WithTimestamp(uuid).Build()
+key := cdb.NewKey().WithMajorKey("alex").WithRegionName("ACCOUNT").WithMinorKey("balance").WithTimestamp(id).Build()
 value := []byte("1245.90")
 
 //
@@ -182,4 +182,9 @@ dataDir: /tmp/cdb
 * [MDCC](http://mdcc.cs.berkeley.edu/)
 * [Megastore](https://storage.googleapis.com/pub-tools-public-publication-data/pdf/36971.pdf)
 * [Calvin](http://cs.yale.edu/homes/thomson/publications/calvin-sigmod12.pdf)
+
+### License
+
+Licensed under the Business Source License 1.1 (BUSL-1.1).
+Copyright (c) 2025 Karagatan LLC. See [LICENSE](LICENSE).
 

@@ -1,19 +1,6 @@
 /*
- *
- * Copyright 2020-present Arpabet Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * Copyright (c) 2025 Karagatan LLC.
+ * SPDX-License-Identifier: BUSL-1.1
  */
 
 package server
@@ -21,9 +8,9 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
-	"github.com/consensusdb/consensusdb/cdb"
-	"github.com/consensusdb/consensusdb/pkg/pb"
-	"github.com/consensusdb/timeuuid"
+	"go.arpabet.com/consensusdb/cdb"
+	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/uuid"
 	"github.com/pkg/errors"
 )
 
@@ -104,12 +91,12 @@ func DecodeKey(entryKey []byte) (*pb.Key, error) {
 	// Get TimeUUID
 	//
 	if j <= len - SizeOfUUID {
-		var uuid timeuuid.UUID
-		uuid.UnmarshalSortableBinary(b[j:])
+		var id uuid.UUID
+		id.UnmarshalSortableBinary(b[j:])
 		return &pb.Key{MajorKey: majorKey, RegionName: regionName, MinorKey: minorKey,
 			Timestamp: &pb.TimeUUID{
-				MostSigBits: uuid.MostSignificantBits(),
-				LeastSigBits: uuid.LeastSignificantBits()}}, nil
+				MostSigBits: id.MostSignificantBits(),
+				LeastSigBits: id.LeastSignificantBits()}}, nil
 	} else {
 		return &pb.Key{MajorKey: majorKey, RegionName: regionName, MinorKey: minorKey}, nil
 	}
@@ -153,8 +140,8 @@ func EncodeKey(key *pb.Key) (entryKey, rowKey []byte) {
 	// TimeUUID
 	//
 	if key.Timestamp != nil {
-		uuid := timeuuid.CreateUUID(key.Timestamp.MostSigBits, key.Timestamp.LeastSigBits)
-		uuid.MarshalSortableBinaryTo(out[i:])
+		id := uuid.Create(key.Timestamp.MostSigBits, key.Timestamp.LeastSigBits)
+		id.MarshalSortableBinaryTo(out[i:])
 		return out, out[:i]
 	}
 
@@ -212,8 +199,8 @@ func EncodeKeyPrefix(key *pb.Key, lastField Field) ([]byte, error) {
 	// TimeUUID
 	//
 	if key.Timestamp != nil {
-		uuid := timeuuid.CreateUUID(key.Timestamp.MostSigBits, key.Timestamp.LeastSigBits)
-		uuid.MarshalSortableBinaryTo(out[i:])
+		id := uuid.Create(key.Timestamp.MostSigBits, key.Timestamp.LeastSigBits)
+		id.MarshalSortableBinaryTo(out[i:])
 		i = i + 16
 
 		if lastField == TimestampField {

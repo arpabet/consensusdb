@@ -1,19 +1,6 @@
 /*
- *
- * Copyright 2020-present Arpabet Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * Copyright (c) 2025 Karagatan LLC.
+ * SPDX-License-Identifier: BUSL-1.1
  */
 
 package cdb
@@ -23,7 +10,7 @@ import (
 	"bytes"
 	"reflect"
 	"crypto/cipher"
-	"github.com/consensusdb/timeuuid"
+	"go.arpabet.com/uuid"
 	"time"
 	"math/rand"
 )
@@ -43,13 +30,13 @@ func TestEncryption(t *testing.T) {
 		t.Fatal("fail to passwordHash password", err)
 	}
 
-	uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
-	uuid.SetTime(time.Now())
-	uuid.SetCounter(rand.Int63())
+	id := uuid.New(uuid.TimebasedVer1)
+	id.SetTime(time.Now())
+	id.SetCounter(rand.Int63())
 
 	for _, c := range KnownCiphers {
 
-		key, err := keychain.GetBlockKey([]byte("majorKey"), uuid, c.KeyLengthBits())
+		key, err := keychain.GetBlockKey([]byte("majorKey"), id, c.KeyLengthBits())
 		if err != nil {
 			t.Fatal("fail to get key", err)
 		}

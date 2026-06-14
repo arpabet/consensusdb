@@ -1,19 +1,6 @@
 /*
- *
- * Copyright 2020-present Arpabet Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * Copyright (c) 2025 Karagatan LLC.
+ * SPDX-License-Identifier: BUSL-1.1
  */
 
 package main_test
@@ -21,10 +8,9 @@ package main_test
 import (
 	"bytes"
 	"fmt"
-	"github.com/consensusdb/consensusdb/cdb"
-	srv "github.com/consensusdb/consensusdb/pkg/server"
-	"github.com/consensusdb/timeuuid"
-	"io/ioutil"
+	"go.arpabet.com/consensusdb/cdb"
+	srv "go.arpabet.com/consensusdb/pkg/server"
+	"go.arpabet.com/uuid"
 	"log"
 	"math/rand"
 	"os"
@@ -52,7 +38,7 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create keychain", err)
 	}
 
-	rootDir, err := ioutil.TempDir("tmp", "consensusdb_test")
+	rootDir, err := os.MkdirTemp("", "consensusdb_test")
 
 	if err != nil {
 		t.Fatal("fail to create tmp dir ", err)
@@ -578,17 +564,17 @@ func RunEncryptionTests(t *testing.T, client cdb.Client, compressor cdb.Compress
 
 func RunPitOneTests(t *testing.T, client cdb.Client, regionName string) {
 
-	uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
-	uuid.SetUnixTimeMillis(1514764800)
-	uuid.SetMinCounter()
+	id := uuid.New(uuid.TimebasedVer1)
+	id.SetUnixTimeMillis(1514764800)
+	id.SetMinCounter()
 
-	fmt.Print("uuid=", uuid, "\n")
+	fmt.Print("uuid=", id, "\n")
 
-	if uuid.Counter() != 0 {
-		t.Fatal("uuid must have min counter", uuid)
+	if id.Counter() != 0 {
+		t.Fatal("uuid must have min counter", id)
 	}
 
-	key := cdb.NewKey().WithMajorKey("pitOne").WithRegionName(regionName).WithMinorKey("def").WithTimestamp(uuid).Build()
+	key := cdb.NewKey().WithMajorKey("pitOne").WithRegionName(regionName).WithMinorKey("def").WithTimestamp(id).Build()
 	value := []byte("value")
 
 	//
@@ -627,7 +613,7 @@ func RunPitOneTests(t *testing.T, client cdb.Client, regionName string) {
 	//  Next Key Lookup
 	//
 
-	uuidNext := timeuuid.NewUUID(timeuuid.TimebasedVer1)
+	uuidNext := uuid.New(uuid.TimebasedVer1)
 	uuidNext.SetUnixTimeMillis(1514764800)
 	uuidNext.SetCounter(1)
 
@@ -681,7 +667,7 @@ func RunPitOneTests(t *testing.T, client cdb.Client, regionName string) {
 
 	// Increment milliseconds
 
-	uuidNext = timeuuid.NewUUID(timeuuid.TimebasedVer1)
+	uuidNext = uuid.New(uuid.TimebasedVer1)
 	uuidNext.SetUnixTimeMillis(1514764801)
 	uuidNext.SetMinCounter()
 
