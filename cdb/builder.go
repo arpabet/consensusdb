@@ -1,27 +1,14 @@
 /*
- *
- * Copyright 2020-present Arpabet Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * Copyright (c) 2025 Karagatan LLC.
+ * SPDX-License-Identifier: BUSL-1.1
  */
 
 package cdb
 
 import (
 	"math"
-	"github.com/consensusdb/consensusdb/pkg/pb"
-	"github.com/consensusdb/timeuuid"
+	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/uuid"
 	"math/rand"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -96,10 +83,10 @@ func (t KeyBuilder) String() string {
  */
 
 func (t KeyBuilder) WithRandTimestamp(timestampMillis int64) KeyBuilder {
-	uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
-	uuid.SetUnixTimeMillis(timestampMillis)
-	uuid.SetCounter(rand.Int63())
-	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
+	id := uuid.New(uuid.TimebasedVer1)
+	id.SetUnixTimeMillis(timestampMillis)
+	id.SetCounter(rand.Int63())
+	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: id.MostSignificantBits(), LeastSigBits: id.LeastSignificantBits() }
 	return t;
 }
 
@@ -110,21 +97,21 @@ func (t KeyBuilder) WithRandTimestamp(timestampMillis int64) KeyBuilder {
  */
 
 func (t KeyBuilder) WithNamedTimestamp(name []byte, timestampMillis int64) KeyBuilder {
-	uuid, _ := timeuuid.NameUUIDFromBytes(name, timeuuid.NamebasedVer5)
-	// it will override uuid to Time-based UUID
-	uuid.SetUnixTimeMillis(timestampMillis)
-	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
+	id, _ := uuid.NameUUIDFromBytes(name, uuid.NamebasedVer5)
+	// it will override id to Time-based UUID
+	id.SetUnixTimeMillis(timestampMillis)
+	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: id.MostSignificantBits(), LeastSigBits: id.LeastSignificantBits() }
 	return t;
 }
 
-func (t KeyBuilder) WithTimestamp(uuid timeuuid.UUID) KeyBuilder {
-	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
+func (t KeyBuilder) WithTimestamp(id uuid.UUID) KeyBuilder {
+	t.key.Timestamp = &pb.TimeUUID{ MostSigBits: id.MostSignificantBits(), LeastSigBits: id.LeastSignificantBits() }
 	return t;
 }
 
 func (t KeyBuilder) WithMinTimestamp() KeyBuilder {
 
-	uuidMin := timeuuid.NewUUID(timeuuid.TimebasedVer1)
+	uuidMin := uuid.New(uuid.TimebasedVer1)
 	uuidMin.SetTime100NanosUnsigned(0)
 	uuidMin.SetMinCounter()
 
@@ -134,7 +121,7 @@ func (t KeyBuilder) WithMinTimestamp() KeyBuilder {
 
 func (t KeyBuilder) WithMaxTimestamp() KeyBuilder {
 
-	uuidMax := timeuuid.NewUUID(timeuuid.TimebasedVer1)
+	uuidMax := uuid.New(uuid.TimebasedVer1)
 	uuidMax.SetTime100NanosUnsigned(math.MaxUint64)
 	uuidMax.SetMaxCounter()
 
@@ -147,15 +134,15 @@ func (t KeyBuilder) RemoveTimestamp() KeyBuilder {
 	return t;
 }
 
-func (t KeyBuilder) Timestamp() timeuuid.UUID {
+func (t KeyBuilder) Timestamp() uuid.UUID {
 	return GetTimeUUID(t.key)
 }
 
-func GetTimeUUID(key *pb.Key) timeuuid.UUID {
+func GetTimeUUID(key *pb.Key) uuid.UUID {
 	if key.Timestamp != nil {
-		return timeuuid.CreateUUID(key.Timestamp.MostSigBits, key.Timestamp.LeastSigBits)
+		return uuid.Create(key.Timestamp.MostSigBits, key.Timestamp.LeastSigBits)
 	} else {
-		return timeuuid.Empty
+		return uuid.Empty
 	}
 }
 

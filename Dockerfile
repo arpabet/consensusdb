@@ -2,11 +2,10 @@ FROM shvid/ubuntu-golang as builder
 
 ARG TAG
 
-WORKDIR /go/src/github.com/consensusdb/consensusdb
+WORKDIR /src
 ADD . .
 
-RUN sed -i "s/%TAG%/${TAG}/g" main.go && \
-    go build -o /consensusdb
+RUN go build -ldflags "-X main.Version=${TAG}" -o /consensusdb
 
 FROM ubuntu:18.04
 WORKDIR /app

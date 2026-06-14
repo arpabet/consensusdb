@@ -1,27 +1,14 @@
 /*
- *
- * Copyright 2020-present Arpabet Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
+ * Copyright (c) 2025 Karagatan LLC.
+ * SPDX-License-Identifier: BUSL-1.1
  */
 
 package server
 
 import (
 	"fmt"
-	"github.com/consensusdb/consensusdb/pkg/pb"
-	"github.com/consensusdb/timeuuid"
+	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/uuid"
 	"math/rand"
 	"testing"
 	"time"
@@ -77,13 +64,13 @@ func TestKey(t *testing.T) {
 	// With Timestamp
 	//
 
-	uuid := timeuuid.NewUUID(timeuuid.TimebasedVer1)
-	uuid.SetTime(time.Now())
-	uuid.SetCounter(rand.Int63())
+	id := uuid.New(uuid.TimebasedVer1)
+	id.SetTime(time.Now())
+	id.SetCounter(rand.Int63())
 
-	fmt.Print("timbased uuid=", uuid.String(), "\n")
+	fmt.Print("timbased uuid=", id.String(), "\n")
 
-	key.Timestamp = &pb.TimeUUID{ MostSigBits:uuid.MostSignificantBits(), LeastSigBits: uuid.LeastSignificantBits() }
+	key.Timestamp = &pb.TimeUUID{ MostSigBits:id.MostSignificantBits(), LeastSigBits: id.LeastSignificantBits() }
 
 	entryKey, rawKey = EncodeKey(key)
 
