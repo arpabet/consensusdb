@@ -7,7 +7,7 @@ package server
 
 import (
 	"go.arpabet.com/consensusdb/pkg/pb"
-	badger "github.com/dgraph-io/badger/v2"
+	badger "github.com/dgraph-io/badger/v4"
 )
 
 func RecordNotFound(key *pb.Key) *pb.Record {

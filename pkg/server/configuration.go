@@ -22,6 +22,9 @@ created if missing, mirroring the behaviour of the previous yaml-based config.
 */
 type Configuration struct {
 	DataDir string `value:"consensusdb.data-dir,default=/tmp/consensusdb"`
+	// FileIO is retained for config/flag compatibility. Under badger v4 the
+	// table / value-log loading-mode toggles were removed, so this no longer
+	// selects file-io vs memory-map; it is currently a no-op.
 	FileIO  bool   `value:"consensusdb.file-io,default=true"`
 	NumCPU  int    `value:"consensusdb.num-cpu,default=0"`
 

@@ -7,8 +7,7 @@ package server
 
 import (
 	"go.arpabet.com/consensusdb/pkg/pb"
-	badger "github.com/dgraph-io/badger/v2"
-	"github.com/dgraph-io/badger/v2/options"
+	badger "github.com/dgraph-io/badger/v4"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"time"
@@ -62,11 +61,10 @@ func OpenKeyValueStorage(conf *Configuration, log *zap.Logger) (context *KeyValu
 	opts := badger.DefaultOptions(conf.DataDir)
 	opts.Dir = conf.KeyDir
 	opts.ValueDir = conf.ValueDir
-	if conf.FileIO {
-		opts.TableLoadingMode = options.FileIO
-		opts.ValueLogLoadingMode = options.FileIO
-	}
 	opts.CompactL0OnClose = true
+	// badger v4 removed the table / value-log loading-mode toggles
+	// (memory-map vs file-io); memory management is now automatic, so
+	// conf.FileIO no longer maps onto a badger option.
 	context.db, err = badger.Open(opts)
 	return context, err
 
