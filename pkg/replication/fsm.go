@@ -1,0 +1,74 @@
+/*
+ * Copyright (c) 2025 Karagatan LLC.
+ * SPDX-License-Identifier: BUSL-1.1
+ */
+
+package replication
+
+import (
+	"io"
+
+	"github.com/hashicorp/raft"
+	"github.com/pkg/errors"
+	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/consensusdb/pkg/server"
+	"go.uber.org/zap"
+)
+
+/*
+FSM is the raft finite state machine for the key-value store. It implements
+raftapi.RaftService (glue.InitializingBean + raft.FSM). Apply runs on every node
+for each committed log entry and mutates the local storage; reads are served
+directly from storage and never go through the log.
+*/
+type FSM struct {
+	Storage server.KeyValueStorage `inject:""`
+	Log     *zap.Logger            `inject:""`
+}
+
+// fsmResult is returned from Apply and surfaced to the proposer via the
+// raft ApplyFuture.Response().
+type fsmResult struct {
+	status *pb.Status
+	err    error
+}
+
+func (t *FSM) BeanName() string { return "raft-fsm" }
+
+func (t *FSM) PostConstruct() error { return nil }
+
+func (t *FSM) Apply(entry *raft.Log) interface{} {
+	op, msg, err := decodeCommand(entry.Data)
+	if err != nil {
+		t.Log.Error("FSMDecode", zap.Uint64("index", entry.Index), zap.Error(err))
+		return &fsmResult{err: err}
+	}
+	switch op {
+	case opPut:
+		status, err := t.Storage.Put(msg.(*pb.RecordRequest))
+		return &fsmResult{status: status, err: err}
+	case opTouch:
+		status, err := t.Storage.Touch(msg.(*pb.RecordRequest))
+		return &fsmResult{status: status, err: err}
+	case opRemove:
+		status, err := t.Storage.Remove(msg.(*pb.KeyRequest))
+		return &fsmResult{status: status, err: err}
+	default:
+		return &fsmResult{err: errors.Errorf("unhandled raft op %d", op)}
+	}
+}
+
+// Snapshot captures a consistent backup of the storage engine. The backup is
+// streamed lazily during Persist so we keep a reference to the storage only.
+func (t *FSM) Snapshot() (raft.FSMSnapshot, error) {
+	return &fsmSnapshot{storage: t.Storage, log: t.Log}, nil
+}
+
+// Restore replaces the entire storage contents with the snapshot stream.
+func (t *FSM) Restore(rc io.ReadCloser) error {
+	defer rc.Close()
+	if err := t.Storage.Load(rc); err != nil {
+		return errors.Wrap(err, "restore snapshot into storage")
+	}
+	return nil
+}

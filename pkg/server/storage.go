@@ -10,6 +10,7 @@ import (
 	badger "github.com/dgraph-io/badger/v4"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"io"
 	"time"
 )
 
@@ -41,6 +42,14 @@ type KeyValueStorage interface {
 	Put(recordRequest *pb.RecordRequest) (*pb.Status, error);
 
 	Remove(keyRequest *pb.KeyRequest) (*pb.Status, error);
+
+	// Backup writes a self-describing snapshot of the whole store to w and
+	// returns the last applied version. Used by the raft FSM snapshot.
+	Backup(w io.Writer) (uint64, error)
+
+	// Load restores the store contents from a stream produced by Backup.
+	// Used by the raft FSM restore.
+	Load(r io.Reader) error
 
 	Close() error
 
@@ -78,6 +87,17 @@ func (this *KeyValueStorageCtx) Close() error {
 	return nil
 }
 
+// loadMaxPendingWrites bounds badger.Load concurrency during snapshot restore.
+const loadMaxPendingWrites = 256
+
+func (this *KeyValueStorageCtx) Backup(w io.Writer) (uint64, error) {
+	return this.db.Backup(w, 0)
+}
+
+func (this *KeyValueStorageCtx) Load(r io.Reader) error {
+	return this.db.Load(r, loadMaxPendingWrites)
+}
+
 /*
 StorageBean is the glue lifecycle wrapper around the badger-backed
 KeyValueStorage. It opens the database on PostConstruct and closes it on Destroy.
@@ -113,6 +133,9 @@ func (t *StorageBean) Scan(r *pb.ScanRequest, sender BlockSender) error { return
 func (t *StorageBean) Touch(r *pb.RecordRequest) (*pb.Status, error)    { return t.storage.Touch(r) }
 func (t *StorageBean) Put(r *pb.RecordRequest) (*pb.Status, error)      { return t.storage.Put(r) }
 func (t *StorageBean) Remove(r *pb.KeyRequest) (*pb.Status, error)      { return t.storage.Remove(r) }
+
+func (t *StorageBean) Backup(w io.Writer) (uint64, error) { return t.storage.Backup(w) }
+func (t *StorageBean) Load(r io.Reader) error             { return t.storage.Load(r) }
 
 func (t *StorageBean) Close() error {
 	if t.storage != nil {

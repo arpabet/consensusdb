@@ -21,7 +21,16 @@ delegate to the injected KeyValueStorage bean.
 type KeyValueService struct {
 	pb.UnimplementedKeyValueServiceServer
 	Storage KeyValueStorage `inject:""`
-	Log     *zap.Logger     `inject:""`
+	// Replicator is present only when raft replication is wired in; writes are
+	// routed through it when it reports Enabled(), otherwise they go straight
+	// to local storage.
+	Replicator Replicator  `inject:"optional"`
+	Log        *zap.Logger `inject:""`
+}
+
+// replicates reports whether mutating ops should be committed via raft.
+func (t *KeyValueService) replicates() bool {
+	return t.Replicator != nil && t.Replicator.Enabled()
 }
 
 func (t *KeyValueService) RegisterGrpc(srv *grpc.Server) {
@@ -63,17 +72,26 @@ func (t *KeyValueService) Scan(scanRequest *pb.ScanRequest, response pb.KeyValue
 	return t.Storage.Scan(scanRequest, response)
 }
 
-// Touch touches the record.
+// Touch touches the record. Replicated through raft when enabled.
 func (t *KeyValueService) Touch(ctx context.Context, recordRequest *pb.RecordRequest) (*pb.Status, error) {
+	if t.replicates() {
+		return t.Replicator.Touch(recordRequest)
+	}
 	return t.Storage.Touch(recordRequest)
 }
 
-// Put puts the record.
+// Put puts the record. Replicated through raft when enabled.
 func (t *KeyValueService) Put(ctx context.Context, recordRequest *pb.RecordRequest) (*pb.Status, error) {
+	if t.replicates() {
+		return t.Replicator.Put(recordRequest)
+	}
 	return t.Storage.Put(recordRequest)
 }
 
-// Remove removes the record.
+// Remove removes the record. Replicated through raft when enabled.
 func (t *KeyValueService) Remove(ctx context.Context, keyRequest *pb.KeyRequest) (*pb.Status, error) {
+	if t.replicates() {
+		return t.Replicator.Remove(keyRequest)
+	}
 	return t.Storage.Remove(keyRequest)
 }

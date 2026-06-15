@@ -9,6 +9,7 @@ import (
 	"go.arpabet.com/cligo"
 	"go.arpabet.com/consensusdb/cmd"
 	"go.arpabet.com/consensusdb/pkg/constants"
+	"go.arpabet.com/consensusdb/pkg/replication"
 	"go.arpabet.com/consensusdb/pkg/run"
 	"go.arpabet.com/consensusdb/pkg/server"
 	"go.arpabet.com/glue"
@@ -26,6 +27,9 @@ func main() {
 	constants.SetAppInfo(Version, Built)
 
 	// Defaults; override via a properties file or environment.
+	// Replication is opt-in: set raft.bind-address and serf.bind-address (e.g.
+	// "0.0.0.0:8300" / "0.0.0.0:8301") to enable the raft write path. Left
+	// empty here, so writes go directly to local storage (single-node, no raft).
 	properties := glue.MapPropertySource{
 		"grpc-server.bind-address": "0.0.0.0:8442",
 		"grpc-server.options":      "health;reflection",
@@ -34,6 +38,22 @@ func main() {
 		"consensusdb.data-dir":     "/tmp/consensusdb",
 		"consensusdb.file-io":      "true",
 	}
+
+	// "run" scope: storage + servers are only constructed when serving.
+	runScope := []interface{}{
+		&server.Configuration{},
+		&server.StorageBean{},
+		serviongrpc.GrpcServerScanner("grpc-server", &server.KeyValueService{}),
+		servion.HttpServerScanner("http-server",
+			&run.GatewayHandler{},
+			&run.SwaggerHandler{},
+			&run.WelcomeHandler{},
+			servion.MetricsHandler(),
+			servion.HealthHandler(),
+		),
+	}
+	// Raft replication beans (dormant unless raft/serf bind-addresses are set).
+	runScope = append(runScope, replication.Beans()...)
 
 	// Root scope: lightweight beans available to every command.
 	beans := []interface{}{
@@ -47,19 +67,7 @@ func main() {
 		&cmd.StartCommand{},
 		&cmd.StopCommand{},
 
-		// "run" scope: storage + servers are only constructed when serving.
-		servion.RunCommand(
-			&server.Configuration{},
-			&server.StorageBean{},
-			serviongrpc.GrpcServerScanner("grpc-server", &server.KeyValueService{}),
-			servion.HttpServerScanner("http-server",
-				&run.GatewayHandler{},
-				&run.SwaggerHandler{},
-				&run.WelcomeHandler{},
-				servion.MetricsHandler(),
-				servion.HealthHandler(),
-			),
-		),
+		servion.RunCommand(runScope...),
 	}
 
 	cligo.Main(
