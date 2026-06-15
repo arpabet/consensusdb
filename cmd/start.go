@@ -5,15 +5,20 @@
 
 package cmd
 
+import (
+	"context"
 
-type startCommand struct {
+	"go.arpabet.com/cligo"
+)
+
+type StartCommand struct {
+	Parent cligo.CliGroup `cli:"group=cli"`
 }
 
-func (t *startCommand) Desc() string {
-	return "start server"
-}
+func (t *StartCommand) Command() string { return "start" }
 
-func (t *startCommand) Run(args []string) error {
+func (t *StartCommand) Help() (string, string) { return "start server", "" }
 
+func (t *StartCommand) Run(ctx context.Context) error {
 	return nil
 }

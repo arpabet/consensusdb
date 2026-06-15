@@ -8,14 +8,18 @@ package main_test
 import (
 	"bytes"
 	"fmt"
-	"go.arpabet.com/consensusdb/cdb"
-	srv "go.arpabet.com/consensusdb/pkg/server"
-	"go.arpabet.com/uuid"
 	"log"
 	"math/rand"
-	"os"
+	"net"
 	"testing"
 	"time"
+
+	"go.arpabet.com/consensusdb/cdb"
+	"go.arpabet.com/consensusdb/pkg/pb"
+	srv "go.arpabet.com/consensusdb/pkg/server"
+	"go.arpabet.com/uuid"
+	"go.uber.org/zap"
+	"google.golang.org/grpc"
 )
 
 
@@ -38,37 +42,36 @@ func TestSuit(t *testing.T) {
 		t.Fatal("fail to create keychain", err)
 	}
 
-	rootDir, err := os.MkdirTemp("", "consensusdb_test")
+	logger, _ := zap.NewDevelopment()
 
-	if err != nil {
-		t.Fatal("fail to create tmp dir ", err)
+	conf := &srv.Configuration{DataDir: t.TempDir(), FileIO: true}
+	if err := conf.PostConstruct(); err != nil {
+		t.Fatal("fail to init configuration", err)
 	}
 
-	defer os.RemoveAll(rootDir)
-
-	conf, err := srv.NewDefaultConfiguration(rootDir)
+	storage, err := srv.OpenKeyValueStorage(conf, logger)
 	if err != nil {
-		t.Fatal("fail to create configuration", err)
+		t.Fatal("fail to open storage", err)
+	}
+	defer storage.Close()
+
+	listen, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal("fail to listen", err)
 	}
 
-	server, err := srv.NewServer(conf)
-	defer server.Close()
+	grpcServer := grpc.NewServer()
+	pb.RegisterKeyValueServiceServer(grpcServer, &srv.KeyValueService{Storage: storage, Log: logger})
+	go grpcServer.Serve(listen)
+	defer grpcServer.Stop()
 
-	if err != nil {
-		t.Fatal("fail to create a server ", err)
-		return
-	}
+	time.Sleep(100 * time.Millisecond)
 
-	go server.ServeGRPC()
-
-	time.Sleep(time.Second)
-
-	client, err := cdb.NewClient(conf.GrpcAddress, keychain)
-	defer client.Close()
-
+	client, err := cdb.NewClient(listen.Addr().String(), keychain)
 	if err != nil {
 		t.Fatal("fail to create a cdb ", err)
 	}
+	defer client.Close()
 
 	regionName := "TEST"
 

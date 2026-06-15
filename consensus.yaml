@@ -1,9 +1,13 @@
-host: localhost
-httpPort: 4481
-grpcPort: 4482
-numCPU: 1
-dataDir: tmp
-fileIO: true
+# Example configuration. Load it with:  consensusdb run -c consensus.yaml
+# Keys are glue properties (flat, dotted). Anything omitted falls back to the
+# built-in defaults in main.go.
 
-sslDir: ../ssl/ssl
+http-server.bind-address: 0.0.0.0:8441
+http-server.options: handlers
 
+grpc-server.bind-address: 0.0.0.0:8442
+grpc-server.options: health;reflection
+
+consensusdb.data-dir: /tmp/consensusdb
+consensusdb.file-io: true
+consensusdb.num-cpu: 0

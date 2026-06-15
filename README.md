@@ -81,15 +81,14 @@ env GOOS=linux GOARCH=amd64 go build
 ### Open
 
 ```
-open http://localhost:4481/
+open http://localhost:8441/
 ```
 
 
 ### Run
 ```
-mkdir /tmp/cdb
-./consensusdb
-./consensusdb  --conf=consensus.yaml
+./consensusdb run
+./consensusdb run -c consensus.yaml
 
 ```
 
@@ -99,7 +98,7 @@ mkdir /tmp/cdb
 lsof -n -i:$PORT | grep LISTEN
 ```
 
-You have to see that consensusdb is listening 4481 and 4482 ports
+You have to see that consensusdb is listening 8441 and 8442 ports
 
 ### Go Client Example
 

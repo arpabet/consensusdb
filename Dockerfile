@@ -12,7 +12,7 @@ WORKDIR /app
 
 COPY --from=builder /consensusdb .
 
-EXPOSE 4481 4482
+EXPOSE 8441 8442
 
-CMD ["/app/consensusdb"]
+CMD ["/app/consensusdb", "run"]
 

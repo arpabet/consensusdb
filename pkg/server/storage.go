@@ -80,6 +80,49 @@ func (this *KeyValueStorageCtx) Close() error {
 	return nil
 }
 
+/*
+StorageBean is the glue lifecycle wrapper around the badger-backed
+KeyValueStorage. It opens the database on PostConstruct and closes it on Destroy.
+It implements KeyValueStorage by delegating to the opened context, so it can be
+injected wherever a KeyValueStorage is required (e.g. the gRPC service).
+*/
+type StorageBean struct {
+	Conf    *Configuration `inject:""`
+	Log     *zap.Logger    `inject:""`
+	storage *KeyValueStorageCtx
+}
+
+func (t *StorageBean) PostConstruct() error {
+	storage, err := OpenKeyValueStorage(t.Conf, t.Log)
+	if err != nil {
+		return err
+	}
+	t.storage = storage
+	return nil
+}
+
+func (t *StorageBean) Destroy() error {
+	return t.Close()
+}
+
+func (t *StorageBean) Get(r *pb.KeyRequest) (*pb.Record, error)       { return t.storage.Get(r) }
+func (t *StorageBean) GetRecent(r *pb.KeyRequest) (*pb.Record, error) { return t.storage.GetRecent(r) }
+func (t *StorageBean) GetRange(r *pb.RangeRequest) (*pb.Block, error) { return t.storage.GetRange(r) }
+func (t *StorageBean) GetArea(r *pb.KeyRequest, lastField Field, sender BlockSender) error {
+	return t.storage.GetArea(r, lastField, sender)
+}
+func (t *StorageBean) Scan(r *pb.ScanRequest, sender BlockSender) error { return t.storage.Scan(r, sender) }
+func (t *StorageBean) Touch(r *pb.RecordRequest) (*pb.Status, error)    { return t.storage.Touch(r) }
+func (t *StorageBean) Put(r *pb.RecordRequest) (*pb.Status, error)      { return t.storage.Put(r) }
+func (t *StorageBean) Remove(r *pb.KeyRequest) (*pb.Status, error)      { return t.storage.Remove(r) }
+
+func (t *StorageBean) Close() error {
+	if t.storage != nil {
+		return t.storage.Close()
+	}
+	return nil
+}
+
 func FetchRecord(key *pb.Key, item *badger.Item, headOnly bool) (*pb.Record, error) {
 
 	if headOnly {

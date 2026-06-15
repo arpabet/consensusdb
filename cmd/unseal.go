@@ -6,19 +6,23 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
-	"go.arpabet.com/consensusdb/pkg/util"
 	"strings"
+
+	"go.arpabet.com/cligo"
+	"go.arpabet.com/consensusdb/pkg/util"
 )
 
-type unsealCommand struct {
+type UnsealCommand struct {
+	Parent cligo.CliGroup `cli:"group=cli"`
 }
 
-func (t *unsealCommand) Desc() string {
-	return "unseal database"
-}
+func (t *UnsealCommand) Command() string { return "unseal" }
 
-func (t *unsealCommand) Run(args []string) error {
+func (t *UnsealCommand) Help() (string, string) { return "unseal database", "" }
+
+func (t *UnsealCommand) Run(ctx context.Context) error {
 
 	value := util.PromptPassword("Enter master key: ")
 	value = strings.TrimSpace(value)
@@ -29,6 +33,5 @@ func (t *unsealCommand) Run(args []string) error {
 	}
 
 	fmt.Printf("master key = %v\n", key)
-
 	return nil
 }

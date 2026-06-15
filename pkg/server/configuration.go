@@ -3,104 +3,50 @@
  * SPDX-License-Identifier: BUSL-1.1
  */
 
-
 package server
 
 import (
-	"gopkg.in/yaml.v2"
-	"path/filepath"
-	"io/ioutil"
-	"github.com/pkg/errors"
-	"fmt"
-	"runtime"
 	"go.arpabet.com/consensusdb/cdb"
 	"os"
+	"path/filepath"
+	"runtime"
 )
 
+/*
+Configuration is a glue bean that carries the storage/runtime settings injected
+from properties. Network binding is owned by servion (http-server.bind-address,
+grpc-server.bind-address); this bean only describes where data lives on disk.
+
+The derived directories are computed in PostConstruct and the directories are
+created if missing, mirroring the behaviour of the previous yaml-based config.
+*/
 type Configuration struct {
+	DataDir string `value:"consensusdb.data-dir,default=/tmp/consensusdb"`
+	FileIO  bool   `value:"consensusdb.file-io,default=true"`
+	NumCPU  int    `value:"consensusdb.num-cpu,default=0"`
 
-	Host           		   string  `yaml:"host"`
-	HttpPort    	       int     `yaml:"httpPort"`
-	GrpcPort    	       int     `yaml:"grpcPort"`
-
-	HttpAddress            string
-	GrpcAddress            string
-
-	DataDir                string  `yaml:"dataDir"`
-
-	KeyDir                 string
-	ValueDir               string
-	WalDir                 string
-	SnapDir                string
-	LogDir                 string
-
-	FileIO                 bool    `yaml:"fileIO"`
-
-	NumCPU				   int     `yaml:"numCPU"`    // use all of <= 0
-
+	KeyDir   string
+	ValueDir string
+	WalDir   string
+	SnapDir  string
+	LogDir   string
 }
 
-func LoadConfiguration(fileName string) (conf *Configuration, err error) {
+func (t *Configuration) PostConstruct() error {
 
-	conf = new(Configuration)
+	t.KeyDir = filepath.Join(t.DataDir, "key")
+	t.ValueDir = filepath.Join(t.DataDir, "value")
+	t.WalDir = filepath.Join(t.DataDir, "WAL")
+	t.SnapDir = filepath.Join(t.DataDir, "snapshot")
+	t.LogDir = filepath.Join(t.DataDir, "log")
 
-	yamlFile, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		return nil, errors.Errorf("config load error %q", err)
+	if t.NumCPU > 0 {
+		runtime.GOMAXPROCS(t.NumCPU)
 	}
 
-	err = yaml.Unmarshal(yamlFile, conf)
-	if err != nil {
-		return nil, errors.Errorf("config unmarshal error %q", err)
+	if err := os.MkdirAll(t.DataDir, 0755); err != nil {
+		return err
 	}
 
-	err = initialize(conf)
-	return conf, err
-}
-
-
-func NewDefaultConfiguration(dataDir string) (conf *Configuration, err error) {
-
-	conf = new(Configuration)
-
-	conf.Host = "localhost"
-	conf.HttpPort = 8441
-	conf.GrpcPort = 8442
-
-	conf.DataDir = dataDir
-	conf.FileIO = true
-
-	err = initialize(conf)
-	return conf, err
-}
-
-
-func initialize(conf *Configuration) error {
-
-	if len(conf.Host) == 0 {
-		return errors.New("yaml: host is empty")
-	}
-
-	conf.HttpAddress = fmt.Sprint(conf.Host, ":", conf.HttpPort)
-	conf.GrpcAddress = fmt.Sprint(conf.Host, ":", conf.GrpcPort)
-
-	if len(conf.DataDir) == 0 {
-		return errors.New("yaml: dataDir is empty")
-	}
-
-	if _, err := os.Stat(conf.DataDir); os.IsNotExist(err) {
-		return errors.Errorf("dataDir is not exist: %s", conf.DataDir)
-	}
-
-	conf.KeyDir = filepath.Join(conf.DataDir, "key")
-	conf.ValueDir = filepath.Join(conf.DataDir, "value")
-	conf.WalDir = filepath.Join(conf.DataDir, "WAL")
-	conf.SnapDir = filepath.Join(conf.DataDir, "snapshot")
-	conf.LogDir = filepath.Join(conf.DataDir, "log")
-
-	if conf.NumCPU <= 0 {
-		conf.NumCPU = runtime.NumCPU()
-	}
-
-	return cdb.CreateDirsIfNotExist(conf.KeyDir, conf.ValueDir, conf.WalDir, conf.SnapDir, conf.LogDir)
+	return cdb.CreateDirsIfNotExist(t.KeyDir, t.ValueDir, t.WalDir, t.SnapDir, t.LogDir)
 }

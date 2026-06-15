@@ -6,21 +6,21 @@
 package cmd
 
 import (
+	"context"
+
+	"go.arpabet.com/cligo"
 	"go.arpabet.com/consensusdb/pkg/constants"
 )
 
-
-type licensesCommand struct {
-
-}
-func (t *licensesCommand) Desc() string {
-	return "show all licenses"
+type LicensesCommand struct {
+	Parent cligo.CliGroup `cli:"group=cli"`
 }
 
-func (t *licensesCommand) Run(args []string) error {
+func (t *LicensesCommand) Command() string { return "licenses" }
+
+func (t *LicensesCommand) Help() (string, string) { return "show all licenses", "" }
+
+func (t *LicensesCommand) Run(ctx context.Context) error {
 	print(constants.GetLicenses())
 	return nil
 }
-
-
-
