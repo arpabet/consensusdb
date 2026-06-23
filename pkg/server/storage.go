@@ -8,7 +8,7 @@ package server
 import (
 	"go.arpabet.com/consensusdb/pkg/pb"
 	badger "github.com/dgraph-io/badger/v4"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 	"go.uber.org/zap"
 	"io"
 	"time"
@@ -152,7 +152,7 @@ func FetchRecord(key *pb.Key, item *badger.Item, headOnly bool) (*pb.Record, err
 
 	data, err := item.ValueCopy(nil)
 	if err != nil {
-		return nil, errors.Errorf("fetch value failed: %v", err)
+		return nil, xerrors.Errorf("fetch value failed: %v", err)
 	}
 
 	return RecordFetched(key, item, data), nil
@@ -440,7 +440,7 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *pb.RecordRequest) (*pb.Stat
 
 	data, err := item.ValueCopy(nil)
 	if err != nil {
-		return nil, errors.Errorf("fetch in touch error: %v", err)
+		return nil, xerrors.Errorf("fetch in touch error: %v", err)
 	}
 
 	entry := &badger.Entry{ Key: entryKey, Value:data, UserMeta: item.UserMeta()  }
@@ -454,7 +454,7 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *pb.RecordRequest) (*pb.Stat
 	err = txn.SetEntry(entry)
 
 	if err != nil {
-		return nil, errors.Errorf("update entry error: %v", err)
+		return nil, xerrors.Errorf("update entry error: %v", err)
 	}
 
 	txn.Commit()
@@ -506,7 +506,7 @@ func (this *KeyValueStorageCtx) Put(recordRequest *pb.RecordRequest) (*pb.Status
 	err := txn.SetEntry(entry)
 
 	if err != nil {
-		return nil, errors.Errorf("update entry error: %v", err)
+		return nil, xerrors.Errorf("update entry error: %v", err)
 	}
 
 	txn.Commit()
@@ -529,7 +529,7 @@ func (this *KeyValueStorageCtx) Remove(keyRequest *pb.KeyRequest) (*pb.Status, e
 	err := txn.Delete(entryKey)
 
 	if err != nil {
-		return nil, errors.Errorf("delete entry error: %v", err)
+		return nil, xerrors.Errorf("delete entry error: %v", err)
 	}
 
 	txn.Commit()

@@ -27,6 +27,7 @@ require (
 	go.arpabet.com/store v1.1.0
 	go.arpabet.com/store/providers/badger v1.1.0
 	go.uber.org/zap v1.28.0
+	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 )
 
 require (

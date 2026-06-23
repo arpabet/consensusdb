@@ -13,6 +13,7 @@ import (
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/consensusdb/pkg/server"
 	"go.uber.org/zap"
+	"golang.org/x/xerrors"
 )
 
 /*
@@ -54,7 +55,7 @@ func (t *FSM) Apply(entry *raft.Log) interface{} {
 		status, err := t.Storage.Remove(msg.(*pb.KeyRequest))
 		return &fsmResult{status: status, err: err}
 	default:
-		return &fsmResult{err: errors.Errorf("unhandled raft op %d", op)}
+		return &fsmResult{err: xerrors.Errorf("unhandled raft op %d", op)}
 	}
 }
 

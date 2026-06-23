@@ -11,7 +11,7 @@ import (
 	"go.arpabet.com/consensusdb/cdb"
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/uuid"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
 
@@ -209,7 +209,7 @@ func EncodeKeyPrefix(key *pb.Key, lastField Field) ([]byte, error) {
 
 	}
 
-	return out, errors.Errorf("key does not have the lastField %q", lastField)
+	return out, xerrors.Errorf("key does not have the lastField %q", lastField)
 
 }
 

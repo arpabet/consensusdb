@@ -8,7 +8,7 @@ package util
 import (
 	"crypto/rand"
 	"go.arpabet.com/consensusdb/pkg/constants"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 	"io"
 )
 
@@ -29,7 +29,7 @@ func ParseMasterKey(base64key string) ([]byte, error) {
 		return key, err
 	}
 	if len(key) != constants.KeySize {
-		return key, errors.Errorf("wrong key size %d", len(key))
+		return key, xerrors.Errorf("wrong key size %d", len(key))
 	}
 	return key, nil
 }

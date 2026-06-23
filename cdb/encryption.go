@@ -10,12 +10,12 @@ import (
 	"crypto/cipher"
 	"io"
 	"crypto/rand"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 	"fmt"
 )
 
 var (
-	errorCiphertextTooShort = errors.New("ciphertext too short")
+	errorCiphertextTooShort = xerrors.New("ciphertext too short")
 )
 
 type Cipher interface {

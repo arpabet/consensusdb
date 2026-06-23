@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"go.arpabet.com/sprint/raftapi"
 	"go.uber.org/zap"
+	"golang.org/x/xerrors"
 )
 
 /*
@@ -66,7 +67,7 @@ func (t *RaftHost) PostConstruct() error {
 func (t *RaftHost) bootstrap() error {
 	r, ok := t.RaftServer.Raft()
 	if !ok {
-		return errors.New("raft not initialized after Serve")
+		return xerrors.New("raft not initialized after Serve")
 	}
 	transport, _ := t.RaftServer.Transport()
 

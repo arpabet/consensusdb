@@ -8,6 +8,7 @@ package replication
 import (
 	"github.com/pkg/errors"
 	"go.arpabet.com/consensusdb/pkg/pb"
+	"golang.org/x/xerrors"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -38,7 +39,7 @@ func encodeCommand(op opCode, msg proto.Message) ([]byte, error) {
 
 func decodeCommand(data []byte) (opCode, proto.Message, error) {
 	if len(data) == 0 {
-		return 0, nil, errors.New("empty raft command")
+		return 0, nil, xerrors.New("empty raft command")
 	}
 	op := opCode(data[0])
 	payload := data[1:]
@@ -49,7 +50,7 @@ func decodeCommand(data []byte) (opCode, proto.Message, error) {
 	case opRemove:
 		msg = &pb.KeyRequest{}
 	default:
-		return op, nil, errors.Errorf("unknown raft command op %d", op)
+		return op, nil, xerrors.Errorf("unknown raft command op %d", op)
 	}
 	if err := proto.Unmarshal(payload, msg); err != nil {
 		return op, nil, errors.Wrap(err, "unmarshal raft command payload")

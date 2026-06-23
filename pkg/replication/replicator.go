@@ -13,6 +13,7 @@ import (
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/sprint/raftapi"
 	"go.uber.org/zap"
+	"golang.org/x/xerrors"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -55,11 +56,11 @@ func (t *Replicator) Remove(keyRequest *pb.KeyRequest) (*pb.Status, error) {
 func (t *Replicator) apply(op opCode, msg proto.Message) (*pb.Status, error) {
 	r, ok := t.RaftServer.Raft()
 	if !ok {
-		return nil, errors.New("raft not initialized")
+		return nil, xerrors.New("raft not initialized")
 	}
 	if r.State() != raft.Leader {
 		// TODO: forward to the current leader via raftgrpc/RaftClientPool.
-		return nil, errors.Errorf("not leader, current leader is %q", string(t.leaderAddr(r)))
+		return nil, xerrors.Errorf("not leader, current leader is %q", string(t.leaderAddr(r)))
 	}
 
 	data, err := encodeCommand(op, msg)
@@ -76,7 +77,7 @@ func (t *Replicator) apply(op opCode, msg proto.Message) (*pb.Status, error) {
 	case *fsmResult:
 		return res.status, res.err
 	default:
-		return nil, errors.Errorf("unexpected fsm response type %T", future.Response())
+		return nil, xerrors.Errorf("unexpected fsm response type %T", future.Response())
 	}
 }
 

@@ -8,7 +8,7 @@ package cdb
 import (
 	"time"
 	"strconv"
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 	"os"
 	"io/ioutil"
 	"strings"
@@ -83,7 +83,7 @@ func ParseTtlExpr(ttlExpr string) (ttl time.Duration, err error) {
 
 	}
 
-	return 0, errors.New("unknown term: " + ttlExpr)
+	return 0, xerrors.New("unknown term: " + ttlExpr)
 
 }
 

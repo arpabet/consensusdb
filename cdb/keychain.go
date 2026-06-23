@@ -6,13 +6,13 @@
 package cdb
 
 import (
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 	"go.arpabet.com/uuid"
 	"crypto/sha256"
 )
 
 var (
-	ErrorInvalidKeyLength = errors.New("invalid key length")
+	ErrorInvalidKeyLength = xerrors.New("invalid key length")
 )
 
 type BlockKey []byte

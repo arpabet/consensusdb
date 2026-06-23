@@ -5,12 +5,12 @@
 
 package server
 
-import "github.com/pkg/errors"
+import "golang.org/x/xerrors"
 
 var (
-	ErrorIndexOutOfBounds = errors.New("index out of bounds")
-	ErrorEmptyKey = errors.New("empty key")
-	ErrorWrongSize = errors.New("wrong size")
-	ErrorUnsupportedOperation = errors.New("unsupported operation")
+	ErrorIndexOutOfBounds = xerrors.New("index out of bounds")
+	ErrorEmptyKey = xerrors.New("empty key")
+	ErrorWrongSize = xerrors.New("wrong size")
+	ErrorUnsupportedOperation = xerrors.New("unsupported operation")
 )
 
