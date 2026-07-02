@@ -35,6 +35,7 @@ const (
 	KeyValueService_Remove_FullMethodName    = "/cdb.KeyValueService/Remove"
 	KeyValueService_Increment_FullMethodName = "/cdb.KeyValueService/Increment"
 	KeyValueService_Batch_FullMethodName     = "/cdb.KeyValueService/Batch"
+	KeyValueService_Watch_FullMethodName     = "/cdb.KeyValueService/Watch"
 )
 
 // KeyValueServiceClient is the client API for KeyValueService service.
@@ -65,6 +66,9 @@ type KeyValueServiceClient interface {
 	Increment(ctx context.Context, in *IncrementRequest, opts ...grpc.CallOption) (*IncrementResponse, error)
 	// Writes multiple records in one atomic (all-or-nothing) operation
 	Batch(ctx context.Context, in *BatchRequest, opts ...grpc.CallOption) (*Status, error)
+	// Streams change events for keys under a prefix, served from this node's
+	// local watch hub (fed by the raft apply path — cross-node, best-effort)
+	Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WatchEvent], error)
 }
 
 type keyValueServiceClient struct {
@@ -231,6 +235,25 @@ func (c *keyValueServiceClient) Batch(ctx context.Context, in *BatchRequest, opt
 	return out, nil
 }
 
+func (c *keyValueServiceClient) Watch(ctx context.Context, in *WatchRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[WatchEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &KeyValueService_ServiceDesc.Streams[4], KeyValueService_Watch_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[WatchRequest, WatchEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type KeyValueService_WatchClient = grpc.ServerStreamingClient[WatchEvent]
+
 // KeyValueServiceServer is the server API for KeyValueService service.
 // All implementations must embed UnimplementedKeyValueServiceServer
 // for forward compatibility.
@@ -259,6 +282,9 @@ type KeyValueServiceServer interface {
 	Increment(context.Context, *IncrementRequest) (*IncrementResponse, error)
 	// Writes multiple records in one atomic (all-or-nothing) operation
 	Batch(context.Context, *BatchRequest) (*Status, error)
+	// Streams change events for keys under a prefix, served from this node's
+	// local watch hub (fed by the raft apply path — cross-node, best-effort)
+	Watch(*WatchRequest, grpc.ServerStreamingServer[WatchEvent]) error
 	mustEmbedUnimplementedKeyValueServiceServer()
 }
 
@@ -304,6 +330,9 @@ func (UnimplementedKeyValueServiceServer) Increment(context.Context, *IncrementR
 }
 func (UnimplementedKeyValueServiceServer) Batch(context.Context, *BatchRequest) (*Status, error) {
 	return nil, status.Error(codes.Unimplemented, "method Batch not implemented")
+}
+func (UnimplementedKeyValueServiceServer) Watch(*WatchRequest, grpc.ServerStreamingServer[WatchEvent]) error {
+	return status.Error(codes.Unimplemented, "method Watch not implemented")
 }
 func (UnimplementedKeyValueServiceServer) mustEmbedUnimplementedKeyValueServiceServer() {}
 func (UnimplementedKeyValueServiceServer) testEmbeddedByValue()                         {}
@@ -514,6 +543,17 @@ func _KeyValueService_Batch_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KeyValueService_Watch_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WatchRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(KeyValueServiceServer).Watch(m, &grpc.GenericServerStream[WatchRequest, WatchEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type KeyValueService_WatchServer = grpc.ServerStreamingServer[WatchEvent]
+
 // KeyValueService_ServiceDesc is the grpc.ServiceDesc for KeyValueService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -573,6 +613,11 @@ var KeyValueService_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "Scan",
 			Handler:       _KeyValueService_Scan_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "Watch",
+			Handler:       _KeyValueService_Watch_Handler,
 			ServerStreams: true,
 		},
 	},

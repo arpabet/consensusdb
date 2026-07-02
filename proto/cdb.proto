@@ -154,6 +154,16 @@ service KeyValueService {
         };
     }
 
+    //
+    // Streams change events for keys under a prefix, served from this node's
+    // local watch hub (fed by the raft apply path — cross-node, best-effort)
+    //
+    rpc Watch(WatchRequest) returns (stream WatchEvent) {
+        option (google.api.http) = {
+            get: "/v1/watch"
+        };
+    }
+
 }
 
 // Java compatible
@@ -228,6 +238,27 @@ message BatchRequest {
     repeated RecordRequest records = 1;   // written all-or-nothing in one engine txn
 
     int32    timeout               = 2;   // SLA of the operation if not 0
+
+}
+
+enum ChangeType {
+    WATCH_SET    = 0;   // key created or updated
+    WATCH_DELETE = 1;   // key removed (or reclaimed after expiry)
+}
+
+message WatchRequest {
+
+    Key    prefix  = 1;   // watch keys under this prefix; empty prefix watches everything
+    int32  timeout = 2;   // SLA of the operation if not 0
+
+}
+
+message WatchEvent {
+
+    Key        key     = 1;
+    bytes      value   = 2;   // empty for WATCH_DELETE
+    uint64     version = 3;   // envelope version (raft log index) of the change
+    ChangeType type    = 4;
 
 }
 

@@ -774,6 +774,85 @@
           "KeyValueService"
         ]
       }
+    },
+    "/v1/watch": {
+      "get": {
+        "summary": "Streams change events for keys under a prefix, served from this node's\nlocal watch hub (fed by the raft apply path — cross-node, best-effort)",
+        "operationId": "KeyValueService_Watch",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/cdbWatchEvent"
+                },
+                "error": {
+                  "$ref": "#/definitions/googleRpcStatus"
+                }
+              },
+              "title": "Stream result of cdbWatchEvent"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googleRpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "prefix.majorKey",
+            "description": "used as a partition key, good candidate is accountId, if empty - data replicated in all partitions",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "prefix.regionName",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "prefix.minorKey",
+            "description": "used as a record key in the partition",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "byte"
+          },
+          {
+            "name": "prefix.timestamp.mostSigBits",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "prefix.timestamp.leastSigBits",
+            "in": "query",
+            "required": false,
+            "type": "string",
+            "format": "int64"
+          },
+          {
+            "name": "timeout",
+            "description": "SLA of the operation if not 0",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "KeyValueService"
+        ]
+      }
     }
   },
   "definitions": {
@@ -806,6 +885,15 @@
           }
         }
       }
+    },
+    "cdbChangeType": {
+      "type": "string",
+      "enum": [
+        "WATCH_SET",
+        "WATCH_DELETE"
+      ],
+      "default": "WATCH_SET",
+      "title": "- WATCH_SET: key created or updated\n - WATCH_DELETE: key removed (or reclaimed after expiry)"
     },
     "cdbHead": {
       "type": "object",
@@ -989,6 +1077,27 @@
         }
       },
       "title": "Java compatible"
+    },
+    "cdbWatchEvent": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/cdbKey"
+        },
+        "value": {
+          "type": "string",
+          "format": "byte",
+          "title": "empty for WATCH_DELETE"
+        },
+        "version": {
+          "type": "string",
+          "format": "uint64",
+          "title": "envelope version (raft log index) of the change"
+        },
+        "type": {
+          "$ref": "#/definitions/cdbChangeType"
+        }
+      }
     },
     "googleRpcStatus": {
       "type": "object",

@@ -8,6 +8,7 @@ package server
 import (
 	"context"
 	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/store"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 )
@@ -70,6 +71,56 @@ func (t *KeyValueService) GetSpace(keyRequest *pb.KeyRequest, response pb.KeyVal
 // Scan streams all records.
 func (t *KeyValueService) Scan(scanRequest *pb.ScanRequest, response pb.KeyValueService_ScanServer) error {
 	return t.Storage.Scan(scanRequest, response)
+}
+
+// watchPrefix encodes a WatchRequest prefix Key into the physical key prefix used
+// by the hub. The watch depth follows which fields are set; an empty/nil key
+// watches every change.
+func watchPrefix(key *pb.Key) ([]byte, error) {
+	if key == nil {
+		return nil, nil
+	}
+	switch {
+	case len(key.MinorKey) > 0:
+		return EncodeKeyPrefix(key, MinorKeyField)
+	case len(key.RegionName) > 0:
+		return EncodeKeyPrefix(key, RegionNameField)
+	case len(key.MajorKey) > 0:
+		return EncodeKeyPrefix(key, MajorKeyField)
+	default:
+		return nil, nil
+	}
+}
+
+// Watch streams change events for keys under the requested prefix from this
+// node's local hub. Served locally (not through raft); the hub is fed by the
+// apply path, so a client watching any node sees changes committed via raft.
+func (t *KeyValueService) Watch(req *pb.WatchRequest, stream pb.KeyValueService_WatchServer) error {
+	prefix, err := watchPrefix(req.Prefix)
+	if err != nil {
+		return err
+	}
+	return t.Storage.WatchRaw(stream.Context(), prefix, func(ev *store.WatchEvent) bool {
+		key, err := DecodeKey(ev.Key)
+		if err != nil {
+			t.Log.Error("watch decode key", zap.Error(err))
+			return true // skip this event, keep watching
+		}
+		changeType := pb.ChangeType_WATCH_SET
+		if ev.Type == store.WatchDelete {
+			changeType = pb.ChangeType_WATCH_DELETE
+		}
+		send := &pb.WatchEvent{
+			Key:     key,
+			Value:   ev.Value,
+			Version: uint64(ev.Version),
+			Type:    changeType,
+		}
+		if err := stream.Send(send); err != nil {
+			return false // client disconnected or send failed: stop watching
+		}
+		return true
+	})
 }
 
 // Touch touches the record. Replicated through raft when enabled.

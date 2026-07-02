@@ -160,11 +160,29 @@ client provider (Phase 4), not here.
         leader and replicated) — never by badger's own background TTL drop, which
         is node-local and non-deterministic. Set badger entry TTL as a
         space-reclaim hint only, never as the source of truth.
-- [ ] Watch: feed a hub from the FSM apply path (the single choke point every
-      committed mutation passes through) — reuse `store` watch-hub machinery.
-      This yields **cross-process watch**, an upgrade over every embedded provider.
-- [ ] Tests: extend `pkg/replication` wiring/fsm tests for the new ops;
-      determinism test = two FSMs applying the same log land identical state.
+- [x] **Watch hub fed from the apply path (DONE 2026-07-02).**
+      - `storage.go` embeds a `store.WatchHub` (reused from the store module).
+        Each mutation (Put/Touch/Remove/Increment/SetBatch) calls `notify` AFTER a
+        successful commit; on the replicated path those methods are driven by
+        `FSM.Apply` on every node, so a client watching ANY node sees changes
+        committed via raft — **cross-node watch**, the upgrade over the in-process
+        embedded providers. Watch is served locally and does NOT go through raft.
+      - `WatchRaw(ctx, prefix, cb)` on the storage interface + StorageBean delegates
+        to the hub. Event key = encoded entry key (prefix match over the physical
+        keyspace); value nil for delete; version = the envelope version (raft index).
+      - Proto: `Watch(WatchRequest) returns (stream WatchEvent)` + `ChangeType`
+        enum (WATCH_SET/WATCH_DELETE); service handler encodes the prefix Key via
+        `EncodeKeyPrefix` (depth inferred from set fields; empty = watch all) and
+        decodes each event's key back to `pb.Key`.
+      - Tests (`watch_test.go`): mutation-through-FSM delivers a Set event with the
+        log-index version; Remove delivers Delete; prefix filter excludes
+        non-matching major keys. Race-clean (`go test -race`).
+      - NOTE: expiry currently emits NO WatchDelete (lazy hide only). Wiring that up
+        is the deterministic-sweep follow-up (a raft-logged tombstone that both
+        reclaims disk and notifies) — carried from the TTL bullet.
+- [x] Tests: `pkg/replication` version/increment/ttl/watch determinism tests added;
+      "two FSMs applying the same log land identical state" covered for versions,
+      counters, and expiry. (Multi-node raftgrpc harness is Phase 2.)
 
 ## Phase 2 — raft cluster completeness
 

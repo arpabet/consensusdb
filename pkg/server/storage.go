@@ -6,6 +6,7 @@
 package server
 
 import (
+	"context"
 	"encoding/binary"
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/store"
@@ -60,6 +61,11 @@ type KeyValueStorage interface {
 	// (0 = assign locally per key).
 	SetBatch(req *pb.BatchRequest, commitVersion uint64) (*pb.Status, error);
 
+	// WatchRaw streams change events for keys under the (encoded) prefix from this
+	// node's local hub until cb returns false or ctx is done. A nil/empty prefix
+	// watches every key. Delivery is best-effort (see store.WatchHub).
+	WatchRaw(ctx context.Context, prefix []byte, cb func(*store.WatchEvent) bool) error;
+
 	// Backup writes a self-describing snapshot of the whole store to w and
 	// returns the last applied version. Used by the raft FSM snapshot.
 	Backup(w io.Writer) (uint64, error)
@@ -77,12 +83,13 @@ type KeyValueStorageCtx struct {
 	db        			*badger.DB
 	conf      			*Configuration
 	log                 *zap.Logger
+	hub                 *store.WatchHub
 
 }
 
 func OpenKeyValueStorage(conf *Configuration, log *zap.Logger) (context *KeyValueStorageCtx, err error) {
 
-	context = &KeyValueStorageCtx{conf: conf, log: log}
+	context = &KeyValueStorageCtx{conf: conf, log: log, hub: store.NewWatchHub()}
 
 	opts := badger.DefaultOptions(conf.DataDir)
 	opts.Dir = conf.KeyDir
@@ -113,6 +120,29 @@ func (this *KeyValueStorageCtx) Backup(w io.Writer) (uint64, error) {
 
 func (this *KeyValueStorageCtx) Load(r io.Reader) error {
 	return this.db.Load(r, loadMaxPendingWrites)
+}
+
+// notify fans a committed mutation out to local watchers. It is called by the
+// storage write methods, which on the replicated path are driven by the raft FSM
+// apply on every node — so watchers on any node observe changes committed through
+// raft (cross-node, best-effort). key is the encoded entry key. value is nil for
+// deletes. Copies are made because the caller's buffers may be reused.
+func (this *KeyValueStorageCtx) notify(key, value []byte, eventType store.WatchEventType, version int64) {
+	if this.hub == nil {
+		return
+	}
+	k := make([]byte, len(key))
+	copy(k, key)
+	var val []byte
+	if value != nil {
+		val = make([]byte, len(value))
+		copy(val, value)
+	}
+	this.hub.Notify(&store.WatchEvent{Key: k, Value: val, Type: eventType, Version: version})
+}
+
+func (this *KeyValueStorageCtx) WatchRaw(ctx context.Context, prefix []byte, cb func(*store.WatchEvent) bool) error {
+	return this.hub.Watch(ctx, prefix, cb)
 }
 
 /*
@@ -159,6 +189,9 @@ func (t *StorageBean) Increment(r *pb.IncrementRequest, commitVersion uint64) (*
 }
 func (t *StorageBean) SetBatch(r *pb.BatchRequest, commitVersion uint64) (*pb.Status, error) {
 	return t.storage.SetBatch(r, commitVersion)
+}
+func (t *StorageBean) WatchRaw(ctx context.Context, prefix []byte, cb func(*store.WatchEvent) bool) error {
+	return t.storage.WatchRaw(ctx, prefix, cb)
 }
 
 func (t *StorageBean) Backup(w io.Writer) (uint64, error) { return t.storage.Backup(w) }
@@ -543,6 +576,8 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *pb.RecordRequest, commitVer
 		return nil, xerrors.Errorf("commit touch error: %v", err)
 	}
 
+	this.notify(entryKey, value, store.WatchSet, int64(version))
+
 	return &pb.Status{ Updated: true}, nil
 
 }
@@ -610,6 +645,8 @@ func (this *KeyValueStorageCtx) Put(recordRequest *pb.RecordRequest, commitVersi
 		return nil, xerrors.Errorf("commit put error: %v", err)
 	}
 
+	this.notify(entryKey, recordRequest.Value, store.WatchSet, int64(version))
+
 	return &pb.Status{ Updated: true}, nil
 
 }
@@ -634,6 +671,8 @@ func (this *KeyValueStorageCtx) Remove(keyRequest *pb.KeyRequest) (*pb.Status, e
 	if err := txn.Commit(); err != nil {
 		return nil, xerrors.Errorf("commit remove error: %v", err)
 	}
+
+	this.notify(entryKey, nil, store.WatchDelete, 0)
 
 	return &pb.Status{ Updated: true}, nil
 
@@ -698,6 +737,8 @@ func (this *KeyValueStorageCtx) Increment(req *pb.IncrementRequest, commitVersio
 		return nil, xerrors.Errorf("commit increment error: %v", err)
 	}
 
+	this.notify(entryKey, buf, store.WatchSet, int64(version))
+
 	return &pb.IncrementResponse{ Previous: prev, Current: counter, Version: version }, nil
 
 }
@@ -706,6 +747,14 @@ func (this *KeyValueStorageCtx) SetBatch(req *pb.BatchRequest, commitVersion uin
 
 	txn := this.db.NewTransaction(true)
 	defer txn.Discard()
+
+	// Collect notifications to fan out only after the whole batch commits.
+	type change struct {
+		key     []byte
+		value   []byte
+		version int64
+	}
+	pending := make([]change, 0, len(req.Records))
 
 	// One badger transaction for the whole batch → all-or-nothing (BatchAtomic).
 	// Note: bounded by badger's max transaction size; very large batches would
@@ -740,10 +789,16 @@ func (this *KeyValueStorageCtx) SetBatch(req *pb.BatchRequest, commitVersion uin
 		if err := txn.SetEntry(entry); err != nil {
 			return nil, xerrors.Errorf("batch set entry error: %v", err)
 		}
+
+		pending = append(pending, change{key: entryKey, value: record.Value, version: int64(version)})
 	}
 
 	if err := txn.Commit(); err != nil {
 		return nil, xerrors.Errorf("commit batch error: %v", err)
+	}
+
+	for _, c := range pending {
+		this.notify(c.key, c.value, store.WatchSet, c.version)
 	}
 
 	return &pb.Status{ Updated: true}, nil
