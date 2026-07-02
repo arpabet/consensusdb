@@ -8,7 +8,7 @@ package replication
 import (
 	"github.com/hashicorp/raft"
 	"github.com/pkg/errors"
-	"go.arpabet.com/sprint/raftapi"
+	"go.arpabet.com/raft/raftapi"
 	"go.uber.org/zap"
 	"golang.org/x/xerrors"
 )

@@ -20,10 +20,10 @@ require (
 	github.com/hashicorp/raft v1.7.3
 	go.arpabet.com/cligo v0.5.0
 	go.arpabet.com/glue v1.5.1
+	go.arpabet.com/raft/raftapi v1.2.0
+	go.arpabet.com/raft/raftmod v1.2.0
 	go.arpabet.com/servion v1.5.0
 	go.arpabet.com/servion/grpc v1.5.0
-	go.arpabet.com/sprint/raftapi v1.2.0
-	go.arpabet.com/sprint/raftmod v1.2.0
 	go.arpabet.com/store v1.3.1
 	go.arpabet.com/store/providers/badger v1.3.1
 	go.uber.org/zap v1.28.0
@@ -86,8 +86,8 @@ require (
 	github.com/vmihailenco/msgpack/v5 v5.4.1 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
 	go.arpabet.com/raft-badger v1.2.2 // indirect
+	go.arpabet.com/raft/raftpb v1.2.0 // indirect
 	go.arpabet.com/sprint v1.2.0 // indirect
-	go.arpabet.com/sprint/raftpb v1.2.0 // indirect
 	go.arpabet.com/sprint/sprintpb v1.2.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
@@ -113,3 +113,9 @@ require (
 	golang.org/x/net v0.56.0 // indirect
 	google.golang.org/protobuf v1.36.11
 )
+
+replace go.arpabet.com/raft/raftapi => ../raft/raftapi
+
+replace go.arpabet.com/raft/raftmod => ../raft/raftmod
+
+replace go.arpabet.com/raft/raftpb => ../raft/raftpb

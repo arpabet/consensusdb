@@ -9,10 +9,10 @@ use (
 	.
 	../store
 	../store/providers/badger
-	../sprint/raftapi
-	../sprint/raftmod
-	../sprint/raftgrpc
-	../sprint/raftpb
+	../raft/raftapi
+	../raft/raftmod
+	../raft/raftgrpc
+	../raft/raftpb
 	../value-rpc
 	../value
 )

@@ -6,7 +6,7 @@
 package replication
 
 import (
-	"go.arpabet.com/sprint/raftmod"
+	"go.arpabet.com/raft/raftmod"
 )
 
 /*
