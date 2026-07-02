@@ -184,6 +184,6 @@ dataDir: /tmp/cdb
 
 ### License
 
-Licensed under the Business Source License 1.1 (BUSL-1.1).
-Copyright (c) 2025 Karagatan LLC. See [LICENSE](LICENSE).
+Licensed under the Apache License, Version 2.0 (Apache-2.0).
+Copyright (c) 2025-2026 Karagatan LLC. See [LICENSE](LICENSE).
 

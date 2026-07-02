@@ -2,7 +2,7 @@
 #   ConsensusDB
 #
 #   Copyright (c) 2025 Karagatan LLC.
-#   SPDX-License-Identifier: BUSL-1.1
+#   SPDX-License-Identifier: Apache-2.0
 #
 
 IMAGE    := consensusdb
