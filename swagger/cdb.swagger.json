@@ -27,6 +27,39 @@
     "application/octet-stream"
   ],
   "paths": {
+    "/v1/batch": {
+      "post": {
+        "summary": "Writes multiple records in one atomic (all-or-nothing) operation",
+        "operationId": "KeyValueService_Batch",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cdbStatus"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googleRpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/cdbBatchRequest"
+            }
+          }
+        ],
+        "tags": [
+          "KeyValueService"
+        ]
+      }
+    },
     "/v1/get": {
       "get": {
         "summary": "Gets exact match entry",
@@ -527,6 +560,39 @@
         ]
       }
     },
+    "/v1/increment": {
+      "post": {
+        "summary": "Atomically increments a counter, returns the previous value",
+        "operationId": "KeyValueService_Increment",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/cdbIncrementResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/googleRpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/cdbIncrementRequest"
+            }
+          }
+        ],
+        "tags": [
+          "KeyValueService"
+        ]
+      }
+    },
     "/v1/put": {
       "put": {
         "summary": "Puts the record",
@@ -711,6 +777,24 @@
     }
   },
   "definitions": {
+    "cdbBatchRequest": {
+      "type": "object",
+      "properties": {
+        "records": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/cdbRecordRequest"
+          },
+          "title": "written all-or-nothing in one engine txn"
+        },
+        "timeout": {
+          "type": "integer",
+          "format": "int32",
+          "title": "SLA of the operation if not 0"
+        }
+      }
+    },
     "cdbBlock": {
       "type": "object",
       "properties": {
@@ -742,6 +826,59 @@
           "type": "integer",
           "format": "int32",
           "title": "for user 8 bits only, 9 bit deletedBit"
+        }
+      }
+    },
+    "cdbIncrementRequest": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/cdbKey"
+        },
+        "initial": {
+          "type": "string",
+          "format": "int64",
+          "title": "counter start value when the key is absent"
+        },
+        "delta": {
+          "type": "string",
+          "format": "int64",
+          "title": "amount to add (may be negative)"
+        },
+        "ttlSeconds": {
+          "type": "string",
+          "format": "int64",
+          "title": "client input: relative TTL in seconds, 0 means no TTL"
+        },
+        "timeout": {
+          "type": "integer",
+          "format": "int32",
+          "title": "SLA of the operation if not 0"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "int64",
+          "description": "Absolute expiry (unix seconds) computed once on the leader; see RecordRequest."
+        }
+      }
+    },
+    "cdbIncrementResponse": {
+      "type": "object",
+      "properties": {
+        "previous": {
+          "type": "string",
+          "format": "int64",
+          "title": "counter value before delta was applied"
+        },
+        "current": {
+          "type": "string",
+          "format": "int64",
+          "title": "counter value after delta was applied"
+        },
+        "version": {
+          "type": "string",
+          "format": "uint64",
+          "title": "envelope version (raft log index on the replicated path)"
         }
       }
     },
@@ -809,7 +946,7 @@
         "ttlSeconds": {
           "type": "string",
           "format": "int64",
-          "title": "add TTL in seconds if not 0, zero means no TTL"
+          "title": "client input: relative TTL in seconds, 0 means no TTL"
         },
         "compareAndSet": {
           "type": "boolean"
@@ -823,6 +960,11 @@
           "type": "integer",
           "format": "int32",
           "title": "SLA of the operation if not 0"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "int64",
+          "description": "Absolute expiry (unix seconds) computed once on the leader from ttlSeconds\nbefore the write enters the raft log, so every replica stores the same\nexpiry. Clients leave it 0 and set ttlSeconds; the server fills it in."
         }
       }
     },

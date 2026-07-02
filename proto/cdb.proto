@@ -134,6 +134,26 @@ service KeyValueService {
         };
     }
 
+    //
+    // Atomically increments a counter, returns the previous value
+    //
+    rpc Increment(IncrementRequest) returns (IncrementResponse) {
+        option (google.api.http) = {
+            post: "/v1/increment"
+            body: "*"
+        };
+    }
+
+    //
+    // Writes multiple records in one atomic (all-or-nothing) operation
+    //
+    rpc Batch(BatchRequest) returns (Status) {
+        option (google.api.http) = {
+            post: "/v1/batch"
+            body: "*"
+        };
+    }
+
 }
 
 // Java compatible
@@ -166,15 +186,50 @@ message RecordRequest {
     bytes    value   = 2;
 
     int32    metadata       = 3;   // for user 8 bits only, 9 bit deletedBit
-    int64    ttlSeconds     = 4;   // add TTL in seconds if not 0, zero means no TTL
+    int64    ttlSeconds     = 4;   // client input: relative TTL in seconds, 0 means no TTL
 
     bool     compareAndSet  = 6;
     uint64   version        = 7;   // if 0 then putIfAbsent
 
     int32    timeout        = 8;   // SLA of the operation if not 0
 
+    // Absolute expiry (unix seconds) computed once on the leader from ttlSeconds
+    // before the write enters the raft log, so every replica stores the same
+    // expiry. Clients leave it 0 and set ttlSeconds; the server fills it in.
+    int64    expiresAt      = 9;
+
 }
 
+
+message IncrementRequest {
+
+    Key      key            = 1;
+    int64    initial        = 2;   // counter start value when the key is absent
+    int64    delta          = 3;   // amount to add (may be negative)
+    int64    ttlSeconds     = 4;   // client input: relative TTL in seconds, 0 means no TTL
+
+    int32    timeout        = 5;   // SLA of the operation if not 0
+
+    // Absolute expiry (unix seconds) computed once on the leader; see RecordRequest.
+    int64    expiresAt      = 6;
+
+}
+
+message IncrementResponse {
+
+    int64    previous       = 1;   // counter value before delta was applied
+    int64    current        = 2;   // counter value after delta was applied
+    uint64   version        = 3;   // envelope version (raft log index on the replicated path)
+
+}
+
+message BatchRequest {
+
+    repeated RecordRequest records = 1;   // written all-or-nothing in one engine txn
+
+    int32    timeout               = 2;   // SLA of the operation if not 0
+
+}
 
 enum RangeType {
     LESS_OR_EQUAL = 0;

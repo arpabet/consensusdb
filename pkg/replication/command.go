@@ -21,9 +21,11 @@ and applies them to local storage, so the encoding must stay stable on disk.
 type opCode byte
 
 const (
-	opPut    opCode = 1 // payload: pb.RecordRequest
-	opTouch  opCode = 2 // payload: pb.RecordRequest
-	opRemove opCode = 3 // payload: pb.KeyRequest
+	opPut       opCode = 1 // payload: pb.RecordRequest
+	opTouch     opCode = 2 // payload: pb.RecordRequest
+	opRemove    opCode = 3 // payload: pb.KeyRequest
+	opIncrement opCode = 4 // payload: pb.IncrementRequest
+	opBatch     opCode = 5 // payload: pb.BatchRequest
 )
 
 func encodeCommand(op opCode, msg proto.Message) ([]byte, error) {
@@ -49,6 +51,10 @@ func decodeCommand(data []byte) (opCode, proto.Message, error) {
 		msg = &pb.RecordRequest{}
 	case opRemove:
 		msg = &pb.KeyRequest{}
+	case opIncrement:
+		msg = &pb.IncrementRequest{}
+	case opBatch:
+		msg = &pb.BatchRequest{}
 	default:
 		return op, nil, xerrors.Errorf("unknown raft command op %d", op)
 	}

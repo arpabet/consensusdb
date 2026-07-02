@@ -2,31 +2,42 @@
 
 ConsensusDB Database
 
-a (near-)linearly scalable shared-nothing database system that
-provides high availability without consistency and transactions
+A strongly consistent, raft-replicated key-value store that serves the
+`go.arpabet.com/store` interface over the network. It lets any store-based
+application drop its embedded engine (badger, pebble, bbolt, …) and become
+**stateless**: state moves into a small consensusdb cluster while the app keeps
+the exact same `DataStore` API — versioned compare-and-set, TTL, ordered
+enumeration, and watch — with no application code changes.
 
-primary purpose of this time-based database is immutable data storage for analytics
+Writes go through a raft leader and are committed to a replicated log applied
+identically on every node, so reads are linearizable and CAS is safe across
+replicas. A single node bootstraps as its own leader and grows into a
+multi-node cluster; there is no external dependency and no minimum node count.
+See [doc/PLAN-store-provider.md](doc/PLAN-store-provider.md) for the roadmap
+turning this into the `store/providers/cdb` client.
 
-multiple nodes can write in parallel on local disk, data replicated between nodes by subscription pointers, no leader elected
-no minimum nodes setup required, multi-datacenter support by own ssh keys from the list of known
-
-no partitioning of data, all nodes have full data copy, but own write-a-head log with subscribers
+Payloads are sealed **client-side** by default (the client encrypts before the
+wire), so a compromised node yields only ciphertext — strictly stronger than
+encryption-at-rest.
 
 # Description
 
-* gRPC interface for database clients and nodes with common CA
-* HTTPS REST JSON interface for any clients with common CA
+* gRPC interface (+ HTTPS REST/JSON gateway) with common CA; a vrpc data plane
+  is planned for the store provider
 * Engine - badger (similar to rocksdb, but faster)
-* Supports point-in-time data by TimeUUID
+* Raft replication (hashicorp/raft via sprint raftmod) — leader-based, strongly
+  consistent, snapshot/restore
+* Serves the `go.arpabet.com/store` capability contract: TTL, versioned CAS,
+  ordered enumeration, watch
+* Multi-tenant key model (majorKey / region / minorKey), point-in-time by TimeUUID
+* Client-side sealed encryption: AES-GCM / AES-CFB, per-tenant block keys
 * Supports compression: Snappy, LZ4
-* Supports encryption: AES on GCM, AES on CFB
-* Data storage is sealed by default, all payloads are encrypted
-* Very fast
-* Multi-tenant architecture
 * Pure golang implementation
 
 # Current Status
-* active developing
+* Active development. Standalone KV + raft core + client-side sealing work today;
+  the store-interface data path, distributed CAS/increment/batch/watch, and the
+  `store/providers/cdb` client are in progress per the plan.
 
 # Design
 Data collocated by majorKey in data nodes, grouped by regionName to reference different types of data, accessible by minorKey and TimeUUID.

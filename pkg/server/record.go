@@ -7,29 +7,27 @@ package server
 
 import (
 	"go.arpabet.com/consensusdb/pkg/pb"
-	badger "github.com/dgraph-io/badger/v4"
 )
 
 func RecordNotFound(key *pb.Key) *pb.Record {
 	return &pb.Record {  Key: key }
 }
 
-func RecordNotFetched(key *pb.Key, item *badger.Item) *pb.Record {
+// RecordHead builds a header-only record. version and expiresAt come from the
+// value envelope (see FetchRecord), not from badger's node-local item metadata.
+func RecordHead(key *pb.Key, version, expiresAt uint64, diskSize int64, metadata int32) *pb.Record {
 	head := &pb.Head{
-		Version: item.Version(),
-		ExpiresAt:item.ExpiresAt(),
-		DiskSize: item.EstimatedSize(),
-		Metadata: int32(item.UserMeta()),
+		Version:   version,
+		ExpiresAt: expiresAt,
+		DiskSize:  diskSize,
+		Metadata:  metadata,
 	}
 	return &pb.Record {  Key: key, Head: head }
 }
 
-func RecordFetched(key *pb.Key, item *badger.Item, data []byte) *pb.Record {
-	head := &pb.Head{
-		Version: item.Version(),
-		ExpiresAt:item.ExpiresAt(),
-		DiskSize: item.EstimatedSize(),
-		Metadata: int32(item.UserMeta()),
-	}
-	return &pb.Record {  Key: key, Head: head, Value: data }
+// RecordValue builds a full record (header + unwrapped value).
+func RecordValue(key *pb.Key, version, expiresAt uint64, diskSize int64, metadata int32, value []byte) *pb.Record {
+	record := RecordHead(key, version, expiresAt, diskSize, metadata)
+	record.Value = value
+	return record
 }

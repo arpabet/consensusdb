@@ -6,12 +6,13 @@
 package server
 
 import (
+	"encoding/binary"
 	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/store"
 	badger "github.com/dgraph-io/badger/v4"
 	"golang.org/x/xerrors"
 	"go.uber.org/zap"
 	"io"
-	"time"
 )
 
 
@@ -37,11 +38,27 @@ type KeyValueStorage interface {
 
 	Scan(scanRequest *pb.ScanRequest, sender BlockSender) error;
 
-	Touch(recordRequest *pb.RecordRequest) (*pb.Status, error);
+	// Touch resets TTL on an existing record. commitVersion, when non-zero, is
+	// the raft log index the caller (FSM) assigns as the new envelope version so
+	// every replica lands the same value; 0 means assign locally (raft-off).
+	Touch(recordRequest *pb.RecordRequest, commitVersion uint64) (*pb.Status, error);
 
-	Put(recordRequest *pb.RecordRequest) (*pb.Status, error);
+	// Put writes a record. commitVersion, when non-zero, is the raft log index
+	// stamped into the value envelope as the replica-independent version; 0 means
+	// assign locally (envelope version = previous+1) for the single-node path.
+	Put(recordRequest *pb.RecordRequest, commitVersion uint64) (*pb.Status, error);
 
 	Remove(keyRequest *pb.KeyRequest) (*pb.Status, error);
+
+	// Increment atomically adds delta to the int64 counter at key (starting from
+	// initial when absent) and returns the previous value plus the new envelope
+	// version. commitVersion is the raft log index (0 = assign locally).
+	Increment(req *pb.IncrementRequest, commitVersion uint64) (*pb.IncrementResponse, error);
+
+	// SetBatch writes every record in one badger transaction (all-or-nothing).
+	// commitVersion is the raft log index stamped into each entry's envelope
+	// (0 = assign locally per key).
+	SetBatch(req *pb.BatchRequest, commitVersion uint64) (*pb.Status, error);
 
 	// Backup writes a self-describing snapshot of the whole store to w and
 	// returns the last applied version. Used by the raft FSM snapshot.
@@ -130,9 +147,19 @@ func (t *StorageBean) GetArea(r *pb.KeyRequest, lastField Field, sender BlockSen
 	return t.storage.GetArea(r, lastField, sender)
 }
 func (t *StorageBean) Scan(r *pb.ScanRequest, sender BlockSender) error { return t.storage.Scan(r, sender) }
-func (t *StorageBean) Touch(r *pb.RecordRequest) (*pb.Status, error)    { return t.storage.Touch(r) }
-func (t *StorageBean) Put(r *pb.RecordRequest) (*pb.Status, error)      { return t.storage.Put(r) }
-func (t *StorageBean) Remove(r *pb.KeyRequest) (*pb.Status, error)      { return t.storage.Remove(r) }
+func (t *StorageBean) Touch(r *pb.RecordRequest, commitVersion uint64) (*pb.Status, error) {
+	return t.storage.Touch(r, commitVersion)
+}
+func (t *StorageBean) Put(r *pb.RecordRequest, commitVersion uint64) (*pb.Status, error) {
+	return t.storage.Put(r, commitVersion)
+}
+func (t *StorageBean) Remove(r *pb.KeyRequest) (*pb.Status, error) { return t.storage.Remove(r) }
+func (t *StorageBean) Increment(r *pb.IncrementRequest, commitVersion uint64) (*pb.IncrementResponse, error) {
+	return t.storage.Increment(r, commitVersion)
+}
+func (t *StorageBean) SetBatch(r *pb.BatchRequest, commitVersion uint64) (*pb.Status, error) {
+	return t.storage.SetBatch(r, commitVersion)
+}
 
 func (t *StorageBean) Backup(w io.Writer) (uint64, error) { return t.storage.Backup(w) }
 func (t *StorageBean) Load(r io.Reader) error             { return t.storage.Load(r) }
@@ -144,19 +171,55 @@ func (t *StorageBean) Close() error {
 	return nil
 }
 
+// FetchRecord materializes a stored badger item into a pb.Record, unwrapping the
+// store value envelope (version | expiresAt | value). The version and expiry are
+// read from the envelope, NOT from badger's node-local item.Version() — that is
+// what keeps CAS and the reported version identical across raft replicas.
+//
+// Because the version now lives inside the value, headOnly still copies the value
+// to read the 17-byte envelope header; it just omits the payload from the reply.
 func FetchRecord(key *pb.Key, item *badger.Item, headOnly bool) (*pb.Record, error) {
-
-	if headOnly {
-		return RecordNotFetched(key, item), nil
-	}
 
 	data, err := item.ValueCopy(nil)
 	if err != nil {
 		return nil, xerrors.Errorf("fetch value failed: %v", err)
 	}
 
-	return RecordFetched(key, item, data), nil
+	version, expiresAt, value, _ := store.DecodeEnvelope(data)
 
+	// Lazy read-time expiry: an expired entry is hidden (reported as not found),
+	// exactly like store's envelope providers. It stays physically present until a
+	// deterministic sweep removes it — reads must not delete, or replicas would
+	// diverge. Existence checks for CAS/Increment use raw txn.Get, not this path,
+	// so an expired-but-unswept key still blocks putIfAbsent deterministically.
+	if store.IsExpired(expiresAt) {
+		return RecordNotFound(key), nil
+	}
+
+	diskSize := item.EstimatedSize()
+	meta := int32(item.UserMeta())
+
+	if headOnly {
+		return RecordHead(key, uint64(version), uint64(expiresAt), diskSize, meta), nil
+	}
+
+	return RecordValue(key, uint64(version), uint64(expiresAt), diskSize, meta, value), nil
+
+}
+
+// resolveExpiry returns the absolute expiry (unix seconds) to store. It prefers an
+// expiresAt already computed on the leader (so every replica stores the same
+// value); otherwise it derives one from the relative ttlSeconds. This fallback
+// keeps direct storage callers (and single-node tests) working, while the service
+// layer sets expiresAt up front on the replicated path.
+func resolveExpiry(ttlSeconds int64, expiresAt int64) int64 {
+	if expiresAt != 0 {
+		return expiresAt
+	}
+	if ttlSeconds > 0 {
+		return store.ExpiryFromTtl(int(ttlSeconds))
+	}
+	return 0
 }
 
 func (this *KeyValueStorageCtx) Get(keyRequest *pb.KeyRequest) (*pb.Record, error) {
@@ -275,6 +338,11 @@ func (this *KeyValueStorageCtx) GetRange(rangeRequest *pb.RangeRequest) (*pb.Blo
 			continue
 		}
 
+		if record.Head == nil {
+			// expired (hidden on read) — skip without consuming a slot
+			continue
+		}
+
 		records = append(records, record)
 
 		i = i + 1
@@ -327,6 +395,11 @@ func (this *KeyValueStorageCtx) GetArea(keyRequest *pb.KeyRequest, lastField Fie
 		if err != nil {
 			// ignore failed to fetch key
 			this.log.Error("fetch record fail", zap.Error(err))
+			continue
+		}
+
+		if record.Head == nil {
+			// expired (hidden on read) — skip
 			continue
 		}
 
@@ -390,6 +463,11 @@ func (this *KeyValueStorageCtx) Scan(scanRequest *pb.ScanRequest, sender BlockSe
 			continue
 		}
 
+		if record.Head == nil {
+			// expired (hidden on read) — skip
+			continue
+		}
+
 		records = append(records, record)
 
 		if len(records) == defBlockSize {
@@ -415,7 +493,7 @@ func (this *KeyValueStorageCtx) Scan(scanRequest *pb.ScanRequest, sender BlockSe
 	return nil
 }
 
-func (this *KeyValueStorageCtx) Touch(recordRequest *pb.RecordRequest) (*pb.Status, error) {
+func (this *KeyValueStorageCtx) Touch(recordRequest *pb.RecordRequest, commitVersion uint64) (*pb.Status, error) {
 
 	if recordRequest.Key == nil {
 		return nil, ErrorEmptyKey
@@ -443,27 +521,33 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *pb.RecordRequest) (*pb.Stat
 		return nil, xerrors.Errorf("fetch in touch error: %v", err)
 	}
 
-	entry := &badger.Entry{ Key: entryKey, Value:data, UserMeta: item.UserMeta()  }
+	// Preserve the stored value, re-stamp expiry and a fresh version. A touch is
+	// a replicated write, so it advances the version deterministically too.
+	oldVersion, _, value, _ := store.DecodeEnvelope(data)
 
-	if recordRequest.TtlSeconds > 0 {
-		ttl := time.Duration(recordRequest.TtlSeconds) * time.Second
-		expire := time.Now().Add(ttl).Unix()
-		entry.ExpiresAt = uint64(expire)
+	version := commitVersion
+	if version == 0 {
+		version = uint64(oldVersion) + 1
 	}
 
-	err = txn.SetEntry(entry)
+	expiresAt := resolveExpiry(recordRequest.TtlSeconds, recordRequest.ExpiresAt)
 
-	if err != nil {
+	envelope := store.EncodeEnvelope(int64(version), expiresAt, value)
+	entry := &badger.Entry{ Key: entryKey, Value: envelope, UserMeta: item.UserMeta() }
+
+	if err := txn.SetEntry(entry); err != nil {
 		return nil, xerrors.Errorf("update entry error: %v", err)
 	}
 
-	txn.Commit()
+	if err := txn.Commit(); err != nil {
+		return nil, xerrors.Errorf("commit touch error: %v", err)
+	}
 
 	return &pb.Status{ Updated: true}, nil
 
 }
 
-func (this *KeyValueStorageCtx) Put(recordRequest *pb.RecordRequest) (*pb.Status, error) {
+func (this *KeyValueStorageCtx) Put(recordRequest *pb.RecordRequest, commitVersion uint64) (*pb.Status, error) {
 
 	if recordRequest.Key == nil {
 		return nil, ErrorEmptyKey
@@ -474,42 +558,57 @@ func (this *KeyValueStorageCtx) Put(recordRequest *pb.RecordRequest) (*pb.Status
 	txn := this.db.NewTransaction(true)
 	defer txn.Discard()
 
-	if recordRequest.CompareAndSet {
-
-		item, err := txn.Get(entryKey)
-
+	// Read the current envelope version (if any). CAS compares against this
+	// envelope version, never badger's item.Version() (which is node-local).
+	var oldVersion uint64
+	exists := false
+	if item, err := txn.Get(entryKey); err == nil {
+		exists = true
+		data, err := item.ValueCopy(nil)
 		if err != nil {
-			// absent
+			return nil, xerrors.Errorf("read current value error: %v", err)
+		}
+		v, _, _, _ := store.DecodeEnvelope(data)
+		oldVersion = uint64(v)
+	} else if err != badger.ErrKeyNotFound {
+		return nil, err
+	}
 
-			if recordRequest.Version != 0 {
+	if recordRequest.CompareAndSet {
+		if !exists {
+			if recordRequest.Version != 0 { // expected an existing version
 				return &pb.Status{ Updated: false}, nil
 			}
-
-			// putIfAbsent
-
-		} else if recordRequest.Version != item.Version() {
-
+			// putIfAbsent (version 0 == absent)
+		} else if recordRequest.Version != oldVersion {
 			// wrong version CAS
 			return &pb.Status{ Updated: false}, nil
 		}
-
 	}
 
-	entry := &badger.Entry{ Key: entryKey, Value: recordRequest.Value, UserMeta: byte(recordRequest.Metadata) }
-
-	if recordRequest.TtlSeconds > 0 {
-		ttl := time.Duration(recordRequest.TtlSeconds) * time.Second
-		expire := time.Now().Add(ttl).Unix()
-		entry.ExpiresAt = uint64(expire)
+	// commitVersion is the raft log index on the replicated path; on the
+	// single-node / raft-off path it is 0 and we fall back to a per-key counter.
+	version := commitVersion
+	if version == 0 {
+		version = oldVersion + 1
 	}
 
-	err := txn.SetEntry(entry)
+	expiresAt := resolveExpiry(recordRequest.TtlSeconds, recordRequest.ExpiresAt)
 
-	if err != nil {
+	// The envelope carries expiry; badger's native ExpiresAt is deliberately NOT
+	// set — its node-local wall-clock drop would hide keys at different times per
+	// replica and break Apply's existence checks. Expiry is enforced on read and
+	// reclaimed by a deterministic sweep.
+	envelope := store.EncodeEnvelope(int64(version), expiresAt, recordRequest.Value)
+	entry := &badger.Entry{ Key: entryKey, Value: envelope, UserMeta: byte(recordRequest.Metadata) }
+
+	if err := txn.SetEntry(entry); err != nil {
 		return nil, xerrors.Errorf("update entry error: %v", err)
 	}
 
-	txn.Commit()
+	if err := txn.Commit(); err != nil {
+		return nil, xerrors.Errorf("commit put error: %v", err)
+	}
 
 	return &pb.Status{ Updated: true}, nil
 
@@ -532,7 +631,120 @@ func (this *KeyValueStorageCtx) Remove(keyRequest *pb.KeyRequest) (*pb.Status, e
 		return nil, xerrors.Errorf("delete entry error: %v", err)
 	}
 
-	txn.Commit()
+	if err := txn.Commit(); err != nil {
+		return nil, xerrors.Errorf("commit remove error: %v", err)
+	}
+
+	return &pb.Status{ Updated: true}, nil
+
+}
+
+// counterFromEnvelope decodes the 8-byte big-endian counter payload from a stored
+// envelope value, returning the current version and the counter (fallback when the
+// payload is shorter than 8 bytes, e.g. a freshly created key).
+func counterFromEnvelope(data []byte, fallback int64) (version uint64, counter int64) {
+	v, _, val, _ := store.DecodeEnvelope(data)
+	counter = fallback
+	if len(val) >= 8 {
+		counter = int64(binary.BigEndian.Uint64(val))
+	}
+	return uint64(v), counter
+}
+
+func (this *KeyValueStorageCtx) Increment(req *pb.IncrementRequest, commitVersion uint64) (*pb.IncrementResponse, error) {
+
+	if req.Key == nil {
+		return nil, ErrorEmptyKey
+	}
+
+	entryKey, _ := EncodeKey(req.Key)
+
+	txn := this.db.NewTransaction(true)
+	defer txn.Discard()
+
+	// Read the current counter and envelope version. Absent key starts at Initial.
+	var oldVersion uint64
+	counter := req.Initial
+	if item, err := txn.Get(entryKey); err == nil {
+		data, err := item.ValueCopy(nil)
+		if err != nil {
+			return nil, xerrors.Errorf("read counter error: %v", err)
+		}
+		oldVersion, counter = counterFromEnvelope(data, req.Initial)
+	} else if err != badger.ErrKeyNotFound {
+		return nil, err
+	}
+
+	prev := counter
+	counter += req.Delta
+
+	version := commitVersion
+	if version == 0 {
+		version = oldVersion + 1
+	}
+
+	expiresAt := resolveExpiry(req.TtlSeconds, req.ExpiresAt)
+
+	buf := make([]byte, 8)
+	binary.BigEndian.PutUint64(buf, uint64(counter))
+	envelope := store.EncodeEnvelope(int64(version), expiresAt, buf)
+	entry := &badger.Entry{ Key: entryKey, Value: envelope }
+
+	if err := txn.SetEntry(entry); err != nil {
+		return nil, xerrors.Errorf("update counter error: %v", err)
+	}
+
+	if err := txn.Commit(); err != nil {
+		return nil, xerrors.Errorf("commit increment error: %v", err)
+	}
+
+	return &pb.IncrementResponse{ Previous: prev, Current: counter, Version: version }, nil
+
+}
+
+func (this *KeyValueStorageCtx) SetBatch(req *pb.BatchRequest, commitVersion uint64) (*pb.Status, error) {
+
+	txn := this.db.NewTransaction(true)
+	defer txn.Discard()
+
+	// One badger transaction for the whole batch → all-or-nothing (BatchAtomic).
+	// Note: bounded by badger's max transaction size; very large batches would
+	// need chunking (which would forfeit atomicity — hence a bounded batch here).
+	for _, record := range req.Records {
+
+		if record.Key == nil {
+			return nil, ErrorEmptyKey
+		}
+
+		entryKey, _ := EncodeKey(record.Key)
+
+		version := commitVersion
+		if version == 0 {
+			// raft-off: assign per-key old+1 (reads see this txn's own pending writes).
+			var oldVersion uint64
+			if item, err := txn.Get(entryKey); err == nil {
+				if data, err := item.ValueCopy(nil); err == nil {
+					oldVersion, _ = counterFromEnvelope(data, 0)
+				}
+			} else if err != badger.ErrKeyNotFound {
+				return nil, err
+			}
+			version = oldVersion + 1
+		}
+
+		expiresAt := resolveExpiry(record.TtlSeconds, record.ExpiresAt)
+
+		envelope := store.EncodeEnvelope(int64(version), expiresAt, record.Value)
+		entry := &badger.Entry{ Key: entryKey, Value: envelope, UserMeta: byte(record.Metadata) }
+
+		if err := txn.SetEntry(entry); err != nil {
+			return nil, xerrors.Errorf("batch set entry error: %v", err)
+		}
+	}
+
+	if err := txn.Commit(); err != nil {
+		return nil, xerrors.Errorf("commit batch error: %v", err)
+	}
 
 	return &pb.Status{ Updated: true}, nil
 

@@ -28,4 +28,8 @@ type Replicator interface {
 	Touch(recordRequest *pb.RecordRequest) (*pb.Status, error)
 
 	Remove(keyRequest *pb.KeyRequest) (*pb.Status, error)
+
+	Increment(req *pb.IncrementRequest) (*pb.IncrementResponse, error)
+
+	Batch(req *pb.BatchRequest) (*pb.Status, error)
 }

@@ -33,6 +33,8 @@ const (
 	KeyValueService_Touch_FullMethodName     = "/cdb.KeyValueService/Touch"
 	KeyValueService_Put_FullMethodName       = "/cdb.KeyValueService/Put"
 	KeyValueService_Remove_FullMethodName    = "/cdb.KeyValueService/Remove"
+	KeyValueService_Increment_FullMethodName = "/cdb.KeyValueService/Increment"
+	KeyValueService_Batch_FullMethodName     = "/cdb.KeyValueService/Batch"
 )
 
 // KeyValueServiceClient is the client API for KeyValueService service.
@@ -59,6 +61,10 @@ type KeyValueServiceClient interface {
 	Put(ctx context.Context, in *RecordRequest, opts ...grpc.CallOption) (*Status, error)
 	// Remove the record
 	Remove(ctx context.Context, in *KeyRequest, opts ...grpc.CallOption) (*Status, error)
+	// Atomically increments a counter, returns the previous value
+	Increment(ctx context.Context, in *IncrementRequest, opts ...grpc.CallOption) (*IncrementResponse, error)
+	// Writes multiple records in one atomic (all-or-nothing) operation
+	Batch(ctx context.Context, in *BatchRequest, opts ...grpc.CallOption) (*Status, error)
 }
 
 type keyValueServiceClient struct {
@@ -205,6 +211,26 @@ func (c *keyValueServiceClient) Remove(ctx context.Context, in *KeyRequest, opts
 	return out, nil
 }
 
+func (c *keyValueServiceClient) Increment(ctx context.Context, in *IncrementRequest, opts ...grpc.CallOption) (*IncrementResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(IncrementResponse)
+	err := c.cc.Invoke(ctx, KeyValueService_Increment_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *keyValueServiceClient) Batch(ctx context.Context, in *BatchRequest, opts ...grpc.CallOption) (*Status, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(Status)
+	err := c.cc.Invoke(ctx, KeyValueService_Batch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // KeyValueServiceServer is the server API for KeyValueService service.
 // All implementations must embed UnimplementedKeyValueServiceServer
 // for forward compatibility.
@@ -229,6 +255,10 @@ type KeyValueServiceServer interface {
 	Put(context.Context, *RecordRequest) (*Status, error)
 	// Remove the record
 	Remove(context.Context, *KeyRequest) (*Status, error)
+	// Atomically increments a counter, returns the previous value
+	Increment(context.Context, *IncrementRequest) (*IncrementResponse, error)
+	// Writes multiple records in one atomic (all-or-nothing) operation
+	Batch(context.Context, *BatchRequest) (*Status, error)
 	mustEmbedUnimplementedKeyValueServiceServer()
 }
 
@@ -268,6 +298,12 @@ func (UnimplementedKeyValueServiceServer) Put(context.Context, *RecordRequest) (
 }
 func (UnimplementedKeyValueServiceServer) Remove(context.Context, *KeyRequest) (*Status, error) {
 	return nil, status.Error(codes.Unimplemented, "method Remove not implemented")
+}
+func (UnimplementedKeyValueServiceServer) Increment(context.Context, *IncrementRequest) (*IncrementResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Increment not implemented")
+}
+func (UnimplementedKeyValueServiceServer) Batch(context.Context, *BatchRequest) (*Status, error) {
+	return nil, status.Error(codes.Unimplemented, "method Batch not implemented")
 }
 func (UnimplementedKeyValueServiceServer) mustEmbedUnimplementedKeyValueServiceServer() {}
 func (UnimplementedKeyValueServiceServer) testEmbeddedByValue()                         {}
@@ -442,6 +478,42 @@ func _KeyValueService_Remove_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _KeyValueService_Increment_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(IncrementRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyValueServiceServer).Increment(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KeyValueService_Increment_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyValueServiceServer).Increment(ctx, req.(*IncrementRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _KeyValueService_Batch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(BatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KeyValueServiceServer).Batch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KeyValueService_Batch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KeyValueServiceServer).Batch(ctx, req.(*BatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // KeyValueService_ServiceDesc is the grpc.ServiceDesc for KeyValueService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -472,6 +544,14 @@ var KeyValueService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Remove",
 			Handler:    _KeyValueService_Remove_Handler,
+		},
+		{
+			MethodName: "Increment",
+			Handler:    _KeyValueService_Increment_Handler,
+		},
+		{
+			MethodName: "Batch",
+			Handler:    _KeyValueService_Batch_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

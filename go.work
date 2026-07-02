@@ -1,0 +1,18 @@
+go 1.25.8
+
+// Local development workspace: consensusdb is being built into the distributed
+// backend for go.arpabet.com/store (see doc/PLAN-store-provider.md). All sibling
+// arpabet modules are wired to their local main-branch checkouts so store /
+// sprint / value / value-rpc can be edited together across phases. Version tags
+// are reconciled at release time; until then everything rides local HEAD.
+use (
+	.
+	../store
+	../store/providers/badger
+	../sprint/raftapi
+	../sprint/raftmod
+	../sprint/raftgrpc
+	../sprint/raftpb
+	../value-rpc
+	../value
+)

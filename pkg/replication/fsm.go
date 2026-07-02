@@ -31,6 +31,7 @@ type FSM struct {
 // raft ApplyFuture.Response().
 type fsmResult struct {
 	status *pb.Status
+	incr   *pb.IncrementResponse // set only for opIncrement
 	err    error
 }
 
@@ -46,13 +47,21 @@ func (t *FSM) Apply(entry *raft.Log) interface{} {
 	}
 	switch op {
 	case opPut:
-		status, err := t.Storage.Put(msg.(*pb.RecordRequest))
+		// entry.Index is the replica-independent version stamped into the
+		// value envelope, identical on every node applying this log entry.
+		status, err := t.Storage.Put(msg.(*pb.RecordRequest), entry.Index)
 		return &fsmResult{status: status, err: err}
 	case opTouch:
-		status, err := t.Storage.Touch(msg.(*pb.RecordRequest))
+		status, err := t.Storage.Touch(msg.(*pb.RecordRequest), entry.Index)
 		return &fsmResult{status: status, err: err}
 	case opRemove:
 		status, err := t.Storage.Remove(msg.(*pb.KeyRequest))
+		return &fsmResult{status: status, err: err}
+	case opIncrement:
+		incr, err := t.Storage.Increment(msg.(*pb.IncrementRequest), entry.Index)
+		return &fsmResult{incr: incr, err: err}
+	case opBatch:
+		status, err := t.Storage.SetBatch(msg.(*pb.BatchRequest), entry.Index)
 		return &fsmResult{status: status, err: err}
 	default:
 		return &fsmResult{err: xerrors.Errorf("unhandled raft op %d", op)}

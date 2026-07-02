@@ -23,39 +23,143 @@ Current state (verified 2026-07):
 
 ---
 
-## Phase 0 — groundwork
+## Phase 0 — groundwork ✅ DONE (2026-07-02)
 
-- [ ] Add `go.work` to consensusdb: `use .` + local `../store`, `../store/providers/badger`,
+- [x] Add `go.work` to consensusdb: `use .` + local `../store`, `../store/providers/badger`,
       `../sprint` (raftapi/raftmod/raftgrpc/raftpb), `../value-rpc`, `../value`.
-- [ ] Fix ignored `txn.Commit()` errors in `pkg/server/storage.go` (Put, Remove, Touch).
-- [ ] Rewrite `README.md` identity: raft-replicated KV serving the store
-      interface (the current text still describes the old leaderless/subscription
-      design and analytics slant).
+      Builds and `pkg/...` tests pass against local main-branch checkouts.
+- [x] Fix ignored `txn.Commit()` errors in `pkg/server/storage.go` (Put, Remove, Touch) —
+      each now returns a wrapped commit error instead of silently dropping it.
+- [x] Rewrite `README.md` identity: raft-replicated KV serving the store
+      interface (replaced the old leaderless/subscription/analytics framing).
 
-## Phase 1 — rebase data path onto `store.ManagedDataStore`
+## Phase 1 — versioned envelopes + new raft ops (partially DONE 2026-07-02)
 
-The original, uncompleted intent. `KeyValueStorageCtx` (direct badger) becomes a
-thin layer over `store.ManagedDataStore` (badger provider). The server then
-inherits `IncrementRaw`, `CompareAndSetRaw`, `SetBatchRaw`, `EnumerateRaw`,
-`WatchRaw`, `Backup/Restore/DropAll` — everything the store contract needs —
-and the FSM opcode switch maps 1:1 onto store raw calls.
+**Architecture correction (supersedes the original bullet).** The plan first said
+"replace direct badger usage with injected `store.ManagedDataStore` (badger
+provider)". Reading the code shows that is WRONG for determinism: the store
+*badger provider* derives its version from badger-native `item.Version()` (a
+node-local MVCC commit timestamp), so embedding it would reintroduce exactly the
+cross-replica version divergence Phase 1 exists to prevent. It is also a poor fit
+— consensusdb's storage is a richer majorKey/region/minorKey/TimeUUID model, not
+flat KV.
 
-- [ ] `pkg/server/storage.go`: replace direct badger usage with injected
-      `store.ManagedDataStore`; keep `EncodeKey` mapping
-      (majorKey/region/minorKey) as the key layout; snapshot/restore delegates
-      to the provider's `Backup`/`Restore`.
-- [ ] New raft ops in `pkg/replication/command.go` + `fsm.go`:
-      `opCAS`, `opIncrement`, `opBatch` (one log entry = one engine txn →
-      `BatchAtomicCapability`), alongside existing opPut/opTouch/opRemove.
-- [ ] **Determinism — versions (key design decision):** badger's native
-      `Item.Version()` is node-local and diverges across replicas; CAS must
-      compare a replica-independent version. Use the raft **log index** as the
-      version, carried in the value envelope (`store.EncodeEnvelope`) written by
-      the FSM. Deterministic, monotonic, free. Non-replicated (single-node,
-      raft off) falls back to the envelope per-key counter.
-- [ ] **Determinism — TTL:** FSM applies at different wall-clock times per node;
-      commands must carry an **absolute `expiresAt`** computed by the leader,
-      never a relative ttlSeconds.
+Chosen instead: **keep consensusdb's own badger storage, but store the store
+value *envelope* (`store.EncodeEnvelope` = `version | expiresAt | value`) with
+`version = raft entry.Index`, stamped in `FSM.Apply`.** consensusdb depends on
+store's envelope *helpers*, not the store engine. This delivers the
+raft-index-as-version intent directly, keeps the rich key model, and is far less
+invasive. The eventual flat-KV mapping onto store's `RawEntry` lives in the
+client provider (Phase 4), not here.
+
+- [x] **Versioned envelopes wired end-to-end (DONE).**
+      - `pkg/server/storage.go`: `Put`/`Touch` now take `commitVersion uint64`
+        (raft index; 0 = assign locally as `old+1` for raft-off), write
+        `EncodeEnvelope(version, expiresAt, value)`, and CAS compares the decoded
+        *envelope* version — `item.Version()` deleted from the write path.
+      - `FetchRecord` decodes the envelope on every read (version/expiresAt →
+        `Head`, payload stripped); `record.go` constructors decoupled from
+        `badger.Item` (`RecordHead`/`RecordValue`).
+      - `fsm.go` passes `entry.Index`; `server.go` raft-off path passes 0.
+      - Tests: `pkg/replication/version_test.go` proves version == raft index,
+        cross-replica determinism (B given extra local history so `item.Version()`
+        would diverge), and envelope-version CAS. Existing round-trip + snapshot
+        tests still green.
+      - Known cost (follow-up): `headOnly` reads now copy the value to read the
+        17-byte envelope header (the version lives in the value). Acceptable;
+        revisit if headOnly scans get hot.
+- [x] **TTL determinism (DONE 2026-07-02).**
+      - Proto: `RecordRequest.expiresAt` (field 9) and `IncrementRequest.expiresAt`
+        (field 6) — absolute unix, computed once on the write-accepting (leader)
+        node from `ttlSeconds`; regenerated via `genproto.sh`.
+      - `server.go`: the Put/Touch/Increment/Batch handlers call `resolveExpiry`
+        (prefers a set `expiresAt`, else `store.ExpiryFromTtl`) BEFORE routing, so
+        the command entering the raft log carries a fixed absolute expiry that
+        every replica applies identically.
+      - **Removed badger's native `entry.ExpiresAt`.** It is NOT a passive GC hint —
+        badger hides keys at each node's wall clock, which would desync `Apply`'s
+        existence checks across replicas. Expiry now lives solely in the envelope.
+      - Read path: `FetchRecord` hides expired entries via `store.IsExpired`
+        (returns not-found on point reads; iteration paths skip them), matching
+        store's pebble/bbolt lazy-expiry semantics. Existence checks for
+        CAS/Increment use raw `txn.Get`, so an expired-but-unswept key still blocks
+        putIfAbsent — deterministically, never on a per-node clock.
+      - Tests (`ttl_test.go`): cross-replica expiry determinism; expired entry
+        hidden on read yet blocks CAS.
+      - **Remaining:** physical reclamation of expired envelopes needs a
+        DETERMINISTIC sweep (a raft-logged tombstone/delete applied in log order),
+        NOT badger's background GC. Until then expired keys are hidden but linger
+        on disk. This folds into the watch-hub / sweeper work below.
+- [x] **New raft ops `opIncrement` + `opBatch` (DONE 2026-07-02).**
+      - Proto: added `IncrementRequest`/`IncrementResponse`/`BatchRequest` messages
+        and `Increment`/`Batch` RPCs (with REST gateway routes) to `cdb.proto`;
+        regenerated via `genproto.sh` (protoc + plugins present).
+      - `storage.go`: `Increment` = envelope read-modify-write of an 8-byte
+        big-endian counter (absent ⇒ starts at `Initial`, returns `Previous`,
+        matching store's `IncrementRaw` contract) stamped with the raft index;
+        `SetBatch` = all records in ONE badger txn (BatchAtomic), each entry
+        stamped with the log index. Both take `commitVersion` (0 = local fallback).
+      - `command.go` opcodes 4/5 + decode; `fsm.go` apply cases; `fsmResult` gained
+        an `incr` field; `Replicator` gained `Increment`/`Batch` (refactored
+        `applyCommand` to surface the FSM result); service + `Replicator` interface
+        + raft-off direct path all wired.
+      - Tests (`increment_test.go`): increment prev/current/version incl. negative
+        delta, cross-replica determinism, batch atomic multi-write with per-entry
+        log-index version. Full module green.
+      - Known limit: `SetBatch` is bounded by badger's max transaction size; very
+        large batches would need chunking (which forfeits atomicity) — batches are
+        expected to be bounded. `opCAS` as a distinct wire op was NOT added: CAS
+        already works through `Put`'s `CompareAndSet` flag.
+- [ ] **Determinism — versions (THE load-bearing decision).** The failure to
+      prevent: badger's native `Item.Version()` is a node-local MVCC commit
+      timestamp; two replicas applying the same log entry get *different*
+      `item.Version()` values, so a CAS that reads version V on node A and
+      re-checks on node B silently misfires. Current `storage.go` Put compares
+      `recordRequest.Version != item.Version()` — that comparison **must be
+      deleted**. The invariant that fixes it:
+
+      1. **Version lives in the value envelope, not in the engine.** Every write
+         stores `store.EncodeEnvelope(version, expiresAt, value)`; CAS and the
+         version returned by Get both read the envelope, never `item.Version()`.
+      2. **Version is assigned exactly once, inside `FSM.Apply`, from a
+         replicated source.** Apply runs in identical log order on every node, so
+         any value it derives there is deterministic. The RPC handler / leader
+         must NOT stamp the version (it doesn't know the committed index yet).
+      3. **Use the raft `entry.Index` as the version.** It's monotonic,
+         cluster-global, unique per committed write, and free (already in hand in
+         Apply — no read-before-write for a plain Put). Conformance permits this:
+         `storetest` asserts only "version must change on update" (`testVersion`)
+         and "the version read back is the one CAS must match" (`testCompareAndSet`);
+         it does **not** require per-key `1,2,3…` counting, so a sparse global
+         counter is fine.
+      4. **Reserve version 0 = absent** (create-if-absent). Raft's first real
+         index is 1, so a stored key always has version ≥ 1 and 0 stays
+         unambiguous — consistent with storage.go's existing
+         `Version==0 ⇒ putIfAbsent`.
+
+      Alternative considered: an envelope per-key counter (`old.version+1`, the
+      1,2,3 scheme the bbolt/pebble/mem providers use). Also deterministic in
+      Apply and makes cdb byte-identical to those providers, but costs a
+      read-before-write on *every* Put to fetch the prior counter. Rejected as
+      the default (index is cheaper, equally conformant); revisit only if a
+      client depends on dense per-key versions. Single-node / raft-off mode has
+      no `entry.Index`, so there it falls back to the envelope per-key counter.
+- [ ] **Determinism — TTL.** FSM applies at different wall-clock times per node
+      (and again on restart replay), so:
+      - The leader computes an **absolute `expiresAt` unix** once and ships it in
+        the command; nodes store that exact value. Never a relative ttlSeconds
+        (each node's `now+ttl` would diverge). This is what `store.ExpiryFromTtl`
+        is for — call it on the leader, before proposing.
+      - **`Apply` must not consult wall-clock expiry for existence/version
+        decisions.** A CAS(create-if-absent) that treated an expired-but-present
+        key as absent on one node and present on another (clock skew at the
+        boundary) would diverge state. Rule: Apply decides existence purely from
+        envelope presence; expiry is applied only at the **read** layer
+        (client-facing Get filters expired) and reclaimed by a **deterministic**
+        sweep (a logged tombstone command, or the store sweeper driven on the
+        leader and replicated) — never by badger's own background TTL drop, which
+        is node-local and non-deterministic. Set badger entry TTL as a
+        space-reclaim hint only, never as the source of truth.
 - [ ] Watch: feed a hub from the FSM apply path (the single choke point every
       committed mutation passes through) — reuse `store` watch-hub machinery.
       This yields **cross-process watch**, an upgrade over every embedded provider.
@@ -130,11 +234,20 @@ and the FSM opcode switch maps 1:1 onto store raw calls.
 
 ## Risks / open questions
 
-1. Version determinism (Phase 1) is the one decision that's expensive to change
-   later — settle raft-index-as-version before writing the FSM ops.
+1. Version determinism (Phase 1) — RESOLVED in the Phase 1 spec: version = raft
+   `entry.Index`, stamped once in `FSM.Apply`, stored in the envelope, compared
+   from the envelope (never `item.Version()`); 0 reserved = absent. Verified
+   conformant against `storetest` (`testVersion` requires only "changes on
+   update"; `testCompareAndSet` reads the version back rather than assuming a
+   value). This is the one thing that's expensive to change once FSM ops ship, so
+   it's nailed down before writing them — do not silently reintroduce
+   `item.Version()`.
 2. Envelope-in-value vs badger-native metadata: rebasing on the store badger
    provider means native TTL/versions locally but envelope versions for
    replication — make the FSM write path the only writer so the two never mix.
+   Corollary of #1: badger `ExpiresAt` and `item.Version()` are space/GC hints
+   only, never sources of truth; expiry is enforced at the read layer + a
+   deterministic sweep (see Phase 1 TTL bullet).
 3. raftgrpc is ported but untested in anger; wiring tests in Phase 2 should
    exercise Bootstrap/Join/leader-transfer on a 3-node in-process harness.
 4. Key layout: flat store keys map as majorKey=app/tenant, region="KV",

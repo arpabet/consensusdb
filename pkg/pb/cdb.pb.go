@@ -256,10 +256,14 @@ type RecordRequest struct {
 	Key           *Key                   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	Value         []byte                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
 	Metadata      int32                  `protobuf:"varint,3,opt,name=metadata,proto3" json:"metadata,omitempty"`     // for user 8 bits only, 9 bit deletedBit
-	TtlSeconds    int64                  `protobuf:"varint,4,opt,name=ttlSeconds,proto3" json:"ttlSeconds,omitempty"` // add TTL in seconds if not 0, zero means no TTL
+	TtlSeconds    int64                  `protobuf:"varint,4,opt,name=ttlSeconds,proto3" json:"ttlSeconds,omitempty"` // client input: relative TTL in seconds, 0 means no TTL
 	CompareAndSet bool                   `protobuf:"varint,6,opt,name=compareAndSet,proto3" json:"compareAndSet,omitempty"`
 	Version       uint64                 `protobuf:"varint,7,opt,name=version,proto3" json:"version,omitempty"` // if 0 then putIfAbsent
 	Timeout       int32                  `protobuf:"varint,8,opt,name=timeout,proto3" json:"timeout,omitempty"` // SLA of the operation if not 0
+	// Absolute expiry (unix seconds) computed once on the leader from ttlSeconds
+	// before the write enters the raft log, so every replica stores the same
+	// expiry. Clients leave it 0 and set ttlSeconds; the server fills it in.
+	ExpiresAt     int64 `protobuf:"varint,9,opt,name=expiresAt,proto3" json:"expiresAt,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -343,6 +347,210 @@ func (x *RecordRequest) GetTimeout() int32 {
 	return 0
 }
 
+func (x *RecordRequest) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+type IncrementRequest struct {
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Key        *Key                   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Initial    int64                  `protobuf:"varint,2,opt,name=initial,proto3" json:"initial,omitempty"`       // counter start value when the key is absent
+	Delta      int64                  `protobuf:"varint,3,opt,name=delta,proto3" json:"delta,omitempty"`           // amount to add (may be negative)
+	TtlSeconds int64                  `protobuf:"varint,4,opt,name=ttlSeconds,proto3" json:"ttlSeconds,omitempty"` // client input: relative TTL in seconds, 0 means no TTL
+	Timeout    int32                  `protobuf:"varint,5,opt,name=timeout,proto3" json:"timeout,omitempty"`       // SLA of the operation if not 0
+	// Absolute expiry (unix seconds) computed once on the leader; see RecordRequest.
+	ExpiresAt     int64 `protobuf:"varint,6,opt,name=expiresAt,proto3" json:"expiresAt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IncrementRequest) Reset() {
+	*x = IncrementRequest{}
+	mi := &file_cdb_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IncrementRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IncrementRequest) ProtoMessage() {}
+
+func (x *IncrementRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_cdb_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IncrementRequest.ProtoReflect.Descriptor instead.
+func (*IncrementRequest) Descriptor() ([]byte, []int) {
+	return file_cdb_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *IncrementRequest) GetKey() *Key {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *IncrementRequest) GetInitial() int64 {
+	if x != nil {
+		return x.Initial
+	}
+	return 0
+}
+
+func (x *IncrementRequest) GetDelta() int64 {
+	if x != nil {
+		return x.Delta
+	}
+	return 0
+}
+
+func (x *IncrementRequest) GetTtlSeconds() int64 {
+	if x != nil {
+		return x.TtlSeconds
+	}
+	return 0
+}
+
+func (x *IncrementRequest) GetTimeout() int32 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
+func (x *IncrementRequest) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
+type IncrementResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Previous      int64                  `protobuf:"varint,1,opt,name=previous,proto3" json:"previous,omitempty"` // counter value before delta was applied
+	Current       int64                  `protobuf:"varint,2,opt,name=current,proto3" json:"current,omitempty"`   // counter value after delta was applied
+	Version       uint64                 `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`   // envelope version (raft log index on the replicated path)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *IncrementResponse) Reset() {
+	*x = IncrementResponse{}
+	mi := &file_cdb_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *IncrementResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*IncrementResponse) ProtoMessage() {}
+
+func (x *IncrementResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_cdb_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use IncrementResponse.ProtoReflect.Descriptor instead.
+func (*IncrementResponse) Descriptor() ([]byte, []int) {
+	return file_cdb_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *IncrementResponse) GetPrevious() int64 {
+	if x != nil {
+		return x.Previous
+	}
+	return 0
+}
+
+func (x *IncrementResponse) GetCurrent() int64 {
+	if x != nil {
+		return x.Current
+	}
+	return 0
+}
+
+func (x *IncrementResponse) GetVersion() uint64 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
+}
+
+type BatchRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Records       []*RecordRequest       `protobuf:"bytes,1,rep,name=records,proto3" json:"records,omitempty"`  // written all-or-nothing in one engine txn
+	Timeout       int32                  `protobuf:"varint,2,opt,name=timeout,proto3" json:"timeout,omitempty"` // SLA of the operation if not 0
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BatchRequest) Reset() {
+	*x = BatchRequest{}
+	mi := &file_cdb_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BatchRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BatchRequest) ProtoMessage() {}
+
+func (x *BatchRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_cdb_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BatchRequest.ProtoReflect.Descriptor instead.
+func (*BatchRequest) Descriptor() ([]byte, []int) {
+	return file_cdb_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *BatchRequest) GetRecords() []*RecordRequest {
+	if x != nil {
+		return x.Records
+	}
+	return nil
+}
+
+func (x *BatchRequest) GetTimeout() int32 {
+	if x != nil {
+		return x.Timeout
+	}
+	return 0
+}
+
 type RangeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Key           *Key                   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
@@ -356,7 +564,7 @@ type RangeRequest struct {
 
 func (x *RangeRequest) Reset() {
 	*x = RangeRequest{}
-	mi := &file_cdb_proto_msgTypes[4]
+	mi := &file_cdb_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -368,7 +576,7 @@ func (x *RangeRequest) String() string {
 func (*RangeRequest) ProtoMessage() {}
 
 func (x *RangeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cdb_proto_msgTypes[4]
+	mi := &file_cdb_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -381,7 +589,7 @@ func (x *RangeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RangeRequest.ProtoReflect.Descriptor instead.
 func (*RangeRequest) Descriptor() ([]byte, []int) {
-	return file_cdb_proto_rawDescGZIP(), []int{4}
+	return file_cdb_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RangeRequest) GetKey() *Key {
@@ -428,7 +636,7 @@ type ScanRequest struct {
 
 func (x *ScanRequest) Reset() {
 	*x = ScanRequest{}
-	mi := &file_cdb_proto_msgTypes[5]
+	mi := &file_cdb_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -440,7 +648,7 @@ func (x *ScanRequest) String() string {
 func (*ScanRequest) ProtoMessage() {}
 
 func (x *ScanRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cdb_proto_msgTypes[5]
+	mi := &file_cdb_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -453,7 +661,7 @@ func (x *ScanRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ScanRequest.ProtoReflect.Descriptor instead.
 func (*ScanRequest) Descriptor() ([]byte, []int) {
-	return file_cdb_proto_rawDescGZIP(), []int{5}
+	return file_cdb_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ScanRequest) GetHeadOnly() bool {
@@ -472,7 +680,7 @@ type Status struct {
 
 func (x *Status) Reset() {
 	*x = Status{}
-	mi := &file_cdb_proto_msgTypes[6]
+	mi := &file_cdb_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -484,7 +692,7 @@ func (x *Status) String() string {
 func (*Status) ProtoMessage() {}
 
 func (x *Status) ProtoReflect() protoreflect.Message {
-	mi := &file_cdb_proto_msgTypes[6]
+	mi := &file_cdb_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -497,7 +705,7 @@ func (x *Status) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Status.ProtoReflect.Descriptor instead.
 func (*Status) Descriptor() ([]byte, []int) {
-	return file_cdb_proto_rawDescGZIP(), []int{6}
+	return file_cdb_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Status) GetUpdated() bool {
@@ -519,7 +727,7 @@ type Head struct {
 
 func (x *Head) Reset() {
 	*x = Head{}
-	mi := &file_cdb_proto_msgTypes[7]
+	mi := &file_cdb_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -531,7 +739,7 @@ func (x *Head) String() string {
 func (*Head) ProtoMessage() {}
 
 func (x *Head) ProtoReflect() protoreflect.Message {
-	mi := &file_cdb_proto_msgTypes[7]
+	mi := &file_cdb_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -544,7 +752,7 @@ func (x *Head) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Head.ProtoReflect.Descriptor instead.
 func (*Head) Descriptor() ([]byte, []int) {
-	return file_cdb_proto_rawDescGZIP(), []int{7}
+	return file_cdb_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Head) GetVersion() uint64 {
@@ -586,7 +794,7 @@ type Record struct {
 
 func (x *Record) Reset() {
 	*x = Record{}
-	mi := &file_cdb_proto_msgTypes[8]
+	mi := &file_cdb_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -598,7 +806,7 @@ func (x *Record) String() string {
 func (*Record) ProtoMessage() {}
 
 func (x *Record) ProtoReflect() protoreflect.Message {
-	mi := &file_cdb_proto_msgTypes[8]
+	mi := &file_cdb_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -611,7 +819,7 @@ func (x *Record) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Record.ProtoReflect.Descriptor instead.
 func (*Record) Descriptor() ([]byte, []int) {
-	return file_cdb_proto_rawDescGZIP(), []int{8}
+	return file_cdb_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Record) GetKey() *Key {
@@ -644,7 +852,7 @@ type Block struct {
 
 func (x *Block) Reset() {
 	*x = Block{}
-	mi := &file_cdb_proto_msgTypes[9]
+	mi := &file_cdb_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -656,7 +864,7 @@ func (x *Block) String() string {
 func (*Block) ProtoMessage() {}
 
 func (x *Block) ProtoReflect() protoreflect.Message {
-	mi := &file_cdb_proto_msgTypes[9]
+	mi := &file_cdb_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -669,7 +877,7 @@ func (x *Block) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Block.ProtoReflect.Descriptor instead.
 func (*Block) Descriptor() ([]byte, []int) {
-	return file_cdb_proto_rawDescGZIP(), []int{9}
+	return file_cdb_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Block) GetRecord() []*Record {
@@ -698,7 +906,7 @@ const file_cdb_proto_rawDesc = "" +
 	"KeyRequest\x12\x1a\n" +
 	"\x03key\x18\x01 \x01(\v2\b.cdb.KeyR\x03key\x12\x1a\n" +
 	"\bheadOnly\x18\x02 \x01(\bR\bheadOnly\x12\x18\n" +
-	"\atimeout\x18\x04 \x01(\x05R\atimeout\"\xd7\x01\n" +
+	"\atimeout\x18\x04 \x01(\x05R\atimeout\"\xf5\x01\n" +
 	"\rRecordRequest\x12\x1a\n" +
 	"\x03key\x18\x01 \x01(\v2\b.cdb.KeyR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\fR\x05value\x12\x1a\n" +
@@ -708,7 +916,24 @@ const file_cdb_proto_rawDesc = "" +
 	"ttlSeconds\x12$\n" +
 	"\rcompareAndSet\x18\x06 \x01(\bR\rcompareAndSet\x12\x18\n" +
 	"\aversion\x18\a \x01(\x04R\aversion\x12\x18\n" +
-	"\atimeout\x18\b \x01(\x05R\atimeout\"\xa4\x01\n" +
+	"\atimeout\x18\b \x01(\x05R\atimeout\x12\x1c\n" +
+	"\texpiresAt\x18\t \x01(\x03R\texpiresAt\"\xb6\x01\n" +
+	"\x10IncrementRequest\x12\x1a\n" +
+	"\x03key\x18\x01 \x01(\v2\b.cdb.KeyR\x03key\x12\x18\n" +
+	"\ainitial\x18\x02 \x01(\x03R\ainitial\x12\x14\n" +
+	"\x05delta\x18\x03 \x01(\x03R\x05delta\x12\x1e\n" +
+	"\n" +
+	"ttlSeconds\x18\x04 \x01(\x03R\n" +
+	"ttlSeconds\x12\x18\n" +
+	"\atimeout\x18\x05 \x01(\x05R\atimeout\x12\x1c\n" +
+	"\texpiresAt\x18\x06 \x01(\x03R\texpiresAt\"c\n" +
+	"\x11IncrementResponse\x12\x1a\n" +
+	"\bprevious\x18\x01 \x01(\x03R\bprevious\x12\x18\n" +
+	"\acurrent\x18\x02 \x01(\x03R\acurrent\x12\x18\n" +
+	"\aversion\x18\x03 \x01(\x04R\aversion\"V\n" +
+	"\fBatchRequest\x12,\n" +
+	"\arecords\x18\x01 \x03(\v2\x12.cdb.RecordRequestR\arecords\x12\x18\n" +
+	"\atimeout\x18\x02 \x01(\x05R\atimeout\"\xa4\x01\n" +
 	"\fRangeRequest\x12\x1a\n" +
 	"\x03key\x18\x01 \x01(\v2\b.cdb.KeyR\x03key\x12\x1a\n" +
 	"\bheadOnly\x18\x02 \x01(\bR\bheadOnly\x12\"\n" +
@@ -733,7 +958,7 @@ const file_cdb_proto_rawDesc = "" +
 	"\x05Block\x12#\n" +
 	"\x06record\x18\x01 \x03(\v2\v.cdb.RecordR\x06record*\x1e\n" +
 	"\tRangeType\x12\x11\n" +
-	"\rLESS_OR_EQUAL\x10\x002\xfd\x04\n" +
+	"\rLESS_OR_EQUAL\x10\x002\x92\x06\n" +
 	"\x0fKeyValueService\x124\n" +
 	"\x03Get\x12\x0f.cdb.KeyRequest\x1a\v.cdb.Record\"\x0f\x82\xd3\xe4\x93\x02\t\x12\a/v1/get\x12@\n" +
 	"\tGetRecent\x12\x0f.cdb.KeyRequest\x1a\v.cdb.Record\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/v1/getrecent\x12?\n" +
@@ -752,7 +977,9 @@ const file_cdb_proto_rawDesc = "" +
 	"\x05Touch\x12\x12.cdb.RecordRequest\x1a\v.cdb.Status\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\x1a\t/v1/touch\x12:\n" +
 	"\x03Put\x12\x12.cdb.RecordRequest\x1a\v.cdb.Status\"\x12\x82\xd3\xe4\x93\x02\f:\x01*\x1a\a/v1/put\x12:\n" +
 	"\x06Remove\x12\x0f.cdb.KeyRequest\x1a\v.cdb.Status\"\x12\x82\xd3\xe4\x93\x02\f*\n" +
-	"/v1/removeB\x8b\x02\x92A\xbd\x01\x12_\n" +
+	"/v1/remove\x12T\n" +
+	"\tIncrement\x12\x15.cdb.IncrementRequest\x1a\x16.cdb.IncrementResponse\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\"\r/v1/increment\x12=\n" +
+	"\x05Batch\x12\x11.cdb.BatchRequest\x1a\v.cdb.Status\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/batchB\x8b\x02\x92A\xbd\x01\x12_\n" +
 	"\vConsensusDB\"K\n" +
 	"\vConsensusDB\x12&https://github.com/arpabet/consensusdb\x1a\x14alex@consensusdb.com2\x031.0*\x02\x01\x022\x10application/json2\x18application/octet-stream:\x10application/json:\x18application/octet-stream\n" +
 	"\x0fcom.consensusdbB\tCdbProtosP\x01Z$go.arpabet.com/consensusdb/pkg/pb;pb\xa2\x02\x03CDBb\x06proto3"
@@ -770,54 +997,63 @@ func file_cdb_proto_rawDescGZIP() []byte {
 }
 
 var file_cdb_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_cdb_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_cdb_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_cdb_proto_goTypes = []any{
-	(RangeType)(0),        // 0: cdb.RangeType
-	(*TimeUUID)(nil),      // 1: cdb.TimeUUID
-	(*Key)(nil),           // 2: cdb.Key
-	(*KeyRequest)(nil),    // 3: cdb.KeyRequest
-	(*RecordRequest)(nil), // 4: cdb.RecordRequest
-	(*RangeRequest)(nil),  // 5: cdb.RangeRequest
-	(*ScanRequest)(nil),   // 6: cdb.ScanRequest
-	(*Status)(nil),        // 7: cdb.Status
-	(*Head)(nil),          // 8: cdb.Head
-	(*Record)(nil),        // 9: cdb.Record
-	(*Block)(nil),         // 10: cdb.Block
+	(RangeType)(0),            // 0: cdb.RangeType
+	(*TimeUUID)(nil),          // 1: cdb.TimeUUID
+	(*Key)(nil),               // 2: cdb.Key
+	(*KeyRequest)(nil),        // 3: cdb.KeyRequest
+	(*RecordRequest)(nil),     // 4: cdb.RecordRequest
+	(*IncrementRequest)(nil),  // 5: cdb.IncrementRequest
+	(*IncrementResponse)(nil), // 6: cdb.IncrementResponse
+	(*BatchRequest)(nil),      // 7: cdb.BatchRequest
+	(*RangeRequest)(nil),      // 8: cdb.RangeRequest
+	(*ScanRequest)(nil),       // 9: cdb.ScanRequest
+	(*Status)(nil),            // 10: cdb.Status
+	(*Head)(nil),              // 11: cdb.Head
+	(*Record)(nil),            // 12: cdb.Record
+	(*Block)(nil),             // 13: cdb.Block
 }
 var file_cdb_proto_depIdxs = []int32{
 	1,  // 0: cdb.Key.timestamp:type_name -> cdb.TimeUUID
 	2,  // 1: cdb.KeyRequest.key:type_name -> cdb.Key
 	2,  // 2: cdb.RecordRequest.key:type_name -> cdb.Key
-	2,  // 3: cdb.RangeRequest.key:type_name -> cdb.Key
-	0,  // 4: cdb.RangeRequest.type:type_name -> cdb.RangeType
-	2,  // 5: cdb.Record.key:type_name -> cdb.Key
-	8,  // 6: cdb.Record.head:type_name -> cdb.Head
-	9,  // 7: cdb.Block.record:type_name -> cdb.Record
-	3,  // 8: cdb.KeyValueService.Get:input_type -> cdb.KeyRequest
-	3,  // 9: cdb.KeyValueService.GetRecent:input_type -> cdb.KeyRequest
-	5,  // 10: cdb.KeyValueService.GetRange:input_type -> cdb.RangeRequest
-	3,  // 11: cdb.KeyValueService.GetRow:input_type -> cdb.KeyRequest
-	3,  // 12: cdb.KeyValueService.GetRegion:input_type -> cdb.KeyRequest
-	3,  // 13: cdb.KeyValueService.GetSpace:input_type -> cdb.KeyRequest
-	6,  // 14: cdb.KeyValueService.Scan:input_type -> cdb.ScanRequest
-	4,  // 15: cdb.KeyValueService.Touch:input_type -> cdb.RecordRequest
-	4,  // 16: cdb.KeyValueService.Put:input_type -> cdb.RecordRequest
-	3,  // 17: cdb.KeyValueService.Remove:input_type -> cdb.KeyRequest
-	9,  // 18: cdb.KeyValueService.Get:output_type -> cdb.Record
-	9,  // 19: cdb.KeyValueService.GetRecent:output_type -> cdb.Record
-	10, // 20: cdb.KeyValueService.GetRange:output_type -> cdb.Block
-	10, // 21: cdb.KeyValueService.GetRow:output_type -> cdb.Block
-	10, // 22: cdb.KeyValueService.GetRegion:output_type -> cdb.Block
-	10, // 23: cdb.KeyValueService.GetSpace:output_type -> cdb.Block
-	10, // 24: cdb.KeyValueService.Scan:output_type -> cdb.Block
-	7,  // 25: cdb.KeyValueService.Touch:output_type -> cdb.Status
-	7,  // 26: cdb.KeyValueService.Put:output_type -> cdb.Status
-	7,  // 27: cdb.KeyValueService.Remove:output_type -> cdb.Status
-	18, // [18:28] is the sub-list for method output_type
-	8,  // [8:18] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	2,  // 3: cdb.IncrementRequest.key:type_name -> cdb.Key
+	4,  // 4: cdb.BatchRequest.records:type_name -> cdb.RecordRequest
+	2,  // 5: cdb.RangeRequest.key:type_name -> cdb.Key
+	0,  // 6: cdb.RangeRequest.type:type_name -> cdb.RangeType
+	2,  // 7: cdb.Record.key:type_name -> cdb.Key
+	11, // 8: cdb.Record.head:type_name -> cdb.Head
+	12, // 9: cdb.Block.record:type_name -> cdb.Record
+	3,  // 10: cdb.KeyValueService.Get:input_type -> cdb.KeyRequest
+	3,  // 11: cdb.KeyValueService.GetRecent:input_type -> cdb.KeyRequest
+	8,  // 12: cdb.KeyValueService.GetRange:input_type -> cdb.RangeRequest
+	3,  // 13: cdb.KeyValueService.GetRow:input_type -> cdb.KeyRequest
+	3,  // 14: cdb.KeyValueService.GetRegion:input_type -> cdb.KeyRequest
+	3,  // 15: cdb.KeyValueService.GetSpace:input_type -> cdb.KeyRequest
+	9,  // 16: cdb.KeyValueService.Scan:input_type -> cdb.ScanRequest
+	4,  // 17: cdb.KeyValueService.Touch:input_type -> cdb.RecordRequest
+	4,  // 18: cdb.KeyValueService.Put:input_type -> cdb.RecordRequest
+	3,  // 19: cdb.KeyValueService.Remove:input_type -> cdb.KeyRequest
+	5,  // 20: cdb.KeyValueService.Increment:input_type -> cdb.IncrementRequest
+	7,  // 21: cdb.KeyValueService.Batch:input_type -> cdb.BatchRequest
+	12, // 22: cdb.KeyValueService.Get:output_type -> cdb.Record
+	12, // 23: cdb.KeyValueService.GetRecent:output_type -> cdb.Record
+	13, // 24: cdb.KeyValueService.GetRange:output_type -> cdb.Block
+	13, // 25: cdb.KeyValueService.GetRow:output_type -> cdb.Block
+	13, // 26: cdb.KeyValueService.GetRegion:output_type -> cdb.Block
+	13, // 27: cdb.KeyValueService.GetSpace:output_type -> cdb.Block
+	13, // 28: cdb.KeyValueService.Scan:output_type -> cdb.Block
+	10, // 29: cdb.KeyValueService.Touch:output_type -> cdb.Status
+	10, // 30: cdb.KeyValueService.Put:output_type -> cdb.Status
+	10, // 31: cdb.KeyValueService.Remove:output_type -> cdb.Status
+	6,  // 32: cdb.KeyValueService.Increment:output_type -> cdb.IncrementResponse
+	10, // 33: cdb.KeyValueService.Batch:output_type -> cdb.Status
+	22, // [22:34] is the sub-list for method output_type
+	10, // [10:22] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_cdb_proto_init() }
@@ -831,7 +1067,7 @@ func file_cdb_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cdb_proto_rawDesc), len(file_cdb_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   10,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

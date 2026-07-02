@@ -53,7 +53,21 @@ func (t *Replicator) Remove(keyRequest *pb.KeyRequest) (*pb.Status, error) {
 	return t.apply(opRemove, keyRequest)
 }
 
-func (t *Replicator) apply(op opCode, msg proto.Message) (*pb.Status, error) {
+func (t *Replicator) Increment(req *pb.IncrementRequest) (*pb.IncrementResponse, error) {
+	res, err := t.applyCommand(opIncrement, req)
+	if err != nil {
+		return nil, err
+	}
+	return res.incr, res.err
+}
+
+func (t *Replicator) Batch(req *pb.BatchRequest) (*pb.Status, error) {
+	return t.apply(opBatch, req)
+}
+
+// applyCommand commits op(msg) through raft on the leader and returns the FSM
+// result. Callers pick the field they need (status or incr).
+func (t *Replicator) applyCommand(op opCode, msg proto.Message) (*fsmResult, error) {
 	r, ok := t.RaftServer.Raft()
 	if !ok {
 		return nil, xerrors.New("raft not initialized")
@@ -73,12 +87,19 @@ func (t *Replicator) apply(op opCode, msg proto.Message) (*pb.Status, error) {
 		return nil, errors.Wrap(err, "raft apply")
 	}
 
-	switch res := future.Response().(type) {
-	case *fsmResult:
-		return res.status, res.err
-	default:
+	res, ok := future.Response().(*fsmResult)
+	if !ok {
 		return nil, xerrors.Errorf("unexpected fsm response type %T", future.Response())
 	}
+	return res, nil
+}
+
+func (t *Replicator) apply(op opCode, msg proto.Message) (*pb.Status, error) {
+	res, err := t.applyCommand(op, msg)
+	if err != nil {
+		return nil, err
+	}
+	return res.status, res.err
 }
 
 func (t *Replicator) leaderAddr(r *raft.Raft) raft.ServerAddress {
