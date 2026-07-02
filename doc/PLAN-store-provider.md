@@ -33,7 +33,15 @@ Current state (verified 2026-07):
 - [x] Rewrite `README.md` identity: raft-replicated KV serving the store
       interface (replaced the old leaderless/subscription/analytics framing).
 
-## Phase 1 — versioned envelopes + new raft ops (partially DONE 2026-07-02)
+## Phase 1 — versioned envelopes + new raft ops ✅ COMPLETE (2026-07-02)
+
+Summary: consensusdb's storage now carries the store value envelope with the raft
+log index as a replica-deterministic version; CAS/Increment/Batch are wired as
+raft ops; TTL is leader-computed absolute expiry with lazy read-hiding and a
+deterministic Reclaimer that emits WatchDelete; a watch hub fed from the apply
+path gives cross-node watch. All green incl. `go test -race`. Next: Phase 2
+(raftgrpc membership) — the client-facing `store/providers/cdb` is Phase 4.
+
 
 **Architecture correction (supersedes the original bullet).** The plan first said
 "replace direct badger usage with injected `store.ManagedDataStore` (badger
@@ -86,10 +94,8 @@ client provider (Phase 4), not here.
         putIfAbsent — deterministically, never on a per-node clock.
       - Tests (`ttl_test.go`): cross-replica expiry determinism; expired entry
         hidden on read yet blocks CAS.
-      - **Remaining:** physical reclamation of expired envelopes needs a
-        DETERMINISTIC sweep (a raft-logged tombstone/delete applied in log order),
-        NOT badger's background GC. Until then expired keys are hidden but linger
-        on disk. This folds into the watch-hub / sweeper work below.
+      - Physical reclamation is handled by the deterministic Reclaimer (see the
+        sweep bullet below) — DONE.
 - [x] **New raft ops `opIncrement` + `opBatch` (DONE 2026-07-02).**
       - Proto: added `IncrementRequest`/`IncrementResponse`/`BatchRequest` messages
         and `Increment`/`Batch` RPCs (with REST gateway routes) to `cdb.proto`;
@@ -177,9 +183,23 @@ client provider (Phase 4), not here.
       - Tests (`watch_test.go`): mutation-through-FSM delivers a Set event with the
         log-index version; Remove delivers Delete; prefix filter excludes
         non-matching major keys. Race-clean (`go test -race`).
-      - NOTE: expiry currently emits NO WatchDelete (lazy hide only). Wiring that up
-        is the deterministic-sweep follow-up (a raft-logged tombstone that both
-        reclaims disk and notifies) — carried from the TTL bullet.
+- [x] **Deterministic expiry sweep / Reclaimer (DONE 2026-07-02) — closes the
+      lazy-expiry loop.**
+      - `server.Reclaimer` interface (the raft-driven analogue of `store.Sweepable`)
+        + `pkg/replication.Reclaimer` bean: a background loop that, on the LEADER
+        only, discovers expired entries (`storage.ScanExpired`, a wall-clock scan —
+        safe because it merely proposes) and commits their removal through raft
+        (`opReclaim` / `pb.ReclaimRequest`). Raft-off mode reclaims directly.
+      - `storage.Reclaim` deletes each key ONLY IF its stored envelope version is
+        unchanged since discovery (a rewrite/refresh bumps the version → skipped),
+        and emits `WatchDelete` per removal. It never re-checks wall-clock expiry at
+        apply, so every replica makes the identical decision → deterministic.
+      - So expiry now surfaces to watchers as `WatchDelete` and disk is reclaimed,
+        without badger's node-local GC. Interval/batch via `reclaim.interval`
+        (30s) / `reclaim.batch-size` (1024).
+      - Tests (`reclaim_test.go`): scan finds only expired; reclaim removes and
+        leaves live entries; version-guard blocks reclaiming a refreshed key;
+        WatchDelete emitted; two replicas applying the same Reclaim command converge.
 - [x] Tests: `pkg/replication` version/increment/ttl/watch determinism tests added;
       "two FSMs applying the same log land identical state" covered for versions,
       counters, and expiry. (Multi-node raftgrpc harness is Phase 2.)

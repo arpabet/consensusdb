@@ -66,6 +66,18 @@ type KeyValueStorage interface {
 	// watches every key. Delivery is best-effort (see store.WatchHub).
 	WatchRaw(ctx context.Context, prefix []byte, cb func(*store.WatchEvent) bool) error;
 
+	// ScanExpired returns up to limit entries (encoded key + envelope version)
+	// whose TTL has elapsed. This is a wall-clock discovery scan run only on the
+	// leader; it proposes the results as a Reclaim command. limit <= 0 = unbounded.
+	ScanExpired(ctx context.Context, limit int) ([]*pb.ReclaimEntry, error);
+
+	// Reclaim deletes each listed entry ONLY IF its stored envelope version still
+	// matches (i.e. it was not rewritten since discovery), emitting a WatchDelete
+	// for each removal, and returns how many were removed. It never re-checks
+	// wall-clock expiry, so applying the same command on every replica is
+	// deterministic.
+	Reclaim(req *pb.ReclaimRequest) (removed int, err error);
+
 	// Backup writes a self-describing snapshot of the whole store to w and
 	// returns the last applied version. Used by the raft FSM snapshot.
 	Backup(w io.Writer) (uint64, error)
@@ -192,6 +204,12 @@ func (t *StorageBean) SetBatch(r *pb.BatchRequest, commitVersion uint64) (*pb.St
 }
 func (t *StorageBean) WatchRaw(ctx context.Context, prefix []byte, cb func(*store.WatchEvent) bool) error {
 	return t.storage.WatchRaw(ctx, prefix, cb)
+}
+func (t *StorageBean) ScanExpired(ctx context.Context, limit int) ([]*pb.ReclaimEntry, error) {
+	return t.storage.ScanExpired(ctx, limit)
+}
+func (t *StorageBean) Reclaim(req *pb.ReclaimRequest) (int, error) {
+	return t.storage.Reclaim(req)
 }
 
 func (t *StorageBean) Backup(w io.Writer) (uint64, error) { return t.storage.Backup(w) }
@@ -676,6 +694,103 @@ func (this *KeyValueStorageCtx) Remove(keyRequest *pb.KeyRequest) (*pb.Status, e
 
 	return &pb.Status{ Updated: true}, nil
 
+}
+
+func (this *KeyValueStorageCtx) ScanExpired(ctx context.Context, limit int) ([]*pb.ReclaimEntry, error) {
+
+	txn := this.db.NewTransaction(false)
+	defer txn.Discard()
+
+	options := badger.IteratorOptions{
+		PrefetchValues: true,
+		PrefetchSize:   defBlockSize,
+	}
+	iter := txn.NewIterator(options)
+	defer iter.Close()
+
+	entries := make([]*pb.ReclaimEntry, 0)
+	for iter.Rewind(); iter.Valid(); iter.Next() {
+
+		if err := ctx.Err(); err != nil {
+			return entries, err
+		}
+
+		item := iter.Item()
+		data, err := item.ValueCopy(nil)
+		if err != nil {
+			this.log.Error("scan expired value fail", zap.Error(err))
+			continue
+		}
+
+		version, expiresAt, _, _ := store.DecodeEnvelope(data)
+		if !store.IsExpired(expiresAt) {
+			continue
+		}
+
+		key := make([]byte, len(item.Key()))
+		copy(key, item.Key())
+		entries = append(entries, &pb.ReclaimEntry{ EntryKey: key, Version: uint64(version) })
+
+		if limit > 0 && len(entries) >= limit {
+			break
+		}
+	}
+
+	return entries, nil
+}
+
+func (this *KeyValueStorageCtx) Reclaim(req *pb.ReclaimRequest) (int, error) {
+
+	if len(req.Entries) == 0 {
+		return 0, nil
+	}
+
+	txn := this.db.NewTransaction(true)
+	defer txn.Discard()
+
+	deleted := make([][]byte, 0, len(req.Entries))
+	for _, e := range req.Entries {
+
+		item, err := txn.Get(e.EntryKey)
+		if err != nil {
+			if err == badger.ErrKeyNotFound {
+				continue // already gone
+			}
+			return 0, err
+		}
+
+		data, err := item.ValueCopy(nil)
+		if err != nil {
+			return 0, xerrors.Errorf("reclaim read value error: %v", err)
+		}
+
+		version, _, _, _ := store.DecodeEnvelope(data)
+		if uint64(version) != e.Version {
+			// rewritten since the leader observed it (possibly with a fresh TTL) —
+			// leave it. The comparison is on stored version only, never wall-clock
+			// expiry, so every replica makes the same decision.
+			continue
+		}
+
+		if err := txn.Delete(e.EntryKey); err != nil {
+			return 0, xerrors.Errorf("reclaim delete error: %v", err)
+		}
+		deleted = append(deleted, e.EntryKey)
+	}
+
+	if len(deleted) == 0 {
+		return 0, nil
+	}
+
+	if err := txn.Commit(); err != nil {
+		return 0, xerrors.Errorf("commit reclaim error: %v", err)
+	}
+
+	for _, key := range deleted {
+		this.notify(key, nil, store.WatchDelete, 0)
+	}
+
+	return len(deleted), nil
 }
 
 // counterFromEnvelope decodes the 8-byte big-endian counter payload from a stored

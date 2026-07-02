@@ -30,9 +30,10 @@ type FSM struct {
 // fsmResult is returned from Apply and surfaced to the proposer via the
 // raft ApplyFuture.Response().
 type fsmResult struct {
-	status *pb.Status
-	incr   *pb.IncrementResponse // set only for opIncrement
-	err    error
+	status    *pb.Status
+	incr      *pb.IncrementResponse // set only for opIncrement
+	reclaimed int                   // set only for opReclaim
+	err       error
 }
 
 func (t *FSM) BeanName() string { return "raft-fsm" }
@@ -63,6 +64,11 @@ func (t *FSM) Apply(entry *raft.Log) interface{} {
 	case opBatch:
 		status, err := t.Storage.SetBatch(msg.(*pb.BatchRequest), entry.Index)
 		return &fsmResult{status: status, err: err}
+	case opReclaim:
+		// Version-conditioned deletes: deterministic on every replica because the
+		// decision uses stored envelope versions, not wall-clock expiry.
+		n, err := t.Storage.Reclaim(msg.(*pb.ReclaimRequest))
+		return &fsmResult{reclaimed: n, err: err}
 	default:
 		return &fsmResult{err: xerrors.Errorf("unhandled raft op %d", op)}
 	}

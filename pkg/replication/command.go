@@ -26,6 +26,7 @@ const (
 	opRemove    opCode = 3 // payload: pb.KeyRequest
 	opIncrement opCode = 4 // payload: pb.IncrementRequest
 	opBatch     opCode = 5 // payload: pb.BatchRequest
+	opReclaim   opCode = 6 // payload: pb.ReclaimRequest
 )
 
 func encodeCommand(op opCode, msg proto.Message) ([]byte, error) {
@@ -55,6 +56,8 @@ func decodeCommand(data []byte) (opCode, proto.Message, error) {
 		msg = &pb.IncrementRequest{}
 	case opBatch:
 		msg = &pb.BatchRequest{}
+	case opReclaim:
+		msg = &pb.ReclaimRequest{}
 	default:
 		return op, nil, xerrors.Errorf("unknown raft command op %d", op)
 	}

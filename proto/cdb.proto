@@ -246,6 +246,19 @@ enum ChangeType {
     WATCH_DELETE = 1;   // key removed (or reclaimed after expiry)
 }
 
+// Internal raft command (no RPC): the leader discovers expired entries by a
+// wall-clock scan and proposes their reclamation; the FSM deletes each key only
+// if its stored envelope version still matches, so the removal is deterministic
+// across replicas (never re-evaluating wall-clock expiry at apply time).
+message ReclaimEntry {
+    bytes  entryKey = 1;   // encoded storage key observed as expired
+    uint64 version  = 2;   // envelope version the leader saw; delete only if unchanged
+}
+
+message ReclaimRequest {
+    repeated ReclaimEntry entries = 1;
+}
+
 message WatchRequest {
 
     Key    prefix  = 1;   // watch keys under this prefix; empty prefix watches everything

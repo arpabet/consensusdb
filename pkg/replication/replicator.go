@@ -65,6 +65,21 @@ func (t *Replicator) Batch(req *pb.BatchRequest) (*pb.Status, error) {
 	return t.apply(opBatch, req)
 }
 
+func (t *Replicator) Reclaim(req *pb.ReclaimRequest) (int, error) {
+	res, err := t.applyCommand(opReclaim, req)
+	if err != nil {
+		return 0, err
+	}
+	return res.reclaimed, res.err
+}
+
+// IsLeader reports whether this node is the current raft leader. Used by the
+// Reclaimer so only the leader discovers expired keys and proposes their removal.
+func (t *Replicator) IsLeader() bool {
+	r, ok := t.RaftServer.Raft()
+	return ok && r.State() == raft.Leader
+}
+
 // applyCommand commits op(msg) through raft on the leader and returns the FSM
 // result. Callers pick the field they need (status or incr).
 func (t *Replicator) applyCommand(op opCode, msg proto.Message) (*fsmResult, error) {

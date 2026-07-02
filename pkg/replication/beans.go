@@ -41,6 +41,7 @@ func Beans() []interface{} {
 
 		&FSM{},
 		&Replicator{},
+		&Reclaimer{},
 		&RaftHost{},
 	}
 }
