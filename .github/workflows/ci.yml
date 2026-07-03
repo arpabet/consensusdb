@@ -1,0 +1,41 @@
+name: CI
+
+# Runs automatically on every commit (push) and pull request to verify the server
+# still compiles. Build-only by design: the committed go.work and the test-only
+# `replace => ../store/...` directives point at sibling repos that are not present
+# in a CI checkout, so GOWORK=off builds the module from its published dependencies
+# (`go build ./...` compiles every package's non-test sources without needing the
+# siblings). `go test`/`go vet` need those siblings and run in the local workspace.
+on:
+  push:
+  pull_request:
+
+# Cancel superseded runs on the same ref so only the latest commit is checked.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GOWORK: "off"
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: false # GOWORK=off, module-only build
+
+      # Note: `go mod download` / `go vet` / `go test` are intentionally omitted —
+      # they eagerly resolve the test-only `replace => ../store/...` modules, which
+      # are absent in a CI checkout. `go build` only pulls the packages it compiles
+      # (test files excluded), so it succeeds from the published dependencies.
+      - name: Build all packages
+        run: go build ./...
+
+      - name: Build server binary
+        run: go build -o consensusdb .
