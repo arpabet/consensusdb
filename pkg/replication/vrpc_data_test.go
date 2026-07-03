@@ -8,6 +8,7 @@ package replication_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/consensusdb/pkg/replication"
@@ -112,5 +113,55 @@ func TestVrpcDataPlaneRoundTrip(t *testing.T) {
 	}
 	if rec, err := server.CallGet(bg, cli, &pb.KeyRequest{Key: k}); err != nil || rec.Head != nil {
 		t.Fatalf("get after remove = %+v err=%v, want not-found", rec, err)
+	}
+
+	// Enumerate: three records under a fresh region stream back.
+	region := func(minor string) *pb.Key {
+		return &pb.Key{MajorKey: []byte("t"), RegionName: []byte("E"), MinorKey: []byte(minor)}
+	}
+	for _, mk := range []string{"e1", "e2", "e3"} {
+		if _, err := server.CallPut(bg, cli, &pb.RecordRequest{Key: region(mk), Value: []byte(mk)}); err != nil {
+			t.Fatalf("put %s: %v", mk, err)
+		}
+	}
+	var enumErr error
+	recs, err := server.EnumerateStream(bg, cli,
+		&pb.KeyRequest{Key: &pb.Key{MajorKey: []byte("t"), RegionName: []byte("E")}}, 16, &enumErr)
+	if err != nil {
+		t.Fatalf("enumerate: %v", err)
+	}
+	count := 0
+	for range recs {
+		count++
+	}
+	if enumErr != nil {
+		t.Fatalf("enumerate stream error: %v", enumErr)
+	}
+	if count != 3 {
+		t.Fatalf("enumerate returned %d records, want 3", count)
+	}
+
+	// Watch: a put under the watched prefix delivers a Set event.
+	wctx, cancel := context.WithCancel(bg)
+	defer cancel()
+	var watchErr error
+	events, err := server.WatchStream(wctx, cli,
+		&pb.WatchRequest{Prefix: &pb.Key{MajorKey: []byte("t"), RegionName: []byte("W")}}, 16, &watchErr)
+	if err != nil {
+		t.Fatalf("watch: %v", err)
+	}
+	time.Sleep(150 * time.Millisecond) // let the server-side WatchRaw subscribe
+
+	wk := &pb.Key{MajorKey: []byte("t"), RegionName: []byte("W"), MinorKey: []byte("wkey")}
+	if _, err := server.CallPut(bg, cli, &pb.RecordRequest{Key: wk, Value: []byte("watched")}); err != nil {
+		t.Fatalf("put watched: %v", err)
+	}
+	select {
+	case ev := <-events:
+		if ev.Type != pb.ChangeType_WATCH_SET || string(ev.Value) != "watched" {
+			t.Fatalf("watch event = %+v, want SET 'watched'", ev)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("no watch event delivered")
 	}
 }

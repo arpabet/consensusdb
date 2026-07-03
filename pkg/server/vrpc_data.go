@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/store"
 	"go.arpabet.com/value"
 	"go.arpabet.com/value-rpc/valueclient"
 	"go.arpabet.com/value-rpc/valueserver"
@@ -55,7 +56,97 @@ func (t *VrpcDataService) PostConstruct() error {
 	must(valueserver.AddUnary(t.Server, "kv.remove", keyRequestCodec, statusCodec, t.svc.Remove))
 	must(valueserver.AddUnary(t.Server, "kv.increment", incrementRequestCodec, incrementResponseCodec, t.svc.Increment))
 	must(valueserver.AddUnary(t.Server, "kv.batch", batchRequestCodec, statusCodec, t.svc.Batch))
+	// Server-streams: enumerate records under a prefix, and watch changes.
+	must(valueserver.AddOutgoingStreamTyped(t.Server, "kv.enumerate", keyRequestCodec, recordCodec, t.enumerate))
+	must(valueserver.AddOutgoingStreamTyped(t.Server, "kv.watch", watchRequestCodec, watchEventCodec, t.watch))
 	return nil
+}
+
+// enumerate streams records under the request's prefix Key (depth inferred from
+// the set fields; an empty prefix scans everything). Delivery is bounded by the
+// stream's credit-based flow control — a slow client back-pressures the scan.
+func (t *VrpcDataService) enumerate(ctx context.Context, req *pb.KeyRequest) (<-chan *pb.Record, error) {
+	out := make(chan *pb.Record)
+	sender := &chanBlockSender{ctx: ctx, out: out}
+	go func() {
+		defer close(out)
+		var err error
+		if field, ok := areaField(req.Key); ok {
+			err = t.Storage.GetArea(req, field, sender)
+		} else {
+			err = t.Storage.Scan(&pb.ScanRequest{HeadOnly: req.HeadOnly}, sender)
+		}
+		if err != nil && ctx.Err() == nil {
+			t.Log.Error("VrpcEnumerate", zap.Error(err))
+		}
+	}()
+	return out, nil
+}
+
+// watch streams change events for keys under the request's prefix. Best-effort:
+// the underlying WatchHub drops events for a watcher that falls behind.
+func (t *VrpcDataService) watch(ctx context.Context, req *pb.WatchRequest) (<-chan *pb.WatchEvent, error) {
+	prefix, err := watchPrefix(req.Prefix)
+	if err != nil {
+		return nil, err
+	}
+	out := make(chan *pb.WatchEvent)
+	go func() {
+		defer close(out)
+		_ = t.Storage.WatchRaw(ctx, prefix, func(ev *store.WatchEvent) bool {
+			key, derr := DecodeKey(ev.Key)
+			if derr != nil {
+				return true // skip undecodable, keep watching
+			}
+			changeType := pb.ChangeType_WATCH_SET
+			if ev.Type == store.WatchDelete {
+				changeType = pb.ChangeType_WATCH_DELETE
+			}
+			select {
+			case out <- &pb.WatchEvent{Key: key, Value: ev.Value, Version: uint64(ev.Version), Type: changeType}:
+				return true
+			case <-ctx.Done():
+				return false
+			}
+		})
+	}()
+	return out, nil
+}
+
+// chanBlockSender adapts the push-based BlockSender to a channel, honoring ctx
+// cancellation so a disconnected client stops the underlying scan.
+type chanBlockSender struct {
+	ctx context.Context
+	out chan<- *pb.Record
+}
+
+func (s *chanBlockSender) Send(block *pb.Block) error {
+	for _, rec := range block.Record {
+		select {
+		case s.out <- rec:
+		case <-s.ctx.Done():
+			return s.ctx.Err()
+		}
+	}
+	return nil
+}
+
+// areaField picks the GetArea depth from the set fields of a prefix Key; false
+// means no prefix (enumerate everything via Scan).
+func areaField(key *pb.Key) (Field, bool) {
+	if key == nil {
+		return 0, false
+	}
+	switch {
+	case len(key.MinorKey) > 0:
+		return MinorKeyField, true
+	case len(key.RegionName) > 0:
+		return RegionNameField, true
+	case len(key.MajorKey) > 0:
+		return MajorKeyField, true
+	default:
+		return 0, false
+	}
 }
 
 // --- typed client helpers (value-rpc data plane) -----------------------------
@@ -80,6 +171,20 @@ func CallIncrement(ctx context.Context, cli valueclient.Client, req *pb.Incremen
 }
 func CallBatch(ctx context.Context, cli valueclient.Client, req *pb.BatchRequest) (*pb.Status, error) {
 	return valueclient.CallUnary(ctx, cli, "kv.batch", req, batchRequestCodec, statusCodec)
+}
+
+// EnumerateStream opens a record stream under the request's prefix. receiveCap is
+// the client-side receive buffer; read *errp after the channel closes for a
+// decode/stream error.
+func EnumerateStream(ctx context.Context, cli valueclient.Client, req *pb.KeyRequest, receiveCap int, errp *error) (<-chan *pb.Record, error) {
+	ch, _, err := valueclient.GetStreamTyped(ctx, cli, "kv.enumerate", req, receiveCap, keyRequestCodec, recordCodec, errp)
+	return ch, err
+}
+
+// WatchStream opens a change-event stream for keys under the request's prefix.
+func WatchStream(ctx context.Context, cli valueclient.Client, req *pb.WatchRequest, receiveCap int, errp *error) (<-chan *pb.WatchEvent, error) {
+	ch, _, err := valueclient.GetStreamTyped(ctx, cli, "kv.watch", req, receiveCap, watchRequestCodec, watchEventCodec, errp)
+	return ch, err
 }
 
 // --- value.Map <-> pb codecs -------------------------------------------------
@@ -278,6 +383,47 @@ var incrementResponseCodec = valuerpc.Codec[*pb.IncrementResponse]{
 			Previous: m.GetNumber("previous").Long(),
 			Current:  m.GetNumber("current").Long(),
 			Version:  uint64(m.GetNumber("version").Long()),
+		}, nil
+	},
+}
+
+var watchRequestCodec = valuerpc.Codec[*pb.WatchRequest]{
+	Encode: func(r *pb.WatchRequest) value.Value {
+		if r == nil {
+			r = &pb.WatchRequest{}
+		}
+		return value.EmptyMap(true).Put("prefix", encodeKey(r.Prefix))
+	},
+	Decode: func(v value.Value) (*pb.WatchRequest, error) {
+		m, err := asMap(v, "watch request")
+		if err != nil {
+			return nil, err
+		}
+		return &pb.WatchRequest{Prefix: decodeKey(m.GetMap("prefix"))}, nil
+	},
+}
+
+var watchEventCodec = valuerpc.Codec[*pb.WatchEvent]{
+	Encode: func(e *pb.WatchEvent) value.Value {
+		if e == nil {
+			e = &pb.WatchEvent{}
+		}
+		return value.EmptyMap(true).
+			Put("key", encodeKey(e.Key)).
+			Put("value", value.Raw(e.Value, false)).
+			Put("version", value.Long(int64(e.Version))).
+			Put("type", value.Long(int64(e.Type)))
+	},
+	Decode: func(v value.Value) (*pb.WatchEvent, error) {
+		m, err := asMap(v, "watch event")
+		if err != nil {
+			return nil, err
+		}
+		return &pb.WatchEvent{
+			Key:     decodeKey(m.GetMap("key")),
+			Value:   m.GetString("value").Raw(),
+			Version: uint64(m.GetNumber("version").Long()),
+			Type:    pb.ChangeType(m.GetNumber("type").Long()),
 		}, nil
 	},
 }

@@ -292,9 +292,18 @@ Increments (each independently verifiable):
       Test `vrpc_data_test.go` `TestVrpcDataPlaneRoundTrip`: put→get, not-found,
       increment, atomic batch, remove — all over a real tcp vrpc client through the
       full bean graph. Race-clean.
-- [ ] **Streams (remaining): `enumerate` + `watch`** as vrpc server-streams
-      (`AddOutgoingStreamTyped`) over GetRange/GetArea/Scan and the WatchHub —
-      credit-based flow control; watch stays best-effort.
+- [x] **Streams: `enumerate` + `watch` (DONE 2026-07-03).** `kv.enumerate`
+      (`AddOutgoingStreamTyped`) streams Records under a prefix Key — depth inferred
+      from set fields via `areaField`, empty prefix ⇒ Scan; a `chanBlockSender`
+      adapts the push-based `BlockSender` to a channel honoring ctx cancellation, so
+      credit-based flow control back-pressures the scan. `kv.watch` streams
+      `WatchEvent`s from `Storage.WatchRaw` (best-effort, hub drops for slow
+      watchers). `watchRequest`/`watchEvent` codecs + `EnumerateStream`/`WatchStream`
+      client helpers. Test extends `TestVrpcDataPlaneRoundTrip`: enumerate 3 records
+      under a prefix; a put delivers a WATCH_SET event. Stable across `-count=3`,
+      race-clean.
+      → **Phase 3 data plane complete** (unary + streams). mTLS/token + REST notes
+      below stay as ops concerns.
 - [ ] Security: mTLS transport + token metadata; reuse servion auth patterns.
 - [ ] gRPC `KeyValueService` + REST gateway remain for ops/humans; raftgrpc
       management stays gRPC.
