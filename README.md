@@ -22,8 +22,8 @@ encryption-at-rest.
 
 # Description
 
-* gRPC interface (+ HTTPS REST/JSON gateway) with common CA; a vrpc data plane
-  is planned for the store provider
+* value-rpc data plane (TCP / TLS / mTLS / QUIC) — the sole API, consumed by the
+  `store/providers/cdb` client (gRPC and the REST/JSON gateway were retired)
 * Engine - badger (similar to rocksdb, but faster)
 * Raft replication (hashicorp/raft via sprint raftmod) — leader-based, strongly
   consistent, snapshot/restore
@@ -181,21 +181,14 @@ Install tools:
 go install github.com/google/go-licenses@latest
 ```
 
-Checkout libs:
+Install the protobuf plugin (only needed to regenerate the message types):
 ```
-%GOPATH%\src\github.com\grpc-ecosystem\grpc-gateway v1.14.6
-%GOPATH%\src\github.com\protocolbuffers\protobuf v3.12.3
-```
-
-Install plugins:
-```
-%GOPATH%\src\github.com\grpc-ecosystem\grpc-gateway\protoc-gen-grpc-gateway>go install
-%GOPATH%\src\github.com\grpc-ecosystem\grpc-gateway\protoc-gen-swagger>go install
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 ```
 
-Generate GRPC stubs from protos: 
+Regenerate the protobuf message types from `proto/cdb.proto`:
 ```
-genproto.bat
+./genproto.sh
 ```
 
 ### Build
@@ -228,82 +221,53 @@ open http://localhost:8441/
 lsof -n -i:$PORT | grep LISTEN
 ```
 
-You have to see that consensusdb is listening 8441 and 8442 ports
+You have to see consensusdb listening on 8441 (http: health, metrics, welcome).
+The value-rpc data plane binds 8444 when `vrpc-server.bind-address` is set.
 
 ### Go Client Example
 
+The client is `go.arpabet.com/store/providers/cdb` — a `store.DataStore` over the
+value-rpc data plane (the old in-tree gRPC SDK was removed). Wrap it with the
+crypto middleware for client-side encryption.
+
+```go
+import (
+    "go.arpabet.com/store"
+    cdb "go.arpabet.com/store/providers/cdb"
+)
+
+// Dial the data plane; major=tenant, region=logical table (see providers/cdb).
+ds, err := cdb.New("app", "tcp://localhost:8444", "alex", "ACCOUNT")
+defer ds.Destroy()
+
+// putIfAbsent (version 0) with a one-day TTL.
+ok, err := ds.CompareAndSetRaw(ctx, []byte("balance"), []byte("1245.90"), 86400, 0)
+
+// get / remove.
+val, err := ds.GetRaw(ctx, []byte("balance"), nil, nil, false)
+err = ds.RemoveRaw(ctx, []byte("balance"))
+
+// ordered scan of the tenant/region.
+err = ds.EnumerateRaw(ctx, nil, nil, 100, false, false, func(e *store.RawEntry) bool {
+    return true
+})
 ```
-//
-//  create keychain for data encryption on client side
-//
 
-keychain, err := cdb.NewPasswordbasedKeychain("alex")
-
-//
-//  create client instance
-//
-
-client, err := cdb.NewClient("localhost:4482", keychain)
-defer client.Close()
-
-//
-//  create uuid (optional)
-//
-
-id := uuid.New(uuid.TimebasedVer1)
-id.SetUnixTimeMillis(1514764800)
-id.SetMinCounter()
-
-//
-//  create key with uuid
-//
-
-key := cdb.NewKey().WithMajorKey("alex").WithRegionName("ACCOUNT").WithMinorKey("balance").WithTimestamp(id).Build()
-value := []byte("1245.90")
-
-//
-//  putIfAbsent record with LZ4 compression, AES:CFB encryption with TTL one day and on SLA 100 milliseconds
-//
-
-status, err := client.Put(cdb.NewRecord(key, value).UseCompression(cdb.LZ4).UseEncryption(cdb.AES, cdb.CFB).OnlyIfAbsent().WithTtlSeconds(86400).WithTimeout(100))
-
-//
-// get record metadata only
-//
-
-rec, err := client.Get(cdb.NewRequest(key).HeadOnly())
-
-//
-// find the last balance record
-//
-
-keyMax := cdb.NewKey().WithMajorKey("alex").WithRegionName("ACCOUNT").WithMinorKey("balance").WithMaxTimestamp().Build()
-rec, err := client.GetRecent(cdb.NewRequest(keyMax).HeadOnly())
-
-//
-// find 100 messages early or equal key's timestamp
-//
-
-rec, err := client.GetRange(cdb.NewRangeRequest(key).WithNumRecords(100))
-
-//
-// remove record
-//
-
-status, err := client.Remove(cdb.NewRequest(key))
+See the `store/providers/cdb` README for TLS/mTLS/QUIC (`WithTLSConfig`) and the
+full capability matrix.
 
 ```
 
 ### Configuration
 
-Simple configuration example
+Properties (overridable via a `-c` config file or environment; env keys uppercase
+the property and turn `.`/`-` into `_`, e.g. `VRPC_SERVER_BIND_ADDRESS`):
 
 ```
-host: localhost
-httpPort: 4481
-grpcPort: 4482
-numCPU: 1
-dataDir: /tmp/cdb
+http-server.bind-address:   0.0.0.0:8441
+vrpc-server.bind-address:   tcp://0.0.0.0:8444   # data plane; empty disables it
+consensusdb.data-dir:       /tmp/consensusdb
+consensusdb.encryption-key:                      # base64 AES-256, empty = off
 ```
 
 ### Influencers

@@ -6,16 +6,11 @@ require github.com/pkg/errors v0.9.1
 
 require github.com/dgraph-io/badger/v4 v4.9.2
 
-require google.golang.org/grpc v1.81.1
-
-require github.com/golang/protobuf v1.5.4
-
-require github.com/golang/snappy v1.0.0
+require google.golang.org/grpc v1.81.1 // indirect
 
 require go.uber.org/atomic v1.11.0 // indirect
 
 require (
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/raft v1.7.3
 	go.arpabet.com/cligo v0.5.0
@@ -24,7 +19,6 @@ require (
 	go.arpabet.com/raft/raftmod v0.3.1
 	go.arpabet.com/raft/raftvrpc v0.3.1
 	go.arpabet.com/servion v1.5.0
-	go.arpabet.com/servion/grpc v1.5.0
 	go.arpabet.com/store v1.3.2
 	go.arpabet.com/store/providers/badger v1.3.2
 	go.arpabet.com/value v1.3.1
@@ -32,7 +26,6 @@ require (
 	go.arpabet.com/value-rpc/quic v1.5.2
 	go.uber.org/zap v1.28.0
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
-	google.golang.org/genproto/googleapis/api v0.0.0-20260622175928-b703f567277d
 )
 
 require (
@@ -58,6 +51,7 @@ require (
 	github.com/google/flatbuffers v25.12.19+incompatible // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
 	github.com/hashicorp/go-metrics v0.5.4 // indirect
@@ -106,13 +100,13 @@ require (
 	golang.org/x/term v0.44.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
 	golang.org/x/tools v0.46.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260622175928-b703f567277d // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260622175928-b703f567277d // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (
-	github.com/pierrec/lz4 v2.6.1+incompatible
 	github.com/prometheus/client_golang v1.23.2 // indirect
 	go.arpabet.com/store/middleware/crypto v0.0.0-00010101000000-000000000000
 	go.arpabet.com/store/providers/cdb v0.0.0-00010101000000-000000000000

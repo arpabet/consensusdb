@@ -6,7 +6,7 @@
 package server
 
 import (
-	"go.arpabet.com/consensusdb/cdb"
+	"go.arpabet.com/consensusdb/pkg/util"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,8 +14,9 @@ import (
 
 /*
 Configuration is a glue bean that carries the storage/runtime settings injected
-from properties. Network binding is owned by servion (http-server.bind-address,
-grpc-server.bind-address); this bean only describes where data lives on disk.
+from properties. Network binding is owned by servion (http-server.bind-address)
+and the value-rpc server (vrpc-server.bind-address); this bean only describes
+where data lives on disk.
 
 The derived directories are computed in PostConstruct and the directories are
 created if missing, mirroring the behaviour of the previous yaml-based config.
@@ -56,5 +57,5 @@ func (t *Configuration) PostConstruct() error {
 		return err
 	}
 
-	return cdb.CreateDirsIfNotExist(t.KeyDir, t.ValueDir, t.WalDir, t.SnapDir, t.LogDir)
+	return util.CreateDirsIfNotExist(t.KeyDir, t.ValueDir, t.WalDir, t.SnapDir, t.LogDir)
 }

@@ -14,7 +14,6 @@ import (
 	"go.arpabet.com/consensusdb/pkg/server"
 	"go.arpabet.com/glue"
 	"go.arpabet.com/servion"
-	serviongrpc "go.arpabet.com/servion/grpc"
 )
 
 var (
@@ -31,8 +30,6 @@ func main() {
 	// "0.0.0.0:8300" / "0.0.0.0:8301") to enable the raft write path. Left
 	// empty here, so writes go directly to local storage (single-node, no raft).
 	properties := glue.MapPropertySource{
-		"grpc-server.bind-address": "0.0.0.0:8442",
-		"grpc-server.options":      "health;reflection",
 		"http-server.bind-address": "0.0.0.0:8441",
 		"http-server.options":      "handlers",
 		"consensusdb.data-dir":     "/tmp/consensusdb",
@@ -55,10 +52,7 @@ func main() {
 	runScope := []interface{}{
 		&server.Configuration{},
 		&server.StorageBean{},
-		serviongrpc.GrpcServerScanner("grpc-server", &server.KeyValueService{}),
 		servion.HttpServerScanner("http-server",
-			&run.GatewayHandler{},
-			&run.SwaggerHandler{},
 			&run.WelcomeHandler{},
 			servion.MetricsHandler(),
 			servion.HealthHandler(),

@@ -8,7 +8,7 @@ package server
 import (
 	"bytes"
 	"encoding/binary"
-	"go.arpabet.com/consensusdb/cdb"
+	"go.arpabet.com/consensusdb/pkg/util"
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/uuid"
 	"golang.org/x/xerrors"
@@ -39,7 +39,7 @@ func SanitizeKeyLen(len int) int {
 
 func DecodeKey(entryKey []byte) (*pb.Key, error) {
 
-	b := cdb.CopyOf(entryKey)
+	b := util.CopyOf(entryKey)
 
 	len := len(b)
 	j := 0

@@ -62,10 +62,6 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
             container_port = var.http_port
           }
           port {
-            name           = "grpc"
-            container_port = var.grpc_port
-          }
-          port {
             name           = "vrpc"
             container_port = var.vrpc_port
           }
@@ -162,11 +158,6 @@ resource "kubernetes_service_v1" "headless" {
       target_port = var.http_port
     }
     port {
-      name        = "grpc"
-      port        = var.grpc_port
-      target_port = var.grpc_port
-    }
-    port {
       name        = "vrpc"
       port        = var.vrpc_port
       target_port = var.vrpc_port
@@ -190,11 +181,6 @@ resource "kubernetes_service_v1" "consensusdb" {
       name        = "http"
       port        = var.http_port
       target_port = var.http_port
-    }
-    port {
-      name        = "grpc"
-      port        = var.grpc_port
-      target_port = var.grpc_port
     }
     port {
       name        = "vrpc"

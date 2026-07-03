@@ -11,8 +11,6 @@
 package pb
 
 import (
-	_ "github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2/options"
-	_ "google.golang.org/genproto/googleapis/api/annotations"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -1225,7 +1223,7 @@ var File_cdb_proto protoreflect.FileDescriptor
 
 const file_cdb_proto_rawDesc = "" +
 	"\n" +
-	"\tcdb.proto\x12\x03cdb\x1a\x1cgoogle/api/annotations.proto\x1a.protoc-gen-openapiv2/options/annotations.proto\"P\n" +
+	"\tcdb.proto\x12\x03cdb\"P\n" +
 	"\bTimeUUID\x12 \n" +
 	"\vmostSigBits\x18\x01 \x01(\x03R\vmostSigBits\x12\"\n" +
 	"\fleastSigBits\x18\x02 \x01(\x03R\fleastSigBits\"\x8a\x01\n" +
@@ -1315,31 +1313,7 @@ const file_cdb_proto_rawDesc = "" +
 	"\tWATCH_SET\x10\x00\x12\x10\n" +
 	"\fWATCH_DELETE\x10\x01*\x1e\n" +
 	"\tRangeType\x12\x11\n" +
-	"\rLESS_OR_EQUAL\x10\x002\xd4\x06\n" +
-	"\x0fKeyValueService\x124\n" +
-	"\x03Get\x12\x0f.cdb.KeyRequest\x1a\v.cdb.Record\"\x0f\x82\xd3\xe4\x93\x02\t\x12\a/v1/get\x12@\n" +
-	"\tGetRecent\x12\x0f.cdb.KeyRequest\x1a\v.cdb.Record\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/v1/getrecent\x12?\n" +
-	"\bGetRange\x12\x11.cdb.RangeRequest\x1a\n" +
-	".cdb.Block\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/v1/getrange\x12;\n" +
-	"\x06GetRow\x12\x0f.cdb.KeyRequest\x1a\n" +
-	".cdb.Block\"\x12\x82\xd3\xe4\x93\x02\f\x12\n" +
-	"/v1/getrow0\x01\x12A\n" +
-	"\tGetRegion\x12\x0f.cdb.KeyRequest\x1a\n" +
-	".cdb.Block\"\x15\x82\xd3\xe4\x93\x02\x0f\x12\r/v1/getregion0\x01\x12?\n" +
-	"\bGetSpace\x12\x0f.cdb.KeyRequest\x1a\n" +
-	".cdb.Block\"\x14\x82\xd3\xe4\x93\x02\x0e\x12\f/v1/getspace0\x01\x128\n" +
-	"\x04Scan\x12\x10.cdb.ScanRequest\x1a\n" +
-	".cdb.Block\"\x10\x82\xd3\xe4\x93\x02\n" +
-	"\x12\b/v1/scan0\x01\x12>\n" +
-	"\x05Touch\x12\x12.cdb.RecordRequest\x1a\v.cdb.Status\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\x1a\t/v1/touch\x12:\n" +
-	"\x03Put\x12\x12.cdb.RecordRequest\x1a\v.cdb.Status\"\x12\x82\xd3\xe4\x93\x02\f:\x01*\x1a\a/v1/put\x12:\n" +
-	"\x06Remove\x12\x0f.cdb.KeyRequest\x1a\v.cdb.Status\"\x12\x82\xd3\xe4\x93\x02\f*\n" +
-	"/v1/remove\x12T\n" +
-	"\tIncrement\x12\x15.cdb.IncrementRequest\x1a\x16.cdb.IncrementResponse\"\x18\x82\xd3\xe4\x93\x02\x12:\x01*\"\r/v1/increment\x12=\n" +
-	"\x05Batch\x12\x11.cdb.BatchRequest\x1a\v.cdb.Status\"\x14\x82\xd3\xe4\x93\x02\x0e:\x01*\"\t/v1/batch\x12@\n" +
-	"\x05Watch\x12\x11.cdb.WatchRequest\x1a\x0f.cdb.WatchEvent\"\x11\x82\xd3\xe4\x93\x02\v\x12\t/v1/watch0\x01B\x8b\x02\x92A\xbd\x01\x12_\n" +
-	"\vConsensusDB\"K\n" +
-	"\vConsensusDB\x12&https://github.com/arpabet/consensusdb\x1a\x14alex@consensusdb.com2\x031.0*\x02\x01\x022\x10application/json2\x18application/octet-stream:\x10application/json:\x18application/octet-stream\n" +
+	"\rLESS_OR_EQUAL\x10\x00BJ\n" +
 	"\x0fcom.consensusdbB\tCdbProtosP\x01Z$go.arpabet.com/consensusdb/pkg/pb;pb\xa2\x02\x03CDBb\x06proto3"
 
 var (
@@ -1394,34 +1368,8 @@ var file_cdb_proto_depIdxs = []int32{
 	3,  // 12: cdb.Record.key:type_name -> cdb.Key
 	17, // 13: cdb.Record.head:type_name -> cdb.Head
 	18, // 14: cdb.Block.record:type_name -> cdb.Record
-	4,  // 15: cdb.KeyValueService.Get:input_type -> cdb.KeyRequest
-	4,  // 16: cdb.KeyValueService.GetRecent:input_type -> cdb.KeyRequest
-	13, // 17: cdb.KeyValueService.GetRange:input_type -> cdb.RangeRequest
-	4,  // 18: cdb.KeyValueService.GetRow:input_type -> cdb.KeyRequest
-	4,  // 19: cdb.KeyValueService.GetRegion:input_type -> cdb.KeyRequest
-	4,  // 20: cdb.KeyValueService.GetSpace:input_type -> cdb.KeyRequest
-	14, // 21: cdb.KeyValueService.Scan:input_type -> cdb.ScanRequest
-	5,  // 22: cdb.KeyValueService.Touch:input_type -> cdb.RecordRequest
-	5,  // 23: cdb.KeyValueService.Put:input_type -> cdb.RecordRequest
-	4,  // 24: cdb.KeyValueService.Remove:input_type -> cdb.KeyRequest
-	6,  // 25: cdb.KeyValueService.Increment:input_type -> cdb.IncrementRequest
-	8,  // 26: cdb.KeyValueService.Batch:input_type -> cdb.BatchRequest
-	11, // 27: cdb.KeyValueService.Watch:input_type -> cdb.WatchRequest
-	18, // 28: cdb.KeyValueService.Get:output_type -> cdb.Record
-	18, // 29: cdb.KeyValueService.GetRecent:output_type -> cdb.Record
-	19, // 30: cdb.KeyValueService.GetRange:output_type -> cdb.Block
-	19, // 31: cdb.KeyValueService.GetRow:output_type -> cdb.Block
-	19, // 32: cdb.KeyValueService.GetRegion:output_type -> cdb.Block
-	19, // 33: cdb.KeyValueService.GetSpace:output_type -> cdb.Block
-	19, // 34: cdb.KeyValueService.Scan:output_type -> cdb.Block
-	16, // 35: cdb.KeyValueService.Touch:output_type -> cdb.Status
-	16, // 36: cdb.KeyValueService.Put:output_type -> cdb.Status
-	16, // 37: cdb.KeyValueService.Remove:output_type -> cdb.Status
-	7,  // 38: cdb.KeyValueService.Increment:output_type -> cdb.IncrementResponse
-	16, // 39: cdb.KeyValueService.Batch:output_type -> cdb.Status
-	12, // 40: cdb.KeyValueService.Watch:output_type -> cdb.WatchEvent
-	28, // [28:41] is the sub-list for method output_type
-	15, // [15:28] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name
 	15, // [15:15] is the sub-list for extension extendee
 	0,  // [0:15] is the sub-list for field type_name
@@ -1440,7 +1388,7 @@ func file_cdb_proto_init() {
 			NumEnums:      2,
 			NumMessages:   18,
 			NumExtensions: 0,
-			NumServices:   1,
+			NumServices:   0,
 		},
 		GoTypes:           file_cdb_proto_goTypes,
 		DependencyIndexes: file_cdb_proto_depIdxs,

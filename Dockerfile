@@ -27,9 +27,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 
 COPY --from=builder /consensusdb /app/consensusdb
 
-# 8441 http (REST/JSON gateway), 8442 grpc control plane. Publish the value-rpc
-# data-plane port too if vrpc-server.bind-address is enabled (e.g. 8444).
-EXPOSE 8441 8442
+# 8441 http (health, metrics, welcome). The value-rpc data plane binds
+# vrpc-server.bind-address (e.g. 8444) — publish it when enabled.
+EXPOSE 8441 8444
 
 ENTRYPOINT ["/app/consensusdb"]
 CMD ["run"]

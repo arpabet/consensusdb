@@ -9,5 +9,5 @@ deployment = "consensusdb"
 num_replicas = 1
 
 # Persistent data volume for the badger store.
-storage_size = "10Gi"
+storage_size = "100Gi"
 # storage_class = "fast-ssd"   # empty uses the cluster default StorageClass

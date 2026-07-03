@@ -5,166 +5,16 @@
 
 syntax = "proto3";
 
-import "google/api/annotations.proto";
-
 option go_package = "go.arpabet.com/consensusdb/pkg/pb;pb";
 option java_multiple_files = true;
 option java_package = "com.consensusdb";
 option java_outer_classname = "CdbProtos";
 option objc_class_prefix = "CDB";
 
-import "protoc-gen-openapiv2/options/annotations.proto";
-
-option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
-    info: {
-        title: "ConsensusDB";
-        version: "1.0";
-        contact: {
-            name: "ConsensusDB";
-            url: "https://github.com/arpabet/consensusdb";
-            email: "alex@consensusdb.com";
-        };
-    };
-    schemes: HTTP;
-    schemes: HTTPS;
-    consumes: "application/json";
-    consumes: "application/octet-stream";
-    produces: "application/json";
-    produces: "application/octet-stream";
-};
-
 package cdb;
 
-
-//
-//  Key-value database service
-//
-
-service KeyValueService {
-
-    //
-    // Gets exact match entry
-    //
-    rpc Get(KeyRequest) returns (Record) {
-        option (google.api.http) = {
-            get: "/v1/get"
-        };
-    }
-
-    //
-    // Gets early or equal timestamp entry
-    //
-    rpc GetRecent(KeyRequest) returns (Record) {
-        option (google.api.http) = {
-            get: "/v1/getrecent"
-        };
-    }
-
-    //
-    // Gets range of timestamps inside a row
-    //
-    rpc GetRange(RangeRequest) returns (Block) {
-        option (google.api.http) = {
-            get: "/v1/getrange"
-        };
-    }
-
-    //
-    // Gets the whole raw of records with all available timestamps with latest versions
-    //
-    rpc GetRow(KeyRequest) returns (stream Block) {
-        option (google.api.http) = {
-            get: "/v1/getrow"
-        };
-    }
-
-    //
-    // Gets the whole region of records
-    //
-    rpc GetRegion(KeyRequest) returns (stream Block) {
-        option (google.api.http) = {
-            get: "/v1/getregion"
-        };
-    }
-
-    //
-    // Gets the whole space of records associated with majorKey
-    //
-    rpc GetSpace(KeyRequest) returns (stream Block) {
-        option (google.api.http) = {
-            get: "/v1/getspace"
-        };
-    }
-
-    //
-    // Gets all records
-    //
-    rpc Scan(ScanRequest) returns (stream Block) {
-        option (google.api.http) = {
-            get: "/v1/scan"
-        };
-    }
-
-    //
-    // Touches the record
-    //
-    rpc Touch(RecordRequest) returns (Status) {
-        option (google.api.http) = {
-            put:  "/v1/touch"
-            body: "*"
-        };
-    }
-
-    //
-    // Puts the record
-    //
-    rpc Put(RecordRequest) returns (Status) {
-        option (google.api.http) = {
-            put:  "/v1/put"
-            body: "*"
-        };
-    }
-
-    //
-    // Remove the record
-    //
-    rpc Remove(KeyRequest) returns (Status) {
-        option (google.api.http) = {
-            delete: "/v1/remove"
-        };
-    }
-
-    //
-    // Atomically increments a counter, returns the previous value
-    //
-    rpc Increment(IncrementRequest) returns (IncrementResponse) {
-        option (google.api.http) = {
-            post: "/v1/increment"
-            body: "*"
-        };
-    }
-
-    //
-    // Writes multiple records in one atomic (all-or-nothing) operation
-    //
-    rpc Batch(BatchRequest) returns (Status) {
-        option (google.api.http) = {
-            post: "/v1/batch"
-            body: "*"
-        };
-    }
-
-    //
-    // Streams change events for keys under a prefix, served from this node's
-    // local watch hub (fed by the raft apply path — cross-node, best-effort)
-    //
-    rpc Watch(WatchRequest) returns (stream WatchEvent) {
-        option (google.api.http) = {
-            get: "/v1/watch"
-        };
-    }
-
-}
+// This schema defines only the key-value data model (messages). The API is served
+// over value-rpc (see pkg/server/vrpc_data.go); there is no gRPC service here.
 
 // Java compatible
 message TimeUUID {

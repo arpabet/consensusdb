@@ -49,15 +49,9 @@ variable "data_dir" {
 }
 
 variable "http_port" {
-  description = "HTTP server port (REST/JSON gateway, health, metrics)"
+  description = "HTTP server port (health, metrics, welcome)"
   type        = number
   default     = 8441
-}
-
-variable "grpc_port" {
-  description = "gRPC server port"
-  type        = number
-  default     = 8442
 }
 
 variable "vrpc_port" {
