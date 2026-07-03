@@ -245,12 +245,21 @@ Increments (each independently verifiable):
 - [ ] **2c — membership.** Replace the single-voter `RaftHost.bootstrap`
       (`pkg/replication/host.go`) with admin-driven Bootstrap/Join via the control
       plane (serf optional, later).
-- [ ] **2d — follower write handling**, staged:
-      (a) `Replicator.apply` (currently returns a generic "not leader" error) →
-          a structured `NotLeaderError{LeaderID, LeaderAddr}`; and/or
-      (b) transparent server-side forwarding via the ControlPool →
-          `raftvrpc.CallApplyCommand` on the leader (raftvrpc already implements
-          this branch in its own ApplyCommand handler — reuse the pattern).
+- [x] **2d — follower write handling (DONE 2026-07-03).** `Replicator.applyCommand`
+      now returns a structured `server.NotLeaderError{LeaderID, LeaderAddr}`
+      (from `r.LeaderWithID()`) when not leader; `server.AsNotLeader(err)` unwraps
+      it. The KeyValueService already propagates the Replicator's error. Test
+      `notleader_test.go`: an un-bootstrapped (Follower) node rejects Put and
+      Increment with `NotLeaderError`.
+
+      **Design decision — client redirect, NOT server-side forwarding.** Option
+      (b), forwarding via `raftvrpc.CallApplyCommand`, was REJECTED: the raft
+      control-plane ApplyCommand returns only a `Status`, so it would flatten
+      typed responses (Increment's previous/current/version, etc.). Redirecting
+      client-side lets the leader return the full typed response directly. The
+      client provider (Phase 4) redirects on `NotLeaderError`; conveying the error
+      + leader address over the wire (gRPC status details / vrpc error metadata)
+      is a Phase 4 concern.
 - [ ] **2e — multi-node test.** In-process 3-node raft cluster (real transports)
       + vrpc control servers: bootstrap one, Join two, kill the leader, confirm a
       write forwarded from a follower still commits. This is where the forwarding

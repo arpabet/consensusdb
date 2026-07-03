@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/pkg/errors"
 	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/consensusdb/pkg/server"
 	"go.arpabet.com/raft/raftapi"
 	"go.uber.org/zap"
 	"golang.org/x/xerrors"
@@ -88,8 +89,10 @@ func (t *Replicator) applyCommand(op opCode, msg proto.Message) (*fsmResult, err
 		return nil, xerrors.New("raft not initialized")
 	}
 	if r.State() != raft.Leader {
-		// TODO: forward to the current leader via raftgrpc/RaftClientPool.
-		return nil, xerrors.Errorf("not leader, current leader is %q", string(t.leaderAddr(r)))
+		// Reject with the leader's identity so the client redirects the write to
+		// the leader (which returns the full typed response). See NotLeaderError.
+		addr, id := r.LeaderWithID()
+		return nil, &server.NotLeaderError{LeaderID: string(id), LeaderAddr: string(addr)}
 	}
 
 	data, err := encodeCommand(op, msg)
@@ -117,7 +120,3 @@ func (t *Replicator) apply(op opCode, msg proto.Message) (*pb.Status, error) {
 	return res.status, res.err
 }
 
-func (t *Replicator) leaderAddr(r *raft.Raft) raft.ServerAddress {
-	addr, _ := r.LeaderWithID()
-	return addr
-}
