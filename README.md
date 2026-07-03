@@ -94,6 +94,47 @@ set the server sorts the scanned region by the decoded minor key (lexical, rever
 on request) before streaming. That is what lets `store/providers/cdb` advertise the
 `Ordered` capability.
 
+# Secure transport — TLS, mutual TLS, QUIC
+
+The value-rpc **data plane** (`vrpc-server`) can run over plain TCP, TLS, mutual
+TLS, or QUIC. The transport is chosen by the **scheme** of `vrpc-server.bind-address`,
+and TLS material is loaded from the filesystem:
+
+| `vrpc-server.bind-address` | Transport | Requires |
+|---|---|---|
+| `tcp://0.0.0.0:8444`   | plain TCP        | — |
+| `tls://0.0.0.0:8444`   | TLS over TCP     | `tls-cert`, `tls-key` |
+| `quic://0.0.0.0:8444`  | QUIC (TLS/UDP)   | `tls-cert`, `tls-key` |
+| `unix:///run/cdb.sock` | Unix socket      | — |
+
+```yaml
+vrpc-server.bind-address: tls://0.0.0.0:8444
+vrpc-server.tls-cert:     /etc/cdb/server.crt   # PEM server certificate
+vrpc-server.tls-key:      /etc/cdb/server.key   # PEM private key
+# Mutual TLS: require and verify a client certificate against a CA bundle.
+vrpc-server.client-auth:  true
+vrpc-server.tls-ca:       /etc/cdb/ca.crt       # CA that signs client certs
+```
+
+With `client-auth: true` the server **requires and verifies** a client certificate
+(mutual TLS); the verified identity is available to handlers via
+`valuerpc.PeerCertificates`, so callers can be authorized by certificate. QUIC is
+always encrypted and is the fastest option on private networks / kubernetes.
+
+The **client** (`store/providers/cdb`) selects the matching transport by address
+scheme and passes certificates with `cdb.WithTLSConfig`:
+
+```go
+mtls := &tls.Config{RootCAs: caPool, Certificates: []tls.Certificate{clientCert}, ServerName: "consensusdb-1"}
+ds, _ := cdb.New("app", "tls://consensusdb-1:8444", "acme", "USERS", cdb.WithTLSConfig(mtls))
+// or "quic://consensusdb-1:8444" for QUIC
+```
+
+Because the provider transparently redials the leader on a redirect, use
+certificates whose SANs cover **all** node hostnames/IPs (or a shared `ServerName`).
+`TestCdbMutualTLS` and `TestCdbQUIC` (in `pkg/replication`) exercise both ends end
+to end. See the `store/providers/cdb` README for the full client matrix.
+
 # Quick start
 
 Build, Run, Write Client

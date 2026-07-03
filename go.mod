@@ -82,6 +82,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.69.0 // indirect
 	github.com/prometheus/procfs v0.20.1 // indirect
+	github.com/quic-go/quic-go v0.60.0 // indirect
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/cast v1.10.0 // indirect
@@ -93,6 +94,7 @@ require (
 	go.arpabet.com/sprint v1.2.1 // indirect
 	go.arpabet.com/sprint/sprintpb v1.2.1 // indirect
 	go.arpabet.com/value v1.3.1 // indirect
+	go.arpabet.com/value-rpc/quic v1.5.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect

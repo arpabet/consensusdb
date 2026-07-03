@@ -1,0 +1,111 @@
+name: Release Binaries
+
+# Builds the consensusdb server for every OS/arch and attaches the archives to a
+# GitHub Release. Trigger it manually (Actions tab) to smoke-test the build, or by
+# pushing a version tag (v*) to publish downloadable binaries on the release.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to stamp into the binary (manual runs; tags use the tag name)"
+        required: false
+        default: dev
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write # create the release and upload assets
+
+env:
+  GOWORK: "off" # ignore the committed local-dev workspace; build from go.mod
+  CGO_ENABLED: "0" # fully static binaries, trivially cross-compiled
+
+jobs:
+  build:
+    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+          - { goos: windows, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: false # GOWORK=off + module-only build; skip workspace-aware cache
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "version=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          BIN=consensusdb
+          [ "$GOOS" = "windows" ] && BIN=consensusdb.exe
+          BUILT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          go build -trimpath \
+            -ldflags "-s -w -X main.Version=${VERSION} -X main.Built=${BUILT}" \
+            -o "$BIN" .
+
+      - name: Package
+        id: pkg
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          NAME="consensusdb_${VERSION}_${GOOS}_${GOARCH}"
+          if [ "$GOOS" = "windows" ]; then
+            zip "${NAME}.zip" consensusdb.exe README.md LICENSE
+            echo "asset=${NAME}.zip" >> "$GITHUB_OUTPUT"
+          else
+            tar -czf "${NAME}.tar.gz" consensusdb README.md LICENSE
+            echo "asset=${NAME}.tar.gz" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pkg.outputs.asset }}
+          path: ${{ steps.pkg.outputs.asset }}
+          if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all archives
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS.txt
+
+      - name: Create / update release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true

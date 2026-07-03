@@ -1,0 +1,65 @@
+name: Docker Publish
+
+# Builds a multi-arch (amd64 + arm64) image from the Dockerfile and pushes it to
+# Docker Hub. Trigger it manually, or by pushing a version tag (v*) to publish the
+# released image. Requires two repository secrets:
+#   DOCKERHUB_USERNAME  - Docker Hub account/namespace
+#   DOCKERHUB_TOKEN     - a Docker Hub access token with write scope
+# The image name defaults to <DOCKERHUB_USERNAME>/consensusdb; override it by
+# setting the repository variable DOCKERHUB_IMAGE.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Image tag for manual runs (tags use the tag name)"
+        required: false
+        default: latest
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  docker:
+    name: build & push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve image name
+        id: img
+        run: |
+          IMAGE="${{ vars.DOCKERHUB_IMAGE }}"
+          [ -z "$IMAGE" ] && IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/consensusdb"
+          echo "image=$IMAGE" >> "$GITHUB_OUTPUT"
+
+      - name: Docker metadata (tags & labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.img.outputs.image }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref_type == 'tag' }}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            TAG=${{ github.ref_type == 'tag' && github.ref_name || github.event.inputs.tag }}

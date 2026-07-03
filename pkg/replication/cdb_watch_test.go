@@ -93,11 +93,11 @@ func TestCdbProviderCrossReplicaWatch(t *testing.T) {
 
 	select {
 	case v := <-got:
-		// The watcher (replica A) must decode the value the same way the Broker does.
-		_, _, raw, _ := store.DecodeEnvelope(v)
+		// WatchEvent.Value is the plain value (version/ttl are separate fields),
+		// so the watcher decodes it directly — exactly as the Broker does.
 		var a applicant
-		if err := json.Unmarshal(raw, &a); err != nil {
-			t.Fatalf("decode watched value %q: %v", raw, err)
+		if err := json.Unmarshal(v, &a); err != nil {
+			t.Fatalf("decode watched value %q: %v", v, err)
 		}
 		if a.Id != "a1" || a.JobId != "job-1" {
 			t.Fatalf("watched applicant = %+v, want a1/job-1", a)
