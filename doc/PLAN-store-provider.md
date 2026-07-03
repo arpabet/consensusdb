@@ -332,10 +332,18 @@ Increments (each independently verifiable):
       consensusdb (separator/escaping for the trailing field); (b) client-side
       sort (O(n) per scan). staphi does not need it (it sorts its own results), so
       deferred with a documented design decision.
-- [ ] **Remaining — NotLeader redirect.** Provider currently returns the server
-      error as-is. To follow the 2d design it must parse/redial to the leader on
-      `NotLeaderError` — needs the leader address conveyed in the vrpc error
-      (metadata); pairs with `value-rpc/resilience` retry on Unavailable.
+- [x] **NotLeader redirect (DONE 2026-07-03).** Server: `NotLeaderError` gained
+      `LeaderEndpoint`; `Replicator` injects the pool and resolves the leader's
+      value-rpc endpoint via `GetAPIEndpoint(leaderRaftAddr)`; `VrpcDataService`
+      wraps write handlers (`redirectable`) so a NotLeader becomes a
+      `CodeUnavailable` error with message `not-leader:<endpoint>`. Provider:
+      `notLeaderEndpoint` detects it, `redirect` redials + **re-sticks to the
+      leader** (mutex-guarded client swap), and `call` retries once — callers never
+      see the redirect. Reads served by any node. Unit test `cdb_store_test.go`
+      covers the error detection; full 2-node failover redirect is the leader-kill
+      integration (pairs with the remaining conformance/3-node gate).
+      A `README.md` in the provider documents caps, the Ordered decision + the
+      opt-in server-side-ordering plan, the redirect, and key mapping.
 - [ ] **Remaining — client-side sealing (`Encrypted`).** Integrate the `cdb`
       keychain (AES-GCM). Increment × encryption: server can't add to ciphertext,
       so with sealing on implement `IncrementRaw` as a provider-side CAS loop.

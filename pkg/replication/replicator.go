@@ -28,8 +28,9 @@ to the leader (via raftapi.RaftClientPool / raftgrpc) is not yet implemented, so
 in a single-node deployment this is always the leader and works directly.
 */
 type Replicator struct {
-	RaftServer raftapi.RaftServer `inject:""`
-	Log        *zap.Logger        `inject:""`
+	RaftServer raftapi.RaftServer     `inject:""`
+	Pool       raftapi.RaftClientPool `inject:"optional"`
+	Log        *zap.Logger            `inject:""`
 
 	Timeout time.Duration `value:"raft.apply-timeout,default=10s"`
 }
@@ -89,10 +90,15 @@ func (t *Replicator) applyCommand(op opCode, msg proto.Message) (*fsmResult, err
 		return nil, xerrors.New("raft not initialized")
 	}
 	if r.State() != raft.Leader {
-		// Reject with the leader's identity so the client redirects the write to
-		// the leader (which returns the full typed response). See NotLeaderError.
+		// Reject with the leader's identity + value-rpc endpoint so the client
+		// redirects the write to the leader (which returns the full typed
+		// response). See NotLeaderError.
 		addr, id := r.LeaderWithID()
-		return nil, &server.NotLeaderError{LeaderID: string(id), LeaderAddr: string(addr)}
+		endpoint := ""
+		if t.Pool != nil && addr != "" {
+			endpoint, _ = t.Pool.GetAPIEndpoint(string(addr))
+		}
+		return nil, &server.NotLeaderError{LeaderID: string(id), LeaderAddr: string(addr), LeaderEndpoint: endpoint}
 	}
 
 	data, err := encodeCommand(op, msg)

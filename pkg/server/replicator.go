@@ -25,14 +25,18 @@ response directly.
 */
 type NotLeaderError struct {
 	LeaderID   string
-	LeaderAddr string
+	LeaderAddr string // leader's raft (consensus) address
+	// LeaderEndpoint is the leader's value-rpc data-plane address (host:port) the
+	// client should redirect to. Resolved from LeaderAddr via the client pool's
+	// raft↔rpc port mapping; empty when unknown (no leader yet / pool absent).
+	LeaderEndpoint string
 }
 
 func (e *NotLeaderError) Error() string {
 	if e.LeaderAddr == "" {
 		return "not leader: no leader currently elected"
 	}
-	return fmt.Sprintf("not leader: current leader %q at %q", e.LeaderID, e.LeaderAddr)
+	return fmt.Sprintf("not leader: current leader %q at %q (endpoint %q)", e.LeaderID, e.LeaderAddr, e.LeaderEndpoint)
 }
 
 // AsNotLeader reports whether err is (or wraps) a NotLeaderError and returns it.

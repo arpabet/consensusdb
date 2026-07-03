@@ -49,17 +49,36 @@ func (t *VrpcDataService) PostConstruct() error {
 			t.Log.Error("VrpcDataRegister", zap.Error(err))
 		}
 	}
+	// Reads are served locally (any node); writes route through the Replicator and
+	// may return NotLeaderError, wrapped so the client can redirect to the leader.
 	must(valueserver.AddUnary(t.Server, "kv.get", keyRequestCodec, recordCodec, t.svc.Get))
 	must(valueserver.AddUnary(t.Server, "kv.getrecent", keyRequestCodec, recordCodec, t.svc.GetRecent))
-	must(valueserver.AddUnary(t.Server, "kv.put", recordRequestCodec, statusCodec, t.svc.Put))
-	must(valueserver.AddUnary(t.Server, "kv.touch", recordRequestCodec, statusCodec, t.svc.Touch))
-	must(valueserver.AddUnary(t.Server, "kv.remove", keyRequestCodec, statusCodec, t.svc.Remove))
-	must(valueserver.AddUnary(t.Server, "kv.increment", incrementRequestCodec, incrementResponseCodec, t.svc.Increment))
-	must(valueserver.AddUnary(t.Server, "kv.batch", batchRequestCodec, statusCodec, t.svc.Batch))
+	must(valueserver.AddUnary(t.Server, "kv.put", recordRequestCodec, statusCodec, redirectable(t.svc.Put)))
+	must(valueserver.AddUnary(t.Server, "kv.touch", recordRequestCodec, statusCodec, redirectable(t.svc.Touch)))
+	must(valueserver.AddUnary(t.Server, "kv.remove", keyRequestCodec, statusCodec, redirectable(t.svc.Remove)))
+	must(valueserver.AddUnary(t.Server, "kv.increment", incrementRequestCodec, incrementResponseCodec, redirectable(t.svc.Increment)))
+	must(valueserver.AddUnary(t.Server, "kv.batch", batchRequestCodec, statusCodec, redirectable(t.svc.Batch)))
 	// Server-streams: enumerate records under a prefix, and watch changes.
 	must(valueserver.AddOutgoingStreamTyped(t.Server, "kv.enumerate", keyRequestCodec, recordCodec, t.enumerate))
 	must(valueserver.AddOutgoingStreamTyped(t.Server, "kv.watch", watchRequestCodec, watchEventCodec, t.watch))
 	return nil
+}
+
+// NotLeaderPrefix marks a value-rpc error meaning "not leader; redirect". The
+// message after the prefix is the leader's value-rpc endpoint (host:port).
+const NotLeaderPrefix = "not-leader:"
+
+// redirectable wraps a write handler so a NotLeaderError becomes a Unavailable
+// value-rpc error carrying the leader endpoint, letting the client redirect.
+func redirectable[Req, Resp any](fn func(context.Context, Req) (Resp, error)) func(context.Context, Req) (Resp, error) {
+	return func(ctx context.Context, req Req) (Resp, error) {
+		resp, err := fn(ctx, req)
+		if nl, ok := AsNotLeader(err); ok {
+			var zero Resp
+			return zero, valuerpc.NewError(valuerpc.CodeUnavailable, "%s%s", NotLeaderPrefix, nl.LeaderEndpoint)
+		}
+		return resp, err
+	}
 }
 
 // enumerate streams records under the request's prefix Key (depth inferred from
