@@ -63,6 +63,10 @@ func main() {
 	// Raft replication beans (dormant unless raft/serf bind-addresses are set).
 	runScope = append(runScope, replication.Beans()...)
 
+	// value-rpc data plane: the key-value operations over vrpc, on the same vrpc
+	// host as the raft control plane (dormant when vrpc-server.bind-address empty).
+	runScope = append(runScope, &server.VrpcDataService{})
+
 	// Root scope: lightweight beans available to every command.
 	beans := []interface{}{
 		properties,

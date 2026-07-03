@@ -281,12 +281,20 @@ Increments (each independently verifiable):
 
 ## Phase 3 — vrpc data plane
 
-- [ ] New vrpc endpoint alongside gRPC (both are thin adapters over the same
-      `StorageBean`/`Replicator` beans): unary `get/set/cas/increment/touch/
-      remove/batch`, server-stream `enumerate` and `watch` (credit-based flow
-      control fits both; watch stays honest best-effort). Payloads are
-      `value.Map` — `store.RawEntry` maps 1:1, same MessagePack family as
-      store's `codec_msgpack.go`.
+- [x] **Unary vrpc data plane (DONE 2026-07-03).** `pkg/server/vrpc_data.go`:
+      `VrpcDataService` bean registers `kv.get/getrecent/put/touch/remove/increment/
+      batch` on the shared vrpc host (2a). It's a thin adapter — builds a
+      `KeyValueService` over the same injected `Storage`/`Replicator` (avoiding the
+      grpc-scanner child-scope issue) so both wires route identically; `set`=put,
+      `cas`=put with `RecordRequest.compareAndSet`. value.Map codecs for
+      Key/KeyRequest/RecordRequest/Record(+Head)/Status/Increment{Request,Response}/
+      BatchRequest; exported `Call*` client helpers. Wired in main.go runScope.
+      Test `vrpc_data_test.go` `TestVrpcDataPlaneRoundTrip`: put→get, not-found,
+      increment, atomic batch, remove — all over a real tcp vrpc client through the
+      full bean graph. Race-clean.
+- [ ] **Streams (remaining): `enumerate` + `watch`** as vrpc server-streams
+      (`AddOutgoingStreamTyped`) over GetRange/GetArea/Scan and the WatchHub —
+      credit-based flow control; watch stays best-effort.
 - [ ] Security: mTLS transport + token metadata; reuse servion auth patterns.
 - [ ] gRPC `KeyValueService` + REST gateway remain for ops/humans; raftgrpc
       management stays gRPC.
