@@ -9,6 +9,7 @@ import (
 	"context"
 	"encoding/binary"
 	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/consensusdb/pkg/util"
 	"go.arpabet.com/store"
 	badger "github.com/dgraph-io/badger/v4"
 	"golang.org/x/xerrors"
@@ -19,6 +20,10 @@ import (
 
 const (
 	defBlockSize = 100
+
+	// encryptionIndexCacheSize is the block/index cache badger requires when
+	// encryption at rest is enabled (a zero cache is rejected with encryption on).
+	encryptionIndexCacheSize = 128 << 20 // 128 MiB
 )
 
 type BlockSender interface {
@@ -110,6 +115,18 @@ func OpenKeyValueStorage(conf *Configuration, log *zap.Logger) (context *KeyValu
 	// badger v4 removed the table / value-log loading-mode toggles
 	// (memory-map vs file-io); memory management is now automatic, so
 	// conf.FileIO no longer maps onto a badger option.
+
+	// Encryption at rest: when a master key is configured, badger encrypts the
+	// LSM tables and value log with AES. It requires a non-zero block/index cache.
+	if conf.EncryptionKey != "" {
+		key, kerr := util.ParseMasterKey(conf.EncryptionKey)
+		if kerr != nil {
+			return nil, xerrors.Errorf("invalid 'consensusdb.encryption-key': %v", kerr)
+		}
+		opts = opts.WithEncryptionKey(key).WithIndexCacheSize(encryptionIndexCacheSize)
+		log.Info("KVEncryptionEnabled", zap.Int("keyBits", len(key)*8))
+	}
+
 	context.db, err = badger.Open(opts)
 	return context, err
 

@@ -28,6 +28,11 @@ type Configuration struct {
 	FileIO  bool   `value:"consensusdb.file-io,default=true"`
 	NumCPU  int    `value:"consensusdb.num-cpu,default=0"`
 
+	// EncryptionKey enables badger encryption-at-rest when set: a base64
+	// (RawURL) AES-256 master key, e.g. one produced by the `seal` command.
+	// Empty means the store is unencrypted at rest.
+	EncryptionKey string `value:"consensusdb.encryption-key,default="`
+
 	KeyDir   string
 	ValueDir string
 	WalDir   string

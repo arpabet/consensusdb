@@ -37,6 +37,10 @@ func main() {
 		"http-server.options":      "handlers",
 		"consensusdb.data-dir":     "/tmp/consensusdb",
 		"consensusdb.file-io":      "true",
+		// Encryption at rest: set to a base64 AES-256 master key (see the `seal`
+		// command) to start the store encrypted. Empty means unencrypted;
+		// override via config or the CONSENSUSDB_ENCRYPTION_KEY environment.
+		"consensusdb.encryption-key": "",
 
 		// value-rpc control plane (Bootstrap/Join/GetConfiguration/ApplyCommand).
 		// Empty bind-address keeps it in-process (disabled); set e.g.
