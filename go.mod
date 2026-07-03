@@ -25,9 +25,11 @@ require (
 	go.arpabet.com/raft/raftvrpc v0.3.1
 	go.arpabet.com/servion v1.5.0
 	go.arpabet.com/servion/grpc v1.5.0
-	go.arpabet.com/store v1.3.1
-	go.arpabet.com/store/providers/badger v1.3.1
+	go.arpabet.com/store v1.3.2
+	go.arpabet.com/store/providers/badger v1.3.2
+	go.arpabet.com/value v1.3.1
 	go.arpabet.com/value-rpc v1.5.2
+	go.arpabet.com/value-rpc/quic v1.5.2
 	go.uber.org/zap v1.28.0
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 	google.golang.org/genproto/googleapis/api v0.0.0-20260622175928-b703f567277d
@@ -93,8 +95,6 @@ require (
 	go.arpabet.com/raft/raftpb v0.3.1 // indirect
 	go.arpabet.com/sprint v1.2.1 // indirect
 	go.arpabet.com/sprint/sprintpb v1.2.1 // indirect
-	go.arpabet.com/value v1.3.1 // indirect
-	go.arpabet.com/value-rpc/quic v1.5.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
