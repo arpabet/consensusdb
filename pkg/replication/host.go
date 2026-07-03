@@ -17,15 +17,17 @@ import (
 RaftHost drives the raftmod RaftServer lifecycle inside the cligo+servion world.
 raftmod's RaftServer is a sprint.Server (Bind/Serve/Shutdown) which, in
 sprintframework, is driven by the server role manager. Here we call those phases
-ourselves on PostConstruct and bootstrap a single-node cluster so this node can
-become leader and accept writes.
+ourselves on PostConstruct.
 
 Replication is opt-in: it is disabled unless both raft.bind-address and
 serf.bind-address are configured (raftmod's RaftServer.Bind no-ops otherwise).
 
-Single-node note: serf-based membership is not wired (it is commented out
-upstream in raftmod). Joining additional voters requires driving the serf agent
-or calling raft.AddVoter explicitly; this host bootstraps one voter only.
+Membership: a seed node (raft.bootstrap=true, the default) forms a single-voter
+cluster and becomes leader; further nodes set raft.bootstrap=false and are added
+to the cluster by the leader through the control-plane Join RPC (raftvrpc /
+raftgrpc), which calls raft.AddVoter and lets raft replicate the config to the
+new node. Serf-based auto-membership is not wired (commented out upstream in
+raftmod).
 */
 type RaftHost struct {
 	RaftServer  raftapi.RaftServer `inject:""`
@@ -34,6 +36,13 @@ type RaftHost struct {
 
 	RaftAddress string `value:"raft.bind-address,default="`
 	SerfAddress string `value:"serf.bind-address,default="`
+
+	// Bootstrap controls first-start cluster formation. A seed node bootstraps a
+	// single-voter cluster and becomes leader; additional (joiner) nodes set
+	// raft.bootstrap=false and instead wait to be added by the leader via the
+	// control-plane Join RPC (leader-side raft.AddVoter). On a node that already
+	// has persisted raft state this is a no-op regardless.
+	Bootstrap bool `value:"raft.bootstrap,default=true"`
 
 	started bool
 }
@@ -58,6 +67,13 @@ func (t *RaftHost) PostConstruct() error {
 		return errors.Wrap(err, "raft server serve")
 	}
 	t.started = true
+
+	if !t.Bootstrap {
+		t.Log.Info("RaftJoinMode",
+			zap.String("reason", "raft.bootstrap=false; awaiting Join from the cluster leader"),
+			zap.String("id", t.NodeService.NodeIdHex()))
+		return nil
+	}
 
 	return t.bootstrap()
 }

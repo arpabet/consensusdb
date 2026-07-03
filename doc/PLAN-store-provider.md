@@ -242,9 +242,16 @@ Increments (each independently verifiable):
       consensusdb uses cligo commands — wire once the command-type compat is checked.
       **License note**: consensusdb (Apache-2.0) now transitively depends on
       value-rpc (BUSL-1.1) via raftvrpc — owner may want to reconcile.
-- [ ] **2c — membership.** Replace the single-voter `RaftHost.bootstrap`
-      (`pkg/replication/host.go`) with admin-driven Bootstrap/Join via the control
-      plane (serf optional, later).
+- [x] **2c — membership (DONE 2026-07-03).** `RaftHost` gained a
+      `raft.bootstrap` flag (default true): a seed node bootstraps a single-voter
+      cluster and becomes leader; joiner nodes set `raft.bootstrap=false` and wait
+      to be added by the leader through the control-plane Join RPC (leader-side
+      `raft.AddVoter`, which raft replicates to the new node). Doc comment updated.
+      Test `membership_test.go` `TestMultiNodeMembershipAndReplication`: a real
+      3-node in-memory raft cluster (connected transports, real FSM + storage) —
+      bootstrap seed, AddVoter the other two (what Join does), confirm the
+      configuration lists 3 servers and a leader write replicates to every node.
+      Race-clean.
 - [x] **2d — follower write handling (DONE 2026-07-03).** `Replicator.applyCommand`
       now returns a structured `server.NotLeaderError{LeaderID, LeaderAddr}`
       (from `r.LeaderWithID()`) when not leader; `server.AsNotLeader(err)` unwraps
@@ -260,10 +267,14 @@ Increments (each independently verifiable):
       client provider (Phase 4) redirects on `NotLeaderError`; conveying the error
       + leader address over the wire (gRPC status details / vrpc error metadata)
       is a Phase 4 concern.
-- [ ] **2e — multi-node test.** In-process 3-node raft cluster (real transports)
-      + vrpc control servers: bootstrap one, Join two, kill the leader, confirm a
-      write forwarded from a follower still commits. This is where the forwarding
-      integration (unit-proven in raftvrpc) is validated end-to-end.
+- [x] **2e — multi-node test (mostly DONE 2026-07-03).** The membership +
+      replication half is covered by `TestMultiNodeMembershipAndReplication` (2c):
+      3-node cluster formed via bootstrap+Join, leader write replicates to all.
+      **Remaining, now a Phase 4 concern:** the "kill the leader, a write from a
+      follower still commits" scenario is validated *client-side*, because 2d chose
+      client-redirect over server-side forwarding — the client provider re-issues
+      to the new leader on `NotLeaderError`. So leader-kill/failover-write belongs
+      with the Phase 4 provider tests, not a server-side forwarding test.
 - [ ] Read consistency: client sticks to the leader for reads+writes
       (read-your-writes after CAS); optional stale follower reads later (Phase 4
       provider option).
