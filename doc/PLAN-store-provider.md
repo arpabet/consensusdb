@@ -310,25 +310,41 @@ Increments (each independently verifiable):
 
 ## Phase 4 — `store/providers/cdb` (the client provider)
 
-- [ ] New module in the store monorepo implementing `DataStore` (+ manager ops
-      where the server exposes them), speaking vrpc, with leader discovery and
-      `value-rpc/resilience` retry/circuit-breaker on NotLeader/Unavailable.
-- [ ] `Features()`: `TTL | Atomic | Ordered | Watch | BatchAtomic`
-      (+ `Encrypted` when a keychain is configured). **No** `Transaction` —
-      honest per the capability contract; staphi's CAS-based uniqueness and
-      `atomically` fallback were designed for exactly this profile.
-- [ ] Client-side sealing: integrate the `cdb` keychain (AES-GCM, per-tenant
-      block keys) as a provider option. **Increment × encryption conflict**: the
-      server cannot add to ciphertext — when sealing is on, implement
-      `IncrementRaw` as a provider-side CAS retry loop (still linearizable per
-      attempt; extra round-trip only under contention).
-- [ ] License note: RESOLVED — consensusdb was relicensed BUSL-1.1 → Apache-2.0
-      (2026-07-02), so the provider can freely reuse the `cdb` keychain client
-      and vrpc message surface with no clean-room or cross-license concern.
-- [ ] **Acceptance gate: `storetest` conformance suite passes** for the
-      advertised capability set, against (a) single node, (b) 3-node cluster
-      with leader kill mid-run. Add to the benchmarks runner for a latency
-      baseline vs embedded badger.
+- [x] **Provider built + working end-to-end (DONE 2026-07-03).** New module
+      `go.arpabet.com/store/providers/cdb` (BUSL-1.1) implements `store.DataStore`
+      (compile-time asserted). **Decoupled by design**: imports only `store` +
+      `value-rpc` — NOT consensusdb — so a client never links badger/raft. It
+      speaks the consensusdb vrpc data plane by convention (same `kv.*` function +
+      value.Map field names as `VrpcDataService`). Key mapping: flat store key →
+      consensusdb `minor` under a fixed major/region; point ops → `Call*`, watch/
+      enumerate → streams (client-side prefix/seek filter).
+      Integration test in consensusdb (`cdb_provider_test.go`,
+      `TestCdbProviderAgainstServer`): a real vrpc server + the provider — SetRaw/
+      GetRaw, CAS (correct + stale version), Increment, SetBatch, EnumerateRaw
+      (prefix), Remove all round-trip. Race-clean.
+- [x] `Features()` = `TTL | Atomic | Watch | BatchAtomic`. **`Ordered` deliberately
+      NOT advertised** (see below); `Encrypted` pending keychain; no `Transaction`
+      (honest — staphi's CAS/`atomically` fallback covers it).
+- [ ] **Remaining — `Ordered` enumeration.** consensusdb's length-prefixed key
+      encoding (`[len][bytes]` per field) does NOT preserve lexical order of the
+      flat key, so EnumerateRaw yields entries but not sorted; reverse returns
+      `ErrNotSupported`. Options: (a) an order-preserving key encoding in
+      consensusdb (separator/escaping for the trailing field); (b) client-side
+      sort (O(n) per scan). staphi does not need it (it sorts its own results), so
+      deferred with a documented design decision.
+- [ ] **Remaining — NotLeader redirect.** Provider currently returns the server
+      error as-is. To follow the 2d design it must parse/redial to the leader on
+      `NotLeaderError` — needs the leader address conveyed in the vrpc error
+      (metadata); pairs with `value-rpc/resilience` retry on Unavailable.
+- [ ] **Remaining — client-side sealing (`Encrypted`).** Integrate the `cdb`
+      keychain (AES-GCM). Increment × encryption: server can't add to ciphertext,
+      so with sealing on implement `IncrementRaw` as a provider-side CAS loop.
+      License is fine now — the provider module is BUSL-1.1, matching value-rpc /
+      consensusdb.
+- [ ] **Remaining — acceptance gate: run `storetest` conformance** for the
+      advertised caps against (a) single node, (b) 3-node cluster w/ leader kill.
+      (The manual integration test already exercises the core; conformance is the
+      formal gate + benchmark baseline vs embedded badger.)
 
 ## Phase 5 — staphi proof
 

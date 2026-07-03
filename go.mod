@@ -112,8 +112,11 @@ require (
 require (
 	github.com/pierrec/lz4 v2.6.1+incompatible
 	github.com/prometheus/client_golang v1.23.2 // indirect
+	go.arpabet.com/store/providers/cdb v0.0.0-00010101000000-000000000000
 	go.arpabet.com/uuid v1.1.1
 	golang.org/x/crypto v0.53.0
 	golang.org/x/net v0.56.0 // indirect
 	google.golang.org/protobuf v1.36.11
 )
+
+replace go.arpabet.com/store/providers/cdb => ../store/providers/cdb
