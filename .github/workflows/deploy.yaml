@@ -1,0 +1,118 @@
+name: Deploy to Karagatan
+
+# Builds the private consensusdb image, pushes it to the Karagatan registry, and
+# applies the stateful Terraform config (infra/) to the Kubernetes cluster.
+# Trigger by pushing a version tag (v*) or manually from the Actions tab.
+#
+# Required secrets:
+#   REGISTRY_HOSTNAME / REGISTRY_USERNAME / REGISTRY_PASSWORD  private registry
+#   KUBE_CONFIG                                                base64-encoded kubeconfig
+#   CONSENSUSDB_ENCRYPTION_KEY  (optional)                     base64 AES-256 at-rest key
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      deploy_only:
+        description: "Skip build & push, only run the Terraform deploy"
+        type: boolean
+        default: false
+
+# Never let two deploys race the shared Terraform state.
+concurrency:
+  group: deploy-consensusdb
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Compute the image tag once so build and deploy can never drift.
+  # Format: <branch-or-tag>-<short-sha>, e.g. "v1.3.1-a1b2c3d4".
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.tag.outputs.image_tag }}
+    steps:
+      - name: Compute image tag
+        id: tag
+        run: |
+          ref_slug="$(printf '%s' "$GITHUB_REF_NAME" | sed 's#[^A-Za-z0-9_.-]#-#g')"
+          short_sha="${GITHUB_SHA:0:8}"
+          echo "image_tag=${ref_slug}-${short_sha}" >> "$GITHUB_OUTPUT"
+
+  build-and-push:
+    needs: prepare
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.deploy_only == false }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the private registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY_HOSTNAME }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      # Image path must match infra/terraform.tfvars (project/deployment = consensusdb).
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            TAG=${{ needs.prepare.outputs.image_tag }}
+          tags: ${{ secrets.REGISTRY_HOSTNAME }}/consensusdb/consensusdb:${{ needs.prepare.outputs.image_tag }}
+
+  deploy:
+    needs: [prepare, build-and-push]
+    # Run on tag pushes and on manual deploy-only runs (where build is skipped).
+    if: ${{ always() && needs.prepare.result == 'success' && needs.build-and-push.result != 'failure' && needs.build-and-push.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+
+      - name: Write kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 --decode > ~/.kube/config
+
+      - name: Terraform Init
+        working-directory: ./infra
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: ./infra
+        run: terraform plan
+        env:
+          TF_VAR_registry_hostname: ${{ secrets.REGISTRY_HOSTNAME }}
+          TF_VAR_registry_username: ${{ secrets.REGISTRY_USERNAME }}
+          TF_VAR_registry_password: ${{ secrets.REGISTRY_PASSWORD }}
+          TF_VAR_image_tag: ${{ needs.prepare.outputs.image_tag }}
+          TF_VAR_encryption_key: ${{ secrets.CONSENSUSDB_ENCRYPTION_KEY }}
+
+      - name: Terraform Apply
+        working-directory: ./infra
+        run: terraform apply -auto-approve
+        env:
+          TF_VAR_registry_hostname: ${{ secrets.REGISTRY_HOSTNAME }}
+          TF_VAR_registry_username: ${{ secrets.REGISTRY_USERNAME }}
+          TF_VAR_registry_password: ${{ secrets.REGISTRY_PASSWORD }}
+          TF_VAR_image_tag: ${{ needs.prepare.outputs.image_tag }}
+          TF_VAR_encryption_key: ${{ secrets.CONSENSUSDB_ENCRYPTION_KEY }}
+
+      - name: Cleanup kubeconfig
+        if: always()
+        run: rm -f ~/.kube/config

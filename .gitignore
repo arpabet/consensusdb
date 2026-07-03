@@ -15,3 +15,12 @@ bin/
 
 .idea/
 tmp/
+
+# Terraform (infra/): provider cache and state are local/remote, never committed.
+# The provider lock file (.terraform.lock.hcl) IS committed.
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+crash.log
+crash.*.log

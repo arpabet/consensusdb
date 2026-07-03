@@ -135,6 +135,41 @@ certificates whose SANs cover **all** node hostnames/IPs (or a shared `ServerNam
 `TestCdbMutualTLS` and `TestCdbQUIC` (in `pkg/replication`) exercise both ends end
 to end. See the `store/providers/cdb` README for the full client matrix.
 
+# Deploy to Kubernetes (Karagatan)
+
+The **`Deploy to Karagatan`** GitHub Action (`.github/workflows/deploy.yaml`) builds
+the private image, pushes it to the Karagatan registry, and applies the stateful
+Terraform config in `infra/` to the cluster. Trigger it by pushing a `v*` tag, or
+manually (with a `deploy_only` option that skips the build and just re-applies).
+
+Because consensusdb is **stateful**, `infra/` deploys a **StatefulSet** (not a
+Deployment) with a per-replica `PersistentVolumeClaim` for the badger data
+directory (`consensusdb.data-dir` → `/data`), a **headless service** for stable pod
+identities, and a **ClusterIP service** for clients. The value-rpc data plane is
+enabled (`VRPC_SERVER_BIND_ADDRESS=tcp://0.0.0.0:8444`) so the `store/providers/cdb`
+client can connect. It is an internal service — no public gateway route.
+
+It is a **shared, multi-tenant instance**: multiple services target the same
+cluster and are isolated inside consensusdb by tenant (the cdb client's `tenant`
+arg → the `major` key). It therefore runs in its own dedicated `consensusdb`
+namespace. A stateless app (e.g. staphi) connects in-cluster via the service DNS:
+
+```
+STAPHI_CDB_ADDRESS=tcp://consensusdb.consensusdb.svc.cluster.local:8444
+```
+
+Required repository secrets: `REGISTRY_HOSTNAME` / `REGISTRY_USERNAME` /
+`REGISTRY_PASSWORD` (private registry), `KUBE_CONFIG` (base64 kubeconfig), and
+optionally `CONSENSUSDB_ENCRYPTION_KEY` (base64 AES-256 at-rest key, mounted as a
+secret). Deployment values (namespace, sizes, ports) live in `infra/terraform.tfvars`;
+Terraform state is stored in a Kubernetes secret in the namespace (`state.tf`), which
+must already exist.
+
+**Single-node by default** (`num_replicas = 1`, raft disabled) — correct and
+immediately usable. Scaling to a multi-node raft cluster additionally needs
+`raft.bind-address` / `serf.bind-address` and peer bootstrap (each pod joins
+`consensusdb-0` over the headless service); that config is a follow-up.
+
 # Quick start
 
 Build, Run, Write Client
