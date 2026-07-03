@@ -6,7 +6,9 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"sort"
 
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/store"
@@ -59,7 +61,7 @@ func (t *VrpcDataService) PostConstruct() error {
 	must(valueserver.AddUnary(t.Server, "kv.increment", incrementRequestCodec, incrementResponseCodec, redirectable(t.svc.Increment)))
 	must(valueserver.AddUnary(t.Server, "kv.batch", batchRequestCodec, statusCodec, redirectable(t.svc.Batch)))
 	// Server-streams: enumerate records under a prefix, and watch changes.
-	must(valueserver.AddOutgoingStreamTyped(t.Server, "kv.enumerate", keyRequestCodec, recordCodec, t.enumerate))
+	must(valueserver.AddOutgoingStreamTyped(t.Server, "kv.enumerate", enumerateRequestCodec, recordCodec, t.enumerate))
 	must(valueserver.AddOutgoingStreamTyped(t.Server, "kv.watch", watchRequestCodec, watchEventCodec, t.watch))
 	return nil
 }
@@ -81,25 +83,63 @@ func redirectable[Req, Resp any](fn func(context.Context, Req) (Resp, error)) fu
 	}
 }
 
-// enumerate streams records under the request's prefix Key (depth inferred from
-// the set fields; an empty prefix scans everything). Delivery is bounded by the
-// stream's credit-based flow control — a slow client back-pressures the scan.
-func (t *VrpcDataService) enumerate(ctx context.Context, req *pb.KeyRequest) (<-chan *pb.Record, error) {
+// enumerate streams records under the request's prefix (depth inferred from the
+// set fields; empty prefix scans everything).
+//
+// Unordered (default): records stream as the engine yields them (consensusdb's
+// length-prefixed key order, NOT lexical), bounded by credit-based flow control.
+// Ordered (opt-in): the region's records are buffered and sorted by the decoded
+// minor key (lexical, reversed on request) before streaming — O(n) server memory,
+// which is why it is opt-in. This is what lets the cdb provider advertise Ordered.
+func (t *VrpcDataService) enumerate(ctx context.Context, req *pb.EnumerateRequest) (<-chan *pb.Record, error) {
 	out := make(chan *pb.Record)
-	sender := &chanBlockSender{ctx: ctx, out: out}
+
+	scan := func(sender BlockSender) error {
+		if field, ok := areaField(req.Prefix); ok {
+			return t.Storage.GetArea(&pb.KeyRequest{Key: req.Prefix}, field, sender)
+		}
+		return t.Storage.Scan(&pb.ScanRequest{}, sender)
+	}
+
 	go func() {
 		defer close(out)
-		var err error
-		if field, ok := areaField(req.Key); ok {
-			err = t.Storage.GetArea(req, field, sender)
-		} else {
-			err = t.Storage.Scan(&pb.ScanRequest{HeadOnly: req.HeadOnly}, sender)
+
+		if !req.Ordered {
+			if err := scan(&chanBlockSender{ctx: ctx, out: out}); err != nil && ctx.Err() == nil {
+				t.Log.Error("VrpcEnumerate", zap.Error(err))
+			}
+			return
 		}
-		if err != nil && ctx.Err() == nil {
+
+		coll := &collectSender{}
+		if err := scan(coll); err != nil {
 			t.Log.Error("VrpcEnumerate", zap.Error(err))
+			return
+		}
+		sort.Slice(coll.records, func(i, j int) bool {
+			c := bytes.Compare(coll.records[i].Key.MinorKey, coll.records[j].Key.MinorKey)
+			if req.Reverse {
+				return c > 0
+			}
+			return c < 0
+		})
+		for _, rec := range coll.records {
+			select {
+			case out <- rec:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 	return out, nil
+}
+
+// collectSender buffers records for server-side ordering.
+type collectSender struct{ records []*pb.Record }
+
+func (s *collectSender) Send(block *pb.Block) error {
+	s.records = append(s.records, block.Record...)
+	return nil
 }
 
 // watch streams change events for keys under the request's prefix. Best-effort:
@@ -195,8 +235,8 @@ func CallBatch(ctx context.Context, cli valueclient.Client, req *pb.BatchRequest
 // EnumerateStream opens a record stream under the request's prefix. receiveCap is
 // the client-side receive buffer; read *errp after the channel closes for a
 // decode/stream error.
-func EnumerateStream(ctx context.Context, cli valueclient.Client, req *pb.KeyRequest, receiveCap int, errp *error) (<-chan *pb.Record, error) {
-	ch, _, err := valueclient.GetStreamTyped(ctx, cli, "kv.enumerate", req, receiveCap, keyRequestCodec, recordCodec, errp)
+func EnumerateStream(ctx context.Context, cli valueclient.Client, req *pb.EnumerateRequest, receiveCap int, errp *error) (<-chan *pb.Record, error) {
+	ch, _, err := valueclient.GetStreamTyped(ctx, cli, "kv.enumerate", req, receiveCap, enumerateRequestCodec, recordCodec, errp)
 	return ch, err
 }
 
@@ -443,6 +483,29 @@ var watchEventCodec = valuerpc.Codec[*pb.WatchEvent]{
 			Value:   m.GetString("value").Raw(),
 			Version: uint64(m.GetNumber("version").Long()),
 			Type:    pb.ChangeType(m.GetNumber("type").Long()),
+		}, nil
+	},
+}
+
+var enumerateRequestCodec = valuerpc.Codec[*pb.EnumerateRequest]{
+	Encode: func(r *pb.EnumerateRequest) value.Value {
+		if r == nil {
+			r = &pb.EnumerateRequest{}
+		}
+		return value.EmptyMap(true).
+			Put("prefix", encodeKey(r.Prefix)).
+			Put("ordered", value.Boolean(r.Ordered)).
+			Put("reverse", value.Boolean(r.Reverse))
+	},
+	Decode: func(v value.Value) (*pb.EnumerateRequest, error) {
+		m, err := asMap(v, "enumerate request")
+		if err != nil {
+			return nil, err
+		}
+		return &pb.EnumerateRequest{
+			Prefix:  decodeKey(m.GetMap("prefix")),
+			Ordered: m.GetBool("ordered").Boolean(),
+			Reverse: m.GetBool("reverse").Boolean(),
 		}, nil
 	},
 }

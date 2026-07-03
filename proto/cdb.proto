@@ -296,6 +296,15 @@ message ScanRequest {
 
 }
 
+message EnumerateRequest {
+
+    Key    prefix  = 1;   // region/prefix to scan; empty scans everything
+    bool   ordered = 2;   // server sorts results by the decoded minor key (lexical)
+    bool   reverse = 3;   // with ordered, stream in descending order
+    int32  timeout = 4;   // SLA of the operation if not 0
+
+}
+
 message Status {
 
     bool       updated     = 1;

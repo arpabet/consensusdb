@@ -325,13 +325,14 @@ Increments (each independently verifiable):
 - [x] `Features()` = `TTL | Atomic | Watch | BatchAtomic`. **`Ordered` deliberately
       NOT advertised** (see below); `Encrypted` pending keychain; no `Transaction`
       (honest — staphi's CAS/`atomically` fallback covers it).
-- [ ] **Remaining — `Ordered` enumeration.** consensusdb's length-prefixed key
-      encoding (`[len][bytes]` per field) does NOT preserve lexical order of the
-      flat key, so EnumerateRaw yields entries but not sorted; reverse returns
-      `ErrNotSupported`. Options: (a) an order-preserving key encoding in
-      consensusdb (separator/escaping for the trailing field); (b) client-side
-      sort (O(n) per scan). staphi does not need it (it sorts its own results), so
-      deferred with a documented design decision.
+- [x] **`Ordered` — opt-in server-side ordering (DONE 2026-07-03).** New
+      `EnumerateRequest {prefix, ordered, reverse}` proto; when `ordered`, the
+      `kv.enumerate` handler buffers the scanned region and sorts by decoded minor
+      key (lexical, reversed on request) before streaming (`collectSender` +
+      `sort.Slice`). The provider always sends `ordered=true`, supports `reverse`
+      + direction-aware seek, and now advertises `Ordered`. Integration test asserts
+      forward `[p/a p/b p/c]` and reverse `[p/c p/b p/a]` from out-of-order writes.
+      (Long-term: order-preserving key encoding to avoid server-side buffering.)
 - [x] **NotLeader redirect (DONE 2026-07-03).** Server: `NotLeaderError` gained
       `LeaderEndpoint`; `Replicator` injects the pool and resolves the leader's
       value-rpc endpoint via `GetAPIEndpoint(leaderRaftAddr)`; `VrpcDataService`
@@ -344,11 +345,15 @@ Increments (each independently verifiable):
       integration (pairs with the remaining conformance/3-node gate).
       A `README.md` in the provider documents caps, the Ordered decision + the
       opt-in server-side-ordering plan, the redirect, and key mapping.
-- [ ] **Remaining — client-side sealing (`Encrypted`).** Integrate the `cdb`
-      keychain (AES-GCM). Increment × encryption: server can't add to ciphertext,
-      so with sealing on implement `IncrementRaw` as a provider-side CAS loop.
-      License is fine now — the provider module is BUSL-1.1, matching value-rpc /
-      consensusdb.
+- [x] **`Encrypted` — via crypto middleware composition (DONE 2026-07-03).** Made
+      the provider a `store.ManagedDataStore` (admin ops → `ErrNotSupported`,
+      `Instance` returns the client) so it composes with `store/middleware/crypto`:
+      `cryptostore.New(cdb.New(...), key)` gives client-side AES-GCM sealing and
+      `Encrypted`. The middleware already solves Increment × encryption (its
+      `IncrementRaw` is a CAS loop over the decrypted counter). Test
+      `cdb_encryption_test.go`: sealed write → server stores CIPHERTEXT (verified via
+      the unwrapped base store) → transparent decrypt on read → Increment over the
+      sealed counter works. No sealing code duplicated in the provider.
 - [ ] **Remaining — acceptance gate: run `storetest` conformance** for the
       advertised caps against (a) single node, (b) 3-node cluster w/ leader kill.
       (The manual integration test already exercises the core; conformance is the

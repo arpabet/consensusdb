@@ -8,6 +8,7 @@ go 1.25.8
 use (
 	.
 	../store
+	../store/middleware/crypto
 	../store/providers/badger
 	../store/providers/cdb
 	../value

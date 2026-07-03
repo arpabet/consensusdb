@@ -89,22 +89,37 @@ func TestCdbProviderAgainstServer(t *testing.T) {
 		t.Fatalf("increment = %d err=%v, want prev 10", prev, err)
 	}
 
-	// Batch + enumerate under a prefix.
+	// Batch (written out of order) + ordered enumerate under a prefix.
+	if !ds.Features().Has(store.OrderedCapability) {
+		t.Fatal("expected Ordered capability (server-side ordering)")
+	}
 	if err := ds.SetBatchRaw(ctx, []store.RawEntry{
+		{Key: []byte("p/c"), Value: []byte("c")},
 		{Key: []byte("p/a"), Value: []byte("a")},
 		{Key: []byte("p/b"), Value: []byte("b")},
 	}); err != nil {
 		t.Fatalf("batch: %v", err)
 	}
-	seen := map[string]string{}
+	var fwd []string
 	if err := ds.EnumerateRaw(ctx, []byte("p/"), nil, 100, false, false, func(e *store.RawEntry) bool {
-		seen[string(e.Key)] = string(e.Value)
+		fwd = append(fwd, string(e.Key))
 		return true
 	}); err != nil {
 		t.Fatalf("enumerate: %v", err)
 	}
-	if len(seen) != 2 || seen["p/a"] != "a" || seen["p/b"] != "b" {
-		t.Fatalf("enumerate saw %v, want {p/a:a, p/b:b}", seen)
+	if len(fwd) != 3 || fwd[0] != "p/a" || fwd[1] != "p/b" || fwd[2] != "p/c" {
+		t.Fatalf("forward enumerate = %v, want sorted [p/a p/b p/c]", fwd)
+	}
+	// Reverse ordering.
+	var rev []string
+	if err := ds.EnumerateRaw(ctx, []byte("p/"), nil, 100, true, true, func(e *store.RawEntry) bool {
+		rev = append(rev, string(e.Key))
+		return true
+	}); err != nil {
+		t.Fatalf("reverse enumerate: %v", err)
+	}
+	if len(rev) != 3 || rev[0] != "p/c" || rev[1] != "p/b" || rev[2] != "p/a" {
+		t.Fatalf("reverse enumerate = %v, want [p/c p/b p/a]", rev)
 	}
 
 	// Remove.

@@ -126,7 +126,7 @@ func TestVrpcDataPlaneRoundTrip(t *testing.T) {
 	}
 	var enumErr error
 	recs, err := server.EnumerateStream(bg, cli,
-		&pb.KeyRequest{Key: &pb.Key{MajorKey: []byte("t"), RegionName: []byte("E")}}, 16, &enumErr)
+		&pb.EnumerateRequest{Prefix: &pb.Key{MajorKey: []byte("t"), RegionName: []byte("E")}, Ordered: true}, 16, &enumErr)
 	if err != nil {
 		t.Fatalf("enumerate: %v", err)
 	}
