@@ -47,7 +47,7 @@ func TestCdbProviderWithEncryption(t *testing.T) {
 	defer glueCtx.Close()
 
 	addr := "tcp://" + probe.Server.Addr().String()
-	base, err := cdb.New("plain", addr, "SEALED")
+	base, err := cdb.New("plain", addr, "", "SEALED")
 	if err != nil {
 		t.Fatalf("cdb provider: %v", err)
 	}

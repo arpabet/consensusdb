@@ -35,9 +35,12 @@ encryption-at-rest.
 * Pure golang implementation
 
 # Current Status
-* Active development. Standalone KV + raft core + client-side sealing work today;
-  the store-interface data path, distributed CAS/increment/batch/watch, and the
-  `store/providers/cdb` client are in progress per the plan.
+* Active development. Working today: the raft-replicated engine with envelope
+  versioning (version = raft log index), CAS / increment / atomic batch as raft
+  ops, leader-computed TTL with a deterministic reclaimer, a cross-node watch hub,
+  raft membership (bootstrap / join), the value-rpc control + data planes, and the
+  `go.arpabet.com/store/providers/cdb` client (a `store.DataStore` speaking the
+  value-rpc data plane, with leader redirect, ordered enumeration and encryption).
 
 # Design
 Data collocated by majorKey in data nodes, grouped by regionName to reference different types of data, accessible by minorKey and TimeUUID.
@@ -50,6 +53,46 @@ MajorKey points to the tenant, that how multi-tenant architecture is supported.
 * Use other userId in key.MinorKey with whom we record interaction or type of the event, for example "accountNum", "login"
 * Create TimeUUID based on event content and timestamp for multi-datacenter support (MDC)
 * Store event with TimeUUID, store record without TimeUUID
+
+# Encryption
+
+Two independent, composable layers:
+
+* **At rest (server-side).** Set `consensusdb.encryption-key` to a base64 (RawURL)
+  AES-256 master key — e.g. one produced by the `seal` command — and badger
+  encrypts the LSM tables and value log on disk. Empty means unencrypted. A store
+  written with a key can only be reopened with the same key. This protects against
+  someone obtaining the on-disk files.
+
+  ```
+  ./consensusdb seal                 # prints a fresh master key
+  CONSENSUSDB_ENCRYPTION_KEY=<key> ./consensusdb run
+  ```
+
+* **In transit / end-to-end (client-side).** Wrap the `cdb` provider with store's
+  crypto middleware (`cryptostore.New(cdb.New(...), key)`): values are AES-GCM
+  sealed before they leave the client, so **the server only ever stores
+  ciphertext**. This protects against a compromised server. Keys stay plaintext
+  (they must remain comparable for the key layout); only values are sealed.
+
+Use either, or both together for defense in depth.
+
+# Enumeration and ordering
+
+Keys are encoded with a 2-byte length prefix per field
+(`[majorLen][major][regionLen][region][minorLen][minor][sortable-TimeUUID]`). The
+length prefix delimits the variable-length binary fields unambiguously **without
+escaping**, which lets a whole tenant (or tenant/region) be scanned as a clean
+byte-prefix — the hierarchical multi-tenant access pattern this store is built for.
+The trailing TimeUUID uses an order-preserving encoding, so a row's versions stay
+ordered.
+
+The trade-off: the length prefix does **not** preserve lexical byte-order *within*
+a field. So the `store` provider, which wants flat lexical key ranges, asks for
+**opt-in server-side ordering**: `kv.enumerate` takes an `ordered` flag, and when
+set the server sorts the scanned region by the decoded minor key (lexical, reverse
+on request) before streaming. That is what lets `store/providers/cdb` advertise the
+`Ordered` capability.
 
 # Quick start
 

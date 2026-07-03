@@ -45,7 +45,7 @@ func TestCdbProviderAgainstServer(t *testing.T) {
 	}
 	defer glueCtx.Close()
 
-	ds, err := cdb.New("test", "tcp://"+probe.Server.Addr().String(), "STORE")
+	ds, err := cdb.New("test", "tcp://"+probe.Server.Addr().String(), "", "STORE")
 	if err != nil {
 		t.Fatalf("cdb provider: %v", err)
 	}
