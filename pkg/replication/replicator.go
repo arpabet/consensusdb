@@ -15,7 +15,6 @@ import (
 	"go.arpabet.com/raft/raftapi"
 	"go.uber.org/zap"
 	"golang.org/x/xerrors"
-	"google.golang.org/protobuf/proto"
 )
 
 /*
@@ -84,7 +83,7 @@ func (t *Replicator) IsLeader() bool {
 
 // applyCommand commits op(msg) through raft on the leader and returns the FSM
 // result. Callers pick the field they need (status or incr).
-func (t *Replicator) applyCommand(op opCode, msg proto.Message) (*fsmResult, error) {
+func (t *Replicator) applyCommand(op opCode, msg interface{}) (*fsmResult, error) {
 	r, ok := t.RaftServer.Raft()
 	if !ok {
 		return nil, xerrors.New("raft not initialized")
@@ -118,7 +117,7 @@ func (t *Replicator) applyCommand(op opCode, msg proto.Message) (*fsmResult, err
 	return res, nil
 }
 
-func (t *Replicator) apply(op opCode, msg proto.Message) (*pb.Status, error) {
+func (t *Replicator) apply(op opCode, msg interface{}) (*pb.Status, error) {
 	res, err := t.applyCommand(op, msg)
 	if err != nil {
 		return nil, err

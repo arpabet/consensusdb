@@ -62,7 +62,23 @@ moved to `pkg/util/fsutil.go`.
       now http (health/metrics) + vrpc data plane.
 - [ ] Verify: `go build ./...`, full `-race` test suite, `terraform validate`.
 
-## Phase B — replace `pb.*` messages with `value` structs
+## Phase B — replace `pb.*` messages with `value` structs — ✅ DONE 2026-07-03
+
+Done: `pkg/pb/cdb.go` is now hand-written plain structs with `value:"…"` tags (same
+package/field names/types as the retired generated code, so ~400 call sites are
+unchanged). Raft commands encode via `value.Marshal`+`value.Pack` / `value.Unpack`+
+`value.Unmarshal` in `command.go` (NOT `PackStruct` — that path needs `value.Value`
+field types + numeric `tag:"N"`; `Marshal`/`Unmarshal` handle plain Go types via the
+`value:"name"` tags, same machinery `SignBytes` uses). `proto.Message`→`interface{}`
+in `command.go`/`replicator.go`. The value-rpc **wire codecs in `vrpc_data.go` were
+left untouched** (they define the client contract) — the cdb-provider tests confirm
+the wire is unchanged. Deleted `proto/`, `genproto.sh`, the `genproto` make target,
+the README regen section; protobuf dropped to an indirect dep. New
+`command_value_test.go` proves determinism, byte-stable round-trip, and field
+fidelity. `go build ./...` + `go test -race ./...` green; `GOWORK=off` CI build green.
+Note: on-disk raft-log format changed (proto→value pack) ⇒ fresh cluster.
+
+Original checklist (all satisfied):
 
 - [ ] Define plain Go structs with `value:"…"` tags for every message currently in
       `cdb.proto`: `Key`, `TimeUUID`, `Record`, `RecordRequest`, `KeyRequest`,

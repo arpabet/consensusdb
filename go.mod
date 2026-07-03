@@ -113,7 +113,7 @@ require (
 	go.arpabet.com/uuid v1.1.1
 	golang.org/x/crypto v0.53.0
 	golang.org/x/net v0.56.0 // indirect
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.11 // indirect
 )
 
 replace go.arpabet.com/store/providers/cdb => ../store/providers/cdb

@@ -41,9 +41,6 @@ update:
 licenses:
 	go run github.com/google/go-licenses@latest csv "go.arpabet.com/consensusdb" > pkg/res/licenses.txt
 
-genproto:
-	./genproto.sh
-
 docker:
 	docker build --build-arg TAG=$(TAG) -t $(REGISTRY)/$(IMAGE):$(TAG) -f Dockerfile .
 
@@ -55,4 +52,4 @@ docker-push: docker
 	docker tag ${REGISTRY}/${IMAGE}:${TAG} ${REGISTRY}/${IMAGE}:latest
 	docker push ${REGISTRY}/${IMAGE}:latest
 
-.PHONY: all version clean vet test build run vuln update licenses genproto docker docker-run docker-push
+.PHONY: all version clean vet test build run vuln update licenses docker docker-run docker-push

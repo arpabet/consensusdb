@@ -181,15 +181,8 @@ Install tools:
 go install github.com/google/go-licenses@latest
 ```
 
-Install the protobuf plugin (only needed to regenerate the message types):
-```
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-```
-
-Regenerate the protobuf message types from `proto/cdb.proto`:
-```
-./genproto.sh
-```
+The data model is plain Go structs encoded with the `go.arpabet.com/value`
+framework (`pkg/pb/cdb.go`) — there is no protobuf/codegen step.
 
 ### Build
 ```
