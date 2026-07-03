@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Copyright (c) 2025 Karagatan LLC.
-# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: BUSL-1.1
 #
 # Regenerates Go protobuf, gRPC, grpc-gateway (v2), and OpenAPI v2 sources
 # from proto/cdb.proto.

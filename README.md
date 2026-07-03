@@ -195,6 +195,7 @@ dataDir: /tmp/cdb
 
 ### License
 
-Licensed under the Apache License, Version 2.0 (Apache-2.0).
-Copyright (c) 2025-2026 Karagatan LLC. See [LICENSE](LICENSE).
+Licensed under the Business Source License 1.1 (BUSL-1.1), matching the
+`value-rpc` / `raft` dependencies. Copyright (c) 2025-2026 Karagatan LLC.
+Change License MPL 2.0 after the Change Date. See [LICENSE](LICENSE).
 
