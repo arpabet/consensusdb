@@ -116,7 +116,9 @@ client provider (Phase 4), not here.
         large batches would need chunking (which forfeits atomicity) — batches are
         expected to be bounded. `opCAS` as a distinct wire op was NOT added: CAS
         already works through `Put`'s `CompareAndSet` flag.
-- [ ] **Determinism — versions (THE load-bearing decision).** The failure to
+- [x] **Determinism — versions (THE load-bearing decision).** [spec — IMPLEMENTED,
+      see "Versioned envelopes wired end-to-end" above; verified: no `item.Version()`
+      in the write path, version = `entry.Index`.] The failure to
       prevent: badger's native `Item.Version()` is a node-local MVCC commit
       timestamp; two replicas applying the same log entry get *different*
       `item.Version()` values, so a CAS that reads version V on node A and
@@ -150,7 +152,8 @@ client provider (Phase 4), not here.
       the default (index is cheaper, equally conformant); revisit only if a
       client depends on dense per-key versions. Single-node / raft-off mode has
       no `entry.Index`, so there it falls back to the envelope per-key counter.
-- [ ] **Determinism — TTL.** FSM applies at different wall-clock times per node
+- [x] **Determinism — TTL.** [spec — IMPLEMENTED, see "TTL determinism" above.]
+      FSM applies at different wall-clock times per node
       (and again on restart replay), so:
       - The leader computes an **absolute `expiresAt` unix** once and ships it in
         the command; nodes store that exact value. Never a relative ttlSeconds
@@ -206,19 +209,55 @@ client provider (Phase 4), not here.
 
 ## Phase 2 — raft cluster completeness
 
-- [ ] Wire `go.arpabet.com/sprint/raftgrpc` (already ported locally, 4 files —
-      the missing management piece identified in record's MIGRATION.md):
-      `RaftGrpcServer()` bean into the grpc-server scanner in `main.go`,
-      `RaftCommand()` into the cligo commands. Local replace; tag later.
-- [ ] Membership: Bootstrap/Join via raftgrpc replaces the single-voter-only
-      `RaftHost` bootstrap (`pkg/replication/host.go`); serf optional, later.
-- [ ] Follower handling, staged:
-      (a) followers reject writes with NotLeader + leader address hint;
-          the client provider redirects and re-sticks to the leader;
-      (b) transparent server-side forwarding later if needed.
-- [ ] Read consistency: the client sticks to the leader for reads and writes
-      (read-your-writes preserved — required by the store contract after CAS).
-      Optional stale follower reads as an explicit provider option, later.
+**Updated for raftvrpc (2026-07-02).** The control plane now lives in
+`go.arpabet.com/raft/raftvrpc` **v0.3.0** (released; consensusdb pins raft
+v0.3.0). raftvrpc gives us `Bootstrap/Join/GetConfiguration/ApplyCommand` over
+value-rpc + a `ClientPool` — all tested. Phase 2 wires it into consensusdb and
+turns the single-node bootstrap into a real cluster.
+
+Prerequisite discovered: **raftvrpc needs a hosted value-rpc server in
+consensusdb.** consensusdb today serves grpc (servion/grpc) + http (servion) but
+no vrpc. glue's `FactoryBean` (`Object()/ObjectType()/ObjectName()/Singleton()`)
+is the registration pattern — exactly how `servion/grpc/GrpcServerFactory`
+publishes a `*grpc.Server` as an injectable bean. This vrpc host is also the
+foundation of Phase 3 (vrpc data plane), so build it once here.
+
+Increments (each independently verifiable):
+- [x] **2a — vrpc server host (DONE 2026-07-02).** `pkg/replication/vrpc_server.go`:
+      `VrpcServerFactory(beanName)` is a `glue.FactoryBean` producing a
+      `valueserver.Server` from `<beanName>.bind-address`; `go srv.Run()` in
+      `Object()` (registration is concurrent-safe — `AddFunction` uses a sync.Map —
+      so handlers register after Run). Empty address ⇒ uniquely-named
+      `NewMemServer` fallback (graph resolves, nothing binds). ObjectType =
+      `valueserver.Server`.
+- [x] **2b — wire the control plane (DONE 2026-07-02).** Added
+      `VrpcServerFactory("vrpc-server")`, `raftvrpc.RaftVrpcClientPool()`,
+      `raftvrpc.RaftVrpcServer()` to `replication.Beans()`; config
+      `vrpc-server.bind-address` (empty=disabled) + `raft.rpc-bean-name=vrpc-server`
+      in main.go. Tests: `wiring_test` still green; new `vrpc_wiring_test.go`
+      `TestVrpcControlPlaneReachable` binds `tcp://127.0.0.1:0`, dials the control
+      endpoint, and confirms Bootstrap dispatches to the handler
+      (returns "raft not initialized" with raft off) — end-to-end through the bean
+      graph, race-clean. **Deferred**: `raftvrpc.RaftCommand()` is a `sprint.Command`;
+      consensusdb uses cligo commands — wire once the command-type compat is checked.
+      **License note**: consensusdb (Apache-2.0) now transitively depends on
+      value-rpc (BUSL-1.1) via raftvrpc — owner may want to reconcile.
+- [ ] **2c — membership.** Replace the single-voter `RaftHost.bootstrap`
+      (`pkg/replication/host.go`) with admin-driven Bootstrap/Join via the control
+      plane (serf optional, later).
+- [ ] **2d — follower write handling**, staged:
+      (a) `Replicator.apply` (currently returns a generic "not leader" error) →
+          a structured `NotLeaderError{LeaderID, LeaderAddr}`; and/or
+      (b) transparent server-side forwarding via the ControlPool →
+          `raftvrpc.CallApplyCommand` on the leader (raftvrpc already implements
+          this branch in its own ApplyCommand handler — reuse the pattern).
+- [ ] **2e — multi-node test.** In-process 3-node raft cluster (real transports)
+      + vrpc control servers: bootstrap one, Join two, kill the leader, confirm a
+      write forwarded from a follower still commits. This is where the forwarding
+      integration (unit-proven in raftvrpc) is validated end-to-end.
+- [ ] Read consistency: client sticks to the leader for reads+writes
+      (read-your-writes after CAS); optional stale follower reads later (Phase 4
+      provider option).
 
 ## Phase 3 — vrpc data plane
 

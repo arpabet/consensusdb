@@ -98,6 +98,11 @@ The `raftmod/raftcmd` subpackage (serf CLI) moves with raftmod.
 - [x] consensusdb repointed (imports + go.mod requires + replaces + go.work);
       build + full suite green incl `-race`. Pure relocation, no behavior change.
       raftmod tests green in the new repo.
+- [x] **Finalized on published versions (2026-07-02):** owner released raft
+      **v0.2.0** (all submodules) + sprint **v1.2.1**. consensusdb now depends on
+      raft/raftapi+raftmod+raftpb @v0.2.0 and sprint @v1.2.1 — all local `replace`
+      directives dropped and raft removed from consensusdb go.work. Full suite
+      green incl `-race`. No more local-raft coupling.
 
 ### S3 — add raftvrpc (new module in the new repo) 🟡 IN PROGRESS (2026-07-02)
 - Owner: **raft repo relicensed BUSL-1.1** (matches value-rpc, which raftvrpc
@@ -111,12 +116,25 @@ The `raftmod/raftcmd` subpackage (serf CLI) moves with raftmod.
       leader-forwarding type-asserts `GetAPIConn` → `valueclient.Client`. Auth is
       optional (nil disables the ADMIN gate; mTLS authenticates peers otherwise).
       Build + vet + codec round-trip tests green.
-- [ ] **Remaining**: vrpc `RaftClientPool` impl (endpoint resolution + connection
-      caching + mTLS; mirror raftmod's grpc pool) — needed to actually exercise
-      forwarding; `Recover` streaming (client-stream via AddIncomingStream);
-      port the `raft` CLI; end-to-end wire test with a real in-memory raft harness
-      (handlers depend on a live *raft.Raft, so a fake RaftServer isn't enough).
-      mTLS parity to verify.
+- [x] **vrpc RaftClientPool (DONE)** — `raft_client_pool.go`: `ClientPool`
+      implements raftapi.RaftClientPool over valueclient; endpoint = host:(port +
+      portDiff) mirroring the grpc pool, cached reconnecting clients, optional
+      `*tls.Config` for mTLS parity, lifecycle (PostConstruct/Destroy/Close).
+- [x] **CLI (DONE)** — `raft_cmd.go`: `RaftCommand()` (sprint.Command, parallel to
+      raftgrpc) dials `raft-vrpc-client.address` and runs config/join/bootstrap via
+      the Call* helpers.
+- [x] **End-to-end tests (DONE, race-clean)** — `end_to_end_test.go`:
+      `TestControlPlaneOverVrpc` drives Bootstrap→GetConfiguration→ApplyCommand over
+      an in-memory value-rpc transport against a REAL in-memory raft (test FSM +
+      testRaftServer + stub NodeService); `TestClientPoolDialsControlServer` starts
+      a real TCP control server, has the `ClientPool` dial it, and drives
+      ApplyCommand through the pooled client (the forwarding connection path) +
+      checks GetAPIEndpoint port math.
+- [ ] **Still deferred**: `Recover` streaming (client-stream via AddIncomingStream,
+      snapshot recovery — least critical). Full follower→leader raft forwarding is
+      exercised in consensusdb Phase 2 (a 2-node cluster; `raft.Raft` state can't be
+      faked, so the mechanism is unit-proven here, integration proven there). mTLS
+      pool option wired but not integration-tested (needs certs).
 
 ### S4 — custom NodeService, drop sprint
 - [ ] Define `Application`/`NodeService`/`PropertyResolver` mini-interfaces in

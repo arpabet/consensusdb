@@ -7,6 +7,7 @@ package replication
 
 import (
 	"go.arpabet.com/raft/raftmod"
+	"go.arpabet.com/raft/raftvrpc"
 )
 
 /*
@@ -38,6 +39,13 @@ func Beans() []interface{} {
 		raftmod.RaftSnapshotFactory(),
 		raftmod.ServerLookup(),
 		raftmod.RaftServer(),
+
+		// value-rpc control plane: a hosted vrpc server, the raftvrpc control
+		// service (Bootstrap/Join/GetConfiguration/ApplyCommand) registered on it,
+		// and the client pool used to reach the leader (forwarding + membership).
+		VrpcServerFactory("vrpc-server"),
+		raftvrpc.RaftVrpcClientPool(),
+		raftvrpc.RaftVrpcServer(),
 
 		&FSM{},
 		&Replicator{},

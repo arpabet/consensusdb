@@ -37,6 +37,14 @@ func main() {
 		"http-server.options":      "handlers",
 		"consensusdb.data-dir":     "/tmp/consensusdb",
 		"consensusdb.file-io":      "true",
+
+		// value-rpc control plane (Bootstrap/Join/GetConfiguration/ApplyCommand).
+		// Empty bind-address keeps it in-process (disabled); set e.g.
+		// "tcp://0.0.0.0:8444" together with raft.bind-address to enable clustering.
+		// raft.rpc-bean-name points the client pool at this server so it can derive
+		// the raft↔control port offset.
+		"vrpc-server.bind-address": "",
+		"raft.rpc-bean-name":       "vrpc-server",
 	}
 
 	// "run" scope: storage + servers are only constructed when serving.
