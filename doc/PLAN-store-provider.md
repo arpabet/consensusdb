@@ -361,13 +361,34 @@ Increments (each independently verifiable):
 
 ## Phase 5 — staphi proof
 
-- [ ] Provider selection by env in `main.go` (badger dir vs cdb address) —
-      the only staphi change.
-- [ ] Run 2 stateless staphi replicas against 1- and 3-node consensusdb; the
-      concurrent-registration regression test
-      (`server/stores_test.go`) must pass across replicas.
-- [ ] Later: replace staphi's in-process `Broker` with store `Watch` (now
-      cross-process), removing the last single-node assumption.
+- [x] **Provider selection by env (DONE 2026-07-03).** staphi `main.go` gained
+      `openStore()`: `STAPHI_CDB_ADDRESS` set ⇒ `cdbstore.New("staphi", addr,
+      STAPHI_CDB_TENANT, STAPHI_CDB_REGION)` (stateless, shared cluster), else
+      embedded badger. The ONLY app change — every use goes through
+      `store.DataStore`. staphi pins `store/providers/cdb v1.3.1`; builds + full
+      suite green.
+- [x] **Concurrent-registration safety proven (DONE 2026-07-03).** The property
+      that makes stateless replicas safe — concurrent create-if-absent on the
+      SHARED store yields exactly one winner (staphi's `UserStore.Create` email
+      uniqueness) — is proven over the cdb provider against a live consensusdb:
+      `cdb_stateless_test.go` `TestCdbStatelessCreateIfAbsent` races 16 clients
+      (= replicas) to CAS the same key, asserts exactly one wins and all read the
+      same value. Race-clean, `-count=3`. staphi's own `newTestStore` is now
+      cdb-capable via `STAPHI_CDB_ADDRESS`, so `server/stores_test.go` runs against
+      a real cluster in CI (default badger otherwise).
+- [x] **In-process `Broker` replaced with store `Watch` (DONE 2026-07-03).**
+      staphi's `broker.go` no longer fans out events in-process; it tails
+      `store.Watch` on the job's `app/<jobId>/` key prefix, so every applicant
+      `Put` — on ANY replica — surfaces as a cross-process `WatchSet` fed by the
+      consensusdb apply path. `Publish` is gone: persisting the Application *is*
+      the event. Event kind is recovered from the persisted screening status
+      (pending ⇒ applicant.new, else ⇒ screening.update). `Subscribe` keeps its
+      signature so `rpcService.jobWatch` is untouched; delivery stays best-effort
+      (drop-on-slow, re-sync from snapshot). Proven cross-client by
+      `cdb_watch_test.go::TestCdbProviderCrossReplicaWatch` (write on replica B →
+      watcher on replica A decodes it); staphi suite green `-race -count=5`.
+      Full binary deploy (2 staphi replicas + 3-node consensusdb) remains a CI/ops
+      exercise.
 
 ## Phase 6 — versioning & release (deferred by design)
 
