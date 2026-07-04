@@ -170,7 +170,8 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
             period_seconds        = 10
           }
           liveness_probe {
-            tcp_socket {
+            http_get {
+              path = "/healthz"
               port = var.http_port
             }
             initial_delay_seconds = 10

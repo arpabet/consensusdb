@@ -299,8 +299,9 @@ rejection); `pkg/console` tests the job/REST loop.
 ## Web admin console
 
 The node serves a **Vue + Vite** admin console at **`/console`** (source in
-`webapp/`, built into `webapp/dist`, baked into the image). It calls the admin
-REST API under `/api` (bearer/basic auth → principal → permission).
+`webapp/`, embedded into the binary via go-bindata as `pkg/webui` — run
+`make webui` after front-end changes). It calls the admin REST API under `/api`
+(bearer/basic auth → principal → permission).
 
 - **First-run onboarding** — on a fresh cluster (`GET /api/setup/status` reports
   it) a **multi-step wizard** creates the first admin user
@@ -482,10 +483,10 @@ A freshly built binary just runs — single-node, no configuration:
 ./consensusdb run
 ```
 
-On first run it writes a durable settings file at `~/.consensusdb/consensusdb.yaml`
+On first run it writes a durable settings file at `./consensusdb.yaml`
 (single-node defaults: the admin console on 8441, the value-rpc data plane on 8444,
-data under `~/.consensusdb/data`) and reads it on every later run — no IPs or ports
-have to be supplied.
+data in `./data`) and reads it on every later run — no IPs or ports have to be
+supplied. State is project-local (like gazile); `CONSENSUSDB_HOME` relocates it.
 
 To form a cluster, initialize the settings once — `init` detects this host's
 routable address and records the raft/serf bind addresses — then run:
@@ -557,7 +558,7 @@ TLS/mTLS/QUIC (`WithTLSConfig`), `MultiDataStore`, and the full capability matri
 
 ### Configuration
 
-The durable settings file (`~/.consensusdb/consensusdb.yaml`, or
+The durable settings file (`./consensusdb.yaml`, or
 `$CONSENSUSDB_CONFIG`) is plain YAML grouped by property prefix. Every value is
 also a property, overridable via a `-c` config file or environment (env keys
 uppercase the property and turn `.`/`-` into `_`, e.g. `VRPC_SERVER_BIND_ADDRESS`,
@@ -566,7 +567,7 @@ uppercase the property and turn `.`/`-` into `_`, e.g. `VRPC_SERVER_BIND_ADDRESS
 ```yaml
 consensusdb:
   mode: single                   # single | cluster (cluster wires the raft stack)
-  data-dir: ~/.consensusdb/data
+  data-dir: data
   encryption-key: ""             # base64 AES-256, empty = off
 http-server:
   bind-address: 0.0.0.0:8441     # admin console + REST

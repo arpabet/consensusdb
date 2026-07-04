@@ -28,15 +28,19 @@ npm run dev        # Vite dev server; proxies /api → http://localhost:8441
 Point a running node's http-server at `localhost:8441` (the default). Authenticate
 in the UI with an IAM token that has `cdb.proofs.read` (e.g. `roles/cdb.auditor`).
 
-## Build
+## Build & embed
+
+The console is **baked into the server binary** — there is no `webapp/dist` at
+runtime. After changing anything here, regenerate the embedded assets from the
+repo root:
 
 ```bash
-npm run build      # → webapp/dist
+make webui          # npm ci && npm run build, then go-bindata → pkg/webui/bindata.go
 ```
 
-The node serves `webapp/dist` at `/console` (see `pkg/run/spa.go`; override the
-location with the `webapp.dir` property). Production images run `npm ci && npm run
-build` and bake `dist` in, or mount it.
+`pkg/webui/bindata.go` is committed, so `go build` stays self-contained; the node
+serves the embedded files at `/console` via `pkg/run/spa.go`. Commit the
+regenerated `pkg/webui/bindata.go` alongside your front-end changes.
 
 ## API used
 

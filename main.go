@@ -44,9 +44,9 @@ func main() {
 	mode := config.ResolveMode(configPath)
 
 	// In-code defaults (lowest priority). The seamless out-of-the-box node: an
-	// admin console, a usable value-rpc data plane, and a durable data directory
-	// under the user's home. Set raft.bind-address / serf.bind-address (or
-	// `consensusdb init --cluster`) to switch on replication.
+	// admin console, a usable value-rpc data plane, and a project-local data
+	// directory (./data, like gazile). Set raft.bind-address / serf.bind-address
+	// (or `consensusdb init --cluster`) to switch on replication.
 	properties := glue.MapPropertySource{
 		// The resolved run mode, so cluster-only beans (RaftHost) can tell a real
 		// cluster misconfig from a benign single-node/test build. Env
@@ -97,9 +97,12 @@ func main() {
 		servion.HttpServerScanner("http-server",
 			&run.WelcomeHandler{},
 			&console.ConsoleHandler{}, // /api/* admin REST for the web console
-			run.NewSpaHandler(),       // serves the built web console (webapp/dist)
+			run.NewSpaHandler(),       // serves the embedded web console (pkg/webui) at /console
 			servion.MetricsHandler(),
-			servion.HealthHandler(),
+			// Plain-text "OK" health endpoints for Kubernetes probes.
+			run.NewHealthHandler("/healthz"),
+			run.NewHealthHandler("/livez"),
+			run.NewHealthHandler("/readyz"),
 		),
 		// Background jobs for the console (backup ledger verification).
 		console.NewJobManager(),

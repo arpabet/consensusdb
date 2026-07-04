@@ -7,7 +7,7 @@
 Package config gives the consensusdb binary a durable, self-describing settings
 file so a freshly built binary is seamless to run.
 
-On first `run` a settings file is written under the user's home (single-node
+On first `run` a settings file is written in the working directory (single-node
 defaults); every later run reads it. `consensusdb init` writes it explicitly and,
 with --cluster, detects this host's address and records the raft/serf bind
 addresses that clustering needs. Environment variables and --config / -D flags
@@ -31,14 +31,11 @@ import (
 )
 
 // Home is the base directory for consensusdb state (settings + default data).
-// $CONSENSUSDB_HOME wins; otherwise ~/.consensusdb; if the home directory can't
-// be resolved, the current directory.
+// $CONSENSUSDB_HOME wins; otherwise the current working directory — so state is
+// project-local by default (data in ./data), the same convention as gazile.
 func Home() string {
 	if h := strings.TrimSpace(os.Getenv("CONSENSUSDB_HOME")); h != "" {
 		return h
-	}
-	if u, err := os.UserHomeDir(); err == nil && u != "" {
-		return filepath.Join(u, ".consensusdb")
 	}
 	return "."
 }
@@ -52,8 +49,8 @@ func DefaultConfigPath() string {
 	return filepath.Join(Home(), "consensusdb.yaml")
 }
 
-// DefaultDataDir is <home>/data — a durable location, unlike the old /tmp
-// default which is cleared on reboot.
+// DefaultDataDir is <home>/data — ./data by default (project-local, like
+// gazile), and never the old /tmp default that is cleared on reboot.
 func DefaultDataDir() string {
 	return filepath.Join(Home(), "data")
 }

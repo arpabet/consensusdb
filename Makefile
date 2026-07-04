@@ -12,10 +12,25 @@ REGISTRY := arpabet
 PWD      := $(shell pwd)
 NOW      := $(shell date +"%m-%d-%Y")
 
-all: build
+# Full build, like gazile's `make all`: build + embed the admin console, then
+# build the binary (which runs vet + tests first). Needs Node for `webui`.
+all: webui build
 
 version:
 	@echo $(TAG)
+
+# Install the asset bundler used by `make webui`.
+deps:
+	go install go.arpabet.com/go-bindata/go-bindata@v1.1.0
+
+# Rebuild the embedded admin console: build the Vite app (webapp/) and bake
+# webapp/dist into pkg/webui via go-bindata. The generated pkg/webui/bindata.go is
+# committed, so `go build` stays self-contained (no webapp/dist at runtime). Run
+# this whenever anything under webapp/ changes, then commit pkg/webui/bindata.go.
+webui:
+	npm --prefix webapp ci
+	npm --prefix webapp run build
+	go-bindata -pkg webui -o pkg/webui/bindata.go -fs -nocompress -nomemcopy -prefix "webapp/dist/" webapp/dist/...
 
 clean:
 	go clean -i ./...
@@ -30,7 +45,7 @@ build: test
 	go build -v -ldflags "-X main.Version=$(VERSION) -X main.Built=$(NOW)"
 
 run: build
-	env COS=dev ./consensusdb
+	env COS=dev ./consensusdb run
 
 vuln:
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
@@ -52,4 +67,4 @@ docker-push: docker
 	docker tag ${REGISTRY}/${IMAGE}:${TAG} ${REGISTRY}/${IMAGE}:latest
 	docker push ${REGISTRY}/${IMAGE}:latest
 
-.PHONY: all version clean vet test build run vuln update licenses docker docker-run docker-push
+.PHONY: all version deps webui clean vet test build run vuln update licenses docker docker-run docker-push

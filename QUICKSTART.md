@@ -22,7 +22,8 @@ the current build.
 
 ## 1. Run one node locally
 
-**Prerequisites:** Go 1.25+ (to build the server) and, for the dashboard, Node 20+.
+**Prerequisites:** Go 1.25+. (Node 20+ is only needed if you want to *modify* the
+dashboard — it's already embedded in the binary.)
 
 ```bash
 # build the server binary
@@ -41,10 +42,13 @@ later. You'll see it listening on two ports:
 | Admin console   | `http://localhost:8441`          | dashboard + REST API                      |
 | Data plane      | `tcp://localhost:8444`           | where client apps read/write key-values   |
 
-Data is stored under `~/.consensusdb/data`, and settings are written to
-`~/.consensusdb/consensusdb.yaml`. Authentication is **off** by default, so you
-can explore immediately; [section 4](#4-turn-on-authentication-optional) turns it
-on.
+Data is stored in `./data` and settings in `./consensusdb.yaml` — project-local,
+the same convention as gazile (relocate with `CONSENSUSDB_HOME`, see below).
+Authentication is **off** by default, so you can explore immediately;
+[section 4](#4-turn-on-authentication-optional) turns it on.
+
+The HTTP port also serves Kubernetes probe endpoints — `GET /healthz`, `/livez`,
+and `/readyz` each return a plain `OK`.
 
 Stop the node with `Ctrl-C`.
 
@@ -55,24 +59,15 @@ Stop the node with `Ctrl-C`.
 
 ## 2. Open the dashboard
 
-The dashboard is a small web app the node serves at **`/console`**. It ships as
-source, so build it once:
-
-```bash
-cd webapp
-npm ci
-npm run build       # produces webapp/dist, which the node serves
-cd ..
-```
-
-(If you skip this, `/console` shows a short "run `npm run build`" placeholder — the
-node still runs fine, you just don't get the UI.)
-
-Now open:
+The dashboard is **baked into the binary** — nothing to build. Open:
 
 ```
 http://localhost:8441/console
 ```
+
+(To *change* the dashboard, edit `webapp/` and run `make webui`, which rebuilds it
+and re-embeds it; see the [webapp README](webapp/README.md). For live front-end
+development, `npm --prefix webapp run dev` proxies the API to a running node.)
 
 **First run** shows an onboarding wizard: create your admin account (a username and
 a password of at least 8 characters), pick an auth method, and optionally download
@@ -126,7 +121,7 @@ credentials, create your identities first (section 3), then restart with auth on
 AUTH_ENABLED=true ./consensusdb run
 ```
 
-(Or set `auth.enabled: true` in `~/.consensusdb/consensusdb.yaml`.) Now every data
+(Or set `auth.enabled: true` in `./consensusdb.yaml`.) Now every data
 plane connection — and the console — must present a valid credential:
 
 ```bash
@@ -228,9 +223,9 @@ admin token): live up/down health, per-node CPU/memory/storage, and add/remove.
 
 | Path / variable                    | Default                          | What |
 |------------------------------------|----------------------------------|------|
-| `~/.consensusdb/consensusdb.yaml`  | written on first run             | settings file (edit + restart) |
-| `~/.consensusdb/data`              | data directory                   | the badger store |
-| `CONSENSUSDB_HOME`                 | `~/.consensusdb`                 | relocate settings + data |
+| `./consensusdb.yaml`               | written on first run             | settings file (edit + restart) |
+| `./data`                           | data directory                   | the badger store |
+| `CONSENSUSDB_HOME`                 | `.` (current dir)                | relocate settings + data |
 | `CONSENSUSDB_CONFIG`               | `<home>/consensusdb.yaml`        | settings file path |
 | `-c file.yaml`                     | —                                | load an extra settings file |
 
@@ -242,8 +237,9 @@ into `_` (e.g. `vrpc-server.bind-address` → `VRPC_SERVER_BIND_ADDRESS`).
 
 ## Troubleshooting
 
-**The dashboard shows a placeholder page.** The web app isn't built. Run
-`cd webapp && npm ci && npm run build`, then reload `/console`.
+**The dashboard shows a placeholder page.** The binary was built without the
+embedded console (its `pkg/webui/bindata.go` was empty). Run `make webui` to
+rebuild + re-embed it, then `go build` again.
 
 **A cluster node fails to start with `too many colons in address`.** Raft is
 advertising an address it can't parse. Bind raft to a concrete **IPv4** address

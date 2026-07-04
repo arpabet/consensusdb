@@ -2,6 +2,17 @@
 consensusdb
 consensusdb.exe
 
+# Runtime state (project-local, like gazile): the default ./data store and the
+# settings file the node writes on first run. The committed consensus.yaml sample
+# is a different name and is kept.
+/data/
+/demo-data/
+/consensusdb.yaml
+
+# Node / webapp build artifacts (the embedded pkg/webui/bindata.go IS committed).
+webapp/node_modules/
+webapp/dist/
+
 # Test binary, build with `go test -c`
 *.test
 
