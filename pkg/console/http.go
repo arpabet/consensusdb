@@ -34,48 +34,137 @@ heavy operation — verifying a backup against a quorum certificate — runs as 
 background job the UI polls for progress.
 */
 type ConsoleHandler struct {
-	Auth   *server.AuthService   `inject:""`
-	Policy *server.PolicyService `inject:"optional"`
-	Jobs   *JobManager           `inject:""`
-	Head   LedgerHead            `inject:"optional"` // the FSM
-	Raft   raftapi.RaftServer    `inject:"optional"`
-	Log    *zap.Logger           `inject:""`
+	Auth       *server.AuthService    `inject:""`
+	Policy     *server.PolicyService  `inject:"optional"`
+	Storage    server.KeyValueStorage `inject:""`
+	Replicator server.Replicator      `inject:"optional"`
+	Jobs       *JobManager            `inject:""`
+	Head       LedgerHead             `inject:"optional"` // the FSM
+	Raft       raftapi.RaftServer     `inject:"optional"`
+	Log        *zap.Logger            `inject:""`
+
+	DataDir  string `value:"consensusdb.data-dir,default=/tmp/consensusdb"`
+	HTTPBind string `value:"http-server.bind-address,default=0.0.0.0:8441"`
+
+	svc          *server.KeyValueService // routes IAM writes through raft when enabled
+	regionsCache regionsCache
 }
 
 func (t *ConsoleHandler) BeanName() string { return "console-handler" }
+
+func (t *ConsoleHandler) PostConstruct() error {
+	t.svc = &server.KeyValueService{Storage: t.Storage, Replicator: t.Replicator, Log: t.Log}
+	return nil
+}
 
 // Pattern is a gorilla-mux catch-all so every /api/* path reaches this handler.
 func (t *ConsoleHandler) Pattern() string { return "/api/{rest:.*}" }
 
 func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	principal, ok := t.authenticate(r)
-	if !ok {
-		writeErr(w, http.StatusUnauthorized, "authentication required")
+	path, method := r.URL.Path, r.Method
+
+	// First-run onboarding endpoints are unauthenticated (no identities exist
+	// yet); bootstrap self-guards on there being no admin user.
+	switch {
+	case path == "/api/setup/status" && method == http.MethodGet:
+		t.setupStatus(w)
 		return
-	}
-	// Authorize with the console's read/verify permission.
-	ctx := valuerpc.ContextWithPrincipal(r.Context(), principal)
-	if err := t.Policy.Authorize(ctx, iam.PermProofsRead, "", ""); err != nil {
-		writeErr(w, http.StatusForbidden, "permission denied")
+	case path == "/api/setup/bootstrap" && method == http.MethodPost:
+		t.setupBootstrap(w, r)
 		return
 	}
 
-	switch path := r.URL.Path; {
-	case path == "/api/cluster" && r.Method == http.MethodGet:
-		t.cluster(w)
-	case path == "/api/ledger/status" && r.Method == http.MethodGet:
-		t.ledgerStatus(w)
-	case path == "/api/ledger/verify" && r.Method == http.MethodPost:
-		t.startVerify(w, r)
-	case path == "/api/ledger/verify" && r.Method == http.MethodGet:
-		writeJSON(w, http.StatusOK, map[string]any{"jobs": t.Jobs.List()})
-	case strings.HasPrefix(path, "/api/ledger/verify/") && r.Method == http.MethodGet:
-		id := strings.TrimPrefix(path, "/api/ledger/verify/")
-		if job, ok := t.Jobs.Get(id); ok {
-			writeJSON(w, http.StatusOK, job)
-		} else {
-			writeErr(w, http.StatusNotFound, "no such job")
+	// When auth is enabled every request must present a valid credential; when it
+	// is disabled the console proceeds anonymously (the Policy is then a no-op too).
+	principal, authed := t.authenticate(r)
+	if t.Auth != nil && t.Auth.Enabled && !authed {
+		writeErr(w, http.StatusUnauthorized, "authentication required")
+		return
+	}
+	ctx := valuerpc.ContextWithPrincipal(r.Context(), principal)
+
+	// admin reports whether the caller holds cluster-admin (used for UI gating
+	// and to gate the admin-only operations below).
+	admin := t.Policy.Authorize(ctx, iam.PermClusterAdmin, "", "") == nil
+
+	authorize := func(perm string) bool {
+		if err := t.Policy.Authorize(ctx, perm, "", ""); err != nil {
+			writeErr(w, http.StatusForbidden, "permission denied")
+			return false
 		}
+		return true
+	}
+
+	switch {
+	case path == "/api/me" && method == http.MethodGet:
+		writeJSON(w, http.StatusOK, map[string]any{"principal": principal, "isAdmin": admin})
+
+	case path == "/api/cluster" && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) {
+			t.cluster(w)
+		}
+	case path == "/api/ledger/status" && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) {
+			t.ledgerStatus(w)
+		}
+	case path == "/api/stats" && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) {
+			t.stats(w)
+		}
+	case path == "/api/regions" && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) {
+			t.regions(w)
+		}
+	case path == "/api/node/metrics" && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) { // peers call this during fan-out
+			t.nodeMetricsEndpoint(w)
+		}
+	case path == "/api/cluster/nodes" && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) {
+			t.clusterNodes(w, r)
+		}
+
+	// Admin-only: add / remove cluster members.
+	case path == "/api/cluster/nodes" && method == http.MethodPost:
+		if authorize(iam.PermClusterAdmin) {
+			t.addNode(w, r)
+		}
+	case strings.HasPrefix(path, "/api/cluster/nodes/") && method == http.MethodDelete:
+		if authorize(iam.PermClusterAdmin) {
+			t.removeNode(w, r, strings.TrimPrefix(path, "/api/cluster/nodes/"))
+		}
+	case path == "/api/ledger/verify" && method == http.MethodPost:
+		if authorize(iam.PermProofsRead) {
+			t.startVerify(w, r)
+		}
+	case path == "/api/ledger/verify" && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) {
+			writeJSON(w, http.StatusOK, map[string]any{"jobs": t.Jobs.List()})
+		}
+	case strings.HasPrefix(path, "/api/ledger/verify/") && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) {
+			id := strings.TrimPrefix(path, "/api/ledger/verify/")
+			if job, ok := t.Jobs.Get(id); ok {
+				writeJSON(w, http.StatusOK, job)
+			} else {
+				writeErr(w, http.StatusNotFound, "no such job")
+			}
+		}
+
+	// Admin-only: database export/import and ledger CA generation.
+	case path == "/api/database/export" && method == http.MethodGet:
+		if authorize(iam.PermBackupsCreate) {
+			t.exportDatabase(w, r)
+		}
+	case path == "/api/database/import" && method == http.MethodPost:
+		if authorize(iam.PermBackupsRestore) {
+			t.importDatabase(w, r)
+		}
+	case path == "/api/setup/ledger-ca" && method == http.MethodPost:
+		if authorize(iam.PermClusterAdmin) {
+			t.generateLedgerCA(w)
+		}
+
 	default:
 		writeErr(w, http.StatusNotFound, "not found")
 	}

@@ -291,10 +291,34 @@ rejection); `pkg/console` tests the job/REST loop.
 
 The node serves a **Vue + Vite** admin console at **`/console`** (source in
 `webapp/`, built into `webapp/dist`, baked into the image). It calls the admin
-REST API under `/api` and shows the cluster/raft status, the live ledger head, and
-a **backup-verification form with a progress bar** driven by the background job
-above. Authenticate with an IAM token that has `cdb.proofs.read` (e.g.
-`roles/cdb.auditor`). See `webapp/README.md` for dev/build.
+REST API under `/api` (bearer/basic auth → principal → permission).
+
+- **First-run onboarding** — on a fresh cluster (`GET /api/setup/status` reports
+  it) a **multi-step wizard** creates the first admin user
+  (`POST /api/setup/bootstrap`, self-guarded so it's inert once done), lets you
+  pick an auth method, and can generate + download the **ledger CA** — then points
+  you at enabling `AUTH_ENABLED`.
+- **Dashboard** — cluster/raft status, the live ledger head, **per-region
+  footprint** (keys, size on-transfer/on-disk), and store-wide **reads/writes per
+  second** (the client derives rates from `/api/stats` deltas).
+- **Nodes** (admin only) — every raft member with **up/down** health and **per-node
+  CPU / memory / storage** load (storage turns **red over 80%**), the overall
+  cluster load, a button to **add a node** (introduce a running node to raft via
+  `AddVoter`), and **remove** with a confirmation dialog. The serving node fans out
+  to each peer's `/api/node/metrics` for load, and proxies membership changes to
+  the leader — so it works from a single Service endpoint in Kubernetes. Ideal for
+  scaling the StatefulSet in/out.
+- **Verify ledger** — the backup-verification form with a **progress bar** driven
+  by the background job above.
+- **Database** (admin only, shown only when `/api/me` reports `isAdmin`) —
+  **export** the database to an encrypted download and **import** from a dump
+  file (import refused while replication is active).
+
+`GET /api/me` returns `{principal, isAdmin}` for UI gating; the admin-only
+operations are also enforced server-side (`cdb.backups.*`, `cdb.cluster.admin`).
+Read views need `cdb.proofs.read` (e.g. `roles/cdb.auditor`). See
+`webapp/README.md` for dev/build. `pkg/console` tests cover onboarding, the
+export/import round trip, the regions/stats dashboard, and auth gating.
 
 # Backup & restore
 

@@ -1,34 +1,49 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { api, setToken, hasCredential } from './api.js'
+import Onboarding from './components/Onboarding.vue'
+import Dashboard from './components/Dashboard.vue'
+import Nodes from './components/Nodes.vue'
+import Database from './components/Database.vue'
 import VerifyBackup from './components/VerifyBackup.vue'
 
+const phase = ref('loading') // loading | onboarding | login | app
+const me = ref(null)
 const token = ref('')
-const authed = ref(false)
-const cluster = ref(null)
-const ledger = ref(null)
 const error = ref('')
+const tab = ref('dashboard')
 
-async function refresh() {
-  error.value = ''
+async function boot() {
   try {
-    cluster.value = await api.cluster()
-    ledger.value = await api.ledgerStatus()
-    authed.value = true
+    const s = await api.setupStatus()
+    if (s.needsSetup) { phase.value = 'onboarding'; return }
+    if (hasCredential()) {
+      me.value = await api.me()
+      phase.value = 'app'
+    } else {
+      phase.value = 'login'
+    }
   } catch (e) {
-    authed.value = false
+    phase.value = 'login'
+  }
+}
+
+async function connect() {
+  error.value = ''
+  setToken(token.value.trim())
+  try {
+    me.value = await api.me()
+    phase.value = 'app'
+  } catch (e) {
     error.value = e.message
   }
 }
 
-function connect() {
-  setToken(token.value.trim())
-  refresh()
+function onboarded() {
+  phase.value = 'login'
 }
 
-onMounted(() => {
-  if (hasCredential()) refresh()
-})
+onMounted(boot)
 </script>
 
 <template>
@@ -36,45 +51,41 @@ onMounted(() => {
     <header>
       <h1>ConsensusDB</h1>
       <span class="sub">admin console</span>
+      <span v-if="me" style="margin-left:auto;color:var(--muted);font-size:0.85rem">
+        {{ me.principal }} <span v-if="me.isAdmin" class="badge run">admin</span>
+      </span>
     </header>
 
-    <div v-if="!authed" class="panel" style="max-width:28rem">
-      <h2>Connect</h2>
-      <label>IAM token (service account)</label>
+    <Onboarding v-if="phase === 'onboarding'" @done="onboarded" />
+
+    <div v-else-if="phase === 'login'" class="panel" style="max-width:28rem">
+      <h2>Sign in</h2>
+      <label>IAM token</label>
       <input v-model="token" type="password" placeholder="serviceAccount.xxxxx" @keyup.enter="connect" />
-      <p class="hint">Needs a token with <code>cdb.proofs.read</code> (e.g. the auditor role).</p>
-      <button @click="connect">Connect</button>
+      <p class="hint">A token with <code>cdb.proofs.read</code> (auditor) for read access; an admin token unlocks export/import.</p>
+      <button @click="connect">Sign in</button>
       <p v-if="error" class="err-text">{{ error }}</p>
     </div>
 
-    <template v-else>
-      <div class="grid">
-        <div class="panel">
-          <h2>Cluster</h2>
-          <div class="kv"><span class="k">Replication</span><span>{{ cluster.replication ? 'raft' : 'single-node' }}</span></div>
-          <template v-if="cluster.replication">
-            <div class="kv"><span class="k">State</span><span>{{ cluster.state }}</span></div>
-            <div class="kv"><span class="k">Term</span><span>{{ cluster.term }}</span></div>
-            <div class="kv"><span class="k">Applied</span><span>{{ cluster.appliedIndex }}</span></div>
-            <div class="kv"><span class="k">Peers</span><span>{{ cluster.numPeers }}</span></div>
-          </template>
-        </div>
+    <template v-else-if="phase === 'app'">
+      <nav style="display:flex;gap:0.5rem;margin-bottom:1rem">
+        <button :style="tab === 'dashboard' ? '' : 'background:var(--panel-2)'" @click="tab = 'dashboard'">Dashboard</button>
+        <!-- Admin-only tabs: shown only for admins -->
+        <button v-if="me.isAdmin" :style="tab === 'nodes' ? '' : 'background:var(--panel-2)'" @click="tab = 'nodes'">Nodes</button>
+        <button :style="tab === 'ledger' ? '' : 'background:var(--panel-2)'" @click="tab = 'ledger'">Verify ledger</button>
+        <button v-if="me.isAdmin" :style="tab === 'database' ? '' : 'background:var(--panel-2)'" @click="tab = 'database'">Database</button>
+      </nav>
 
-        <div class="panel">
-          <h2>Ledger head</h2>
-          <template v-if="ledger.available">
-            <div class="kv"><span class="k">Height</span><span>{{ ledger.height }}</span></div>
-            <div class="kv"><span class="k">Digest</span></div>
-            <div class="mono">{{ ledger.digest }}</div>
-          </template>
-          <p v-else class="hint">Ledger digest unavailable on this node.</p>
-        </div>
-      </div>
+      <Dashboard v-if="tab === 'dashboard'" />
 
-      <div class="panel" style="margin-top:1rem">
+      <Nodes v-else-if="tab === 'nodes' && me.isAdmin" />
+
+      <div v-else-if="tab === 'ledger'" class="panel">
         <h2>Verify a backup against a quorum certificate</h2>
         <VerifyBackup />
       </div>
+
+      <Database v-else-if="tab === 'database' && me.isAdmin" />
     </template>
   </div>
 </template>

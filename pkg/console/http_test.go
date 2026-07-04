@@ -16,14 +16,20 @@ import (
 	"go.arpabet.com/consensusdb/pkg/verify"
 )
 
-// The console requires authentication: no credentials ⇒ 401.
-func TestConsoleRequiresAuth(t *testing.T) {
-	h := &ConsoleHandler{Jobs: NewJobManager()}
-	req := httptest.NewRequest(http.MethodGet, "/api/ledger/status", nil)
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
+// When authentication is enabled, a request without a credential is rejected;
+// setup endpoints remain reachable so a fresh cluster can be bootstrapped.
+func TestConsoleAuthEnabled(t *testing.T) {
+	h, _ := newConsole(t)
+	h.Auth.Enabled = true
+
+	rec := do(h, http.MethodGet, "/api/ledger/status", nil)
 	if rec.Code != http.StatusUnauthorized {
 		t.Fatalf("no-auth status = %d, want 401", rec.Code)
+	}
+	// Onboarding must still be reachable without a credential.
+	rec = do(h, http.MethodGet, "/api/setup/status", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("setup status with auth enabled = %d, want 200", rec.Code)
 	}
 }
 

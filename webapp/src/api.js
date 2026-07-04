@@ -33,8 +33,26 @@ async function req(method, path, body) {
 }
 
 export const api = {
+  // onboarding (unauthenticated)
+  setupStatus: () => req('GET', '/setup/status'),
+  bootstrap: (username, password) => req('POST', '/setup/bootstrap', { username, password }),
+  generateCA: () => req('POST', '/setup/ledger-ca'),
+  // session
+  me: () => req('GET', '/me'),
   cluster: () => req('GET', '/cluster'),
+  stats: () => req('GET', '/stats'),
+  regions: () => req('GET', '/regions'),
   ledgerStatus: () => req('GET', '/ledger/status'),
   startVerify: (payload) => req('POST', '/ledger/verify', payload),
   verifyJob: (id) => req('GET', `/ledger/verify/${id}`),
+  // cluster node management
+  nodes: () => req('GET', '/cluster/nodes'),
+  addNode: (nodeId, address) => req('POST', '/cluster/nodes', { nodeId, address }),
+  removeNode: (id) => req('DELETE', `/cluster/nodes/${encodeURIComponent(id)}`),
+}
+
+// exportUrl / importUrl build authenticated links for large file transfers that
+// go directly through the browser (download / upload).
+export function authHeader() {
+  return auth.header
 }

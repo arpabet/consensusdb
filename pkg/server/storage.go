@@ -8,15 +8,14 @@ package server
 import (
 	"context"
 	"encoding/binary"
+	badger "github.com/dgraph-io/badger/v4"
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/consensusdb/pkg/util"
 	"go.arpabet.com/store"
-	badger "github.com/dgraph-io/badger/v4"
-	"golang.org/x/xerrors"
 	"go.uber.org/zap"
+	"golang.org/x/xerrors"
 	"io"
 )
-
 
 const (
 	defBlockSize = 100
@@ -27,61 +26,58 @@ const (
 )
 
 type BlockSender interface {
-
 	Send(*pb.Block) error
-
 }
 
 type KeyValueStorage interface {
+	Get(keyRequest *pb.KeyRequest) (*pb.Record, error)
 
-	Get(keyRequest *pb.KeyRequest) (*pb.Record, error);
+	GetRecent(keyRequest *pb.KeyRequest) (*pb.Record, error)
 
-	GetRecent(keyRequest *pb.KeyRequest) (*pb.Record, error);
+	GetRange(rangeRequest *pb.RangeRequest) (*pb.Block, error)
 
-	GetRange(rangeRequest *pb.RangeRequest) (*pb.Block, error);
+	GetArea(keyRequest *pb.KeyRequest, lastField Field, sender BlockSender) error
 
-	GetArea(keyRequest *pb.KeyRequest, lastField Field, sender BlockSender) error;
-
-	Scan(scanRequest *pb.ScanRequest, sender BlockSender) error;
+	Scan(scanRequest *pb.ScanRequest, sender BlockSender) error
 
 	// Touch resets TTL on an existing record. commitVersion, when non-zero, is
 	// the raft log index the caller (FSM) assigns as the new envelope version so
 	// every replica lands the same value; 0 means assign locally (raft-off).
-	Touch(recordRequest *pb.RecordRequest, commitVersion uint64) (*pb.Status, error);
+	Touch(recordRequest *pb.RecordRequest, commitVersion uint64) (*pb.Status, error)
 
 	// Put writes a record. commitVersion, when non-zero, is the raft log index
 	// stamped into the value envelope as the replica-independent version; 0 means
 	// assign locally (envelope version = previous+1) for the single-node path.
-	Put(recordRequest *pb.RecordRequest, commitVersion uint64) (*pb.Status, error);
+	Put(recordRequest *pb.RecordRequest, commitVersion uint64) (*pb.Status, error)
 
-	Remove(keyRequest *pb.KeyRequest) (*pb.Status, error);
+	Remove(keyRequest *pb.KeyRequest) (*pb.Status, error)
 
 	// Increment atomically adds delta to the int64 counter at key (starting from
 	// initial when absent) and returns the previous value plus the new envelope
 	// version. commitVersion is the raft log index (0 = assign locally).
-	Increment(req *pb.IncrementRequest, commitVersion uint64) (*pb.IncrementResponse, error);
+	Increment(req *pb.IncrementRequest, commitVersion uint64) (*pb.IncrementResponse, error)
 
 	// SetBatch writes every record in one badger transaction (all-or-nothing).
 	// commitVersion is the raft log index stamped into each entry's envelope
 	// (0 = assign locally per key).
-	SetBatch(req *pb.BatchRequest, commitVersion uint64) (*pb.Status, error);
+	SetBatch(req *pb.BatchRequest, commitVersion uint64) (*pb.Status, error)
 
 	// WatchRaw streams change events for keys under the (encoded) prefix from this
 	// node's local hub until cb returns false or ctx is done. A nil/empty prefix
 	// watches every key. Delivery is best-effort (see store.WatchHub).
-	WatchRaw(ctx context.Context, prefix []byte, cb func(*store.WatchEvent) bool) error;
+	WatchRaw(ctx context.Context, prefix []byte, cb func(*store.WatchEvent) bool) error
 
 	// ScanExpired returns up to limit entries (encoded key + envelope version)
 	// whose TTL has elapsed. This is a wall-clock discovery scan run only on the
 	// leader; it proposes the results as a Reclaim command. limit <= 0 = unbounded.
-	ScanExpired(ctx context.Context, limit int) ([]*pb.ReclaimEntry, error);
+	ScanExpired(ctx context.Context, limit int) ([]*pb.ReclaimEntry, error)
 
 	// Reclaim deletes each listed entry ONLY IF its stored envelope version still
 	// matches (i.e. it was not rewritten since discovery), emitting a WatchDelete
 	// for each removal, and returns how many were removed. It never re-checks
 	// wall-clock expiry, so applying the same command on every replica is
 	// deterministic.
-	Reclaim(req *pb.ReclaimRequest) (removed int, err error);
+	Reclaim(req *pb.ReclaimRequest) (removed int, err error)
 
 	// Backup writes a snapshot of the store to w and returns the max badger
 	// version written. since==0 is a full backup; a non-zero since (a previous
@@ -93,16 +89,13 @@ type KeyValueStorage interface {
 	Load(r io.Reader) error
 
 	Close() error
-
 }
 
 type KeyValueStorageCtx struct {
-
-	db        			*badger.DB
-	conf      			*Configuration
-	log                 *zap.Logger
-	hub                 *store.WatchHub
-
+	db   *badger.DB
+	conf *Configuration
+	log  *zap.Logger
+	hub  *store.WatchHub
 }
 
 func OpenKeyValueStorage(conf *Configuration, log *zap.Logger) (context *KeyValueStorageCtx, err error) {
@@ -147,6 +140,10 @@ const loadMaxPendingWrites = 256
 func (this *KeyValueStorageCtx) Backup(w io.Writer, since uint64) (uint64, error) {
 	return this.db.Backup(w, since)
 }
+
+// DiskSize returns the on-disk (at-rest) size of the LSM tree and value log in
+// bytes. Used by the admin console dashboard.
+func (this *KeyValueStorageCtx) DiskSize() (lsm, vlog int64) { return this.db.Size() }
 
 func (this *KeyValueStorageCtx) Load(r io.Reader) error {
 	return this.db.Load(r, loadMaxPendingWrites)
@@ -206,7 +203,9 @@ func (t *StorageBean) GetRange(r *pb.RangeRequest) (*pb.Block, error) { return t
 func (t *StorageBean) GetArea(r *pb.KeyRequest, lastField Field, sender BlockSender) error {
 	return t.storage.GetArea(r, lastField, sender)
 }
-func (t *StorageBean) Scan(r *pb.ScanRequest, sender BlockSender) error { return t.storage.Scan(r, sender) }
+func (t *StorageBean) Scan(r *pb.ScanRequest, sender BlockSender) error {
+	return t.storage.Scan(r, sender)
+}
 func (t *StorageBean) Touch(r *pb.RecordRequest, commitVersion uint64) (*pb.Status, error) {
 	return t.storage.Touch(r, commitVersion)
 }
@@ -233,7 +232,10 @@ func (t *StorageBean) Reclaim(req *pb.ReclaimRequest) (int, error) {
 func (t *StorageBean) Backup(w io.Writer, since uint64) (uint64, error) {
 	return t.storage.Backup(w, since)
 }
-func (t *StorageBean) Load(r io.Reader) error             { return t.storage.Load(r) }
+
+// DiskSize reports the on-disk size of the underlying store.
+func (t *StorageBean) DiskSize() (lsm, vlog int64) { return t.storage.DiskSize() }
+func (t *StorageBean) Load(r io.Reader) error      { return t.storage.Load(r) }
 
 func (t *StorageBean) Close() error {
 	if t.storage != nil {
@@ -331,7 +333,7 @@ func (this *KeyValueStorageCtx) GetRecent(keyRequest *pb.KeyRequest) (*pb.Record
 		PrefetchSize:   1,
 		Reverse:        true,
 		AllVersions:    false,
-		Prefix: 		rowKey,
+		Prefix:         rowKey,
 	}
 
 	txn := this.db.NewTransaction(false)
@@ -348,7 +350,7 @@ func (this *KeyValueStorageCtx) GetRecent(keyRequest *pb.KeyRequest) (*pb.Record
 		if err != nil {
 			return nil, err
 		}
-		return FetchRecord(actualKey, iter.Item(), keyRequest.HeadOnly);
+		return FetchRecord(actualKey, iter.Item(), keyRequest.HeadOnly)
 	} else {
 		return RecordNotFound(keyRequest.Key), nil
 	}
@@ -380,7 +382,7 @@ func (this *KeyValueStorageCtx) GetRange(rangeRequest *pb.RangeRequest) (*pb.Blo
 		PrefetchSize:   size,
 		Reverse:        true,
 		AllVersions:    false,
-		Prefix: 		rowKey,
+		Prefix:         rowKey,
 	}
 
 	txn := this.db.NewTransaction(false)
@@ -402,7 +404,7 @@ func (this *KeyValueStorageCtx) GetRange(rangeRequest *pb.RangeRequest) (*pb.Blo
 			continue
 		}
 
-		record, err := FetchRecord(itemKey, item, rangeRequest.HeadOnly);
+		record, err := FetchRecord(itemKey, item, rangeRequest.HeadOnly)
 		if err != nil {
 			// ignore failed to fetch key
 			this.log.Error("fetch record fail", zap.Error(err))
@@ -419,7 +421,7 @@ func (this *KeyValueStorageCtx) GetRange(rangeRequest *pb.RangeRequest) (*pb.Blo
 		i = i + 1
 	}
 
-	return &pb.Block { Record: records }, nil
+	return &pb.Block{Record: records}, nil
 
 }
 
@@ -442,7 +444,7 @@ func (this *KeyValueStorageCtx) GetArea(keyRequest *pb.KeyRequest, lastField Fie
 		PrefetchSize:   defBlockSize,
 		Reverse:        false,
 		AllVersions:    false,
-		Prefix: 		keyPrefix,
+		Prefix:         keyPrefix,
 	}
 
 	iter := txn.NewIterator(options)
@@ -462,7 +464,7 @@ func (this *KeyValueStorageCtx) GetArea(keyRequest *pb.KeyRequest, lastField Fie
 			continue
 		}
 
-		record, err := FetchRecord(itemKey, item, keyRequest.HeadOnly);
+		record, err := FetchRecord(itemKey, item, keyRequest.HeadOnly)
 		if err != nil {
 			// ignore failed to fetch key
 			this.log.Error("fetch record fail", zap.Error(err))
@@ -478,7 +480,7 @@ func (this *KeyValueStorageCtx) GetArea(keyRequest *pb.KeyRequest, lastField Fie
 
 		if len(records) == defBlockSize {
 
-			err = sender.Send( &pb.Block{ Record: records } )
+			err = sender.Send(&pb.Block{Record: records})
 			if err != nil {
 				return err
 			}
@@ -490,13 +492,12 @@ func (this *KeyValueStorageCtx) GetArea(keyRequest *pb.KeyRequest, lastField Fie
 	}
 
 	if len(records) > 0 {
-		err = sender.Send( &pb.Block{ Record: records } )
+		err = sender.Send(&pb.Block{Record: records})
 	}
 
 	return err
 
 }
-
 
 func (this *KeyValueStorageCtx) Scan(scanRequest *pb.ScanRequest, sender BlockSender) error {
 
@@ -527,7 +528,7 @@ func (this *KeyValueStorageCtx) Scan(scanRequest *pb.ScanRequest, sender BlockSe
 			continue
 		}
 
-		record, err := FetchRecord(itemKey, item, scanRequest.HeadOnly);
+		record, err := FetchRecord(itemKey, item, scanRequest.HeadOnly)
 		if err != nil {
 			// ignore failed to fetch key
 			this.log.Error("fetch record fail", zap.Error(err))
@@ -543,7 +544,7 @@ func (this *KeyValueStorageCtx) Scan(scanRequest *pb.ScanRequest, sender BlockSe
 
 		if len(records) == defBlockSize {
 
-			err = sender.Send( &pb.Block{ Record: records } )
+			err = sender.Send(&pb.Block{Record: records})
 			if err != nil {
 				return err
 			}
@@ -555,7 +556,7 @@ func (this *KeyValueStorageCtx) Scan(scanRequest *pb.ScanRequest, sender BlockSe
 	}
 
 	if len(records) > 0 {
-		err := sender.Send( &pb.Block{ Record: records } )
+		err := sender.Send(&pb.Block{Record: records})
 		if err != nil {
 			return err
 		}
@@ -580,7 +581,7 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *pb.RecordRequest, commitVer
 	if err != nil {
 
 		if err == badger.ErrKeyNotFound {
-			return &pb.Status{ Updated: false}, nil
+			return &pb.Status{Updated: false}, nil
 		} else {
 			return nil, err
 		}
@@ -604,7 +605,7 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *pb.RecordRequest, commitVer
 	expiresAt := resolveExpiry(recordRequest.TtlSeconds, recordRequest.ExpiresAt)
 
 	envelope := store.EncodeEnvelope(int64(version), expiresAt, value)
-	entry := &badger.Entry{ Key: entryKey, Value: envelope, UserMeta: item.UserMeta() }
+	entry := &badger.Entry{Key: entryKey, Value: envelope, UserMeta: item.UserMeta()}
 
 	if err := txn.SetEntry(entry); err != nil {
 		return nil, xerrors.Errorf("update entry error: %v", err)
@@ -616,7 +617,7 @@ func (this *KeyValueStorageCtx) Touch(recordRequest *pb.RecordRequest, commitVer
 
 	this.notify(entryKey, value, store.WatchSet, int64(version))
 
-	return &pb.Status{ Updated: true}, nil
+	return &pb.Status{Updated: true}, nil
 
 }
 
@@ -650,12 +651,12 @@ func (this *KeyValueStorageCtx) Put(recordRequest *pb.RecordRequest, commitVersi
 	if recordRequest.CompareAndSet {
 		if !exists {
 			if recordRequest.Version != 0 { // expected an existing version
-				return &pb.Status{ Updated: false}, nil
+				return &pb.Status{Updated: false}, nil
 			}
 			// putIfAbsent (version 0 == absent)
 		} else if recordRequest.Version != oldVersion {
 			// wrong version CAS
-			return &pb.Status{ Updated: false}, nil
+			return &pb.Status{Updated: false}, nil
 		}
 	}
 
@@ -673,7 +674,7 @@ func (this *KeyValueStorageCtx) Put(recordRequest *pb.RecordRequest, commitVersi
 	// replica and break Apply's existence checks. Expiry is enforced on read and
 	// reclaimed by a deterministic sweep.
 	envelope := store.EncodeEnvelope(int64(version), expiresAt, recordRequest.Value)
-	entry := &badger.Entry{ Key: entryKey, Value: envelope, UserMeta: byte(recordRequest.Metadata) }
+	entry := &badger.Entry{Key: entryKey, Value: envelope, UserMeta: byte(recordRequest.Metadata)}
 
 	if err := txn.SetEntry(entry); err != nil {
 		return nil, xerrors.Errorf("update entry error: %v", err)
@@ -685,7 +686,7 @@ func (this *KeyValueStorageCtx) Put(recordRequest *pb.RecordRequest, commitVersi
 
 	this.notify(entryKey, recordRequest.Value, store.WatchSet, int64(version))
 
-	return &pb.Status{ Updated: true}, nil
+	return &pb.Status{Updated: true}, nil
 
 }
 
@@ -712,7 +713,7 @@ func (this *KeyValueStorageCtx) Remove(keyRequest *pb.KeyRequest) (*pb.Status, e
 
 	this.notify(entryKey, nil, store.WatchDelete, 0)
 
-	return &pb.Status{ Updated: true}, nil
+	return &pb.Status{Updated: true}, nil
 
 }
 
@@ -749,7 +750,7 @@ func (this *KeyValueStorageCtx) ScanExpired(ctx context.Context, limit int) ([]*
 
 		key := make([]byte, len(item.Key()))
 		copy(key, item.Key())
-		entries = append(entries, &pb.ReclaimEntry{ EntryKey: key, Version: uint64(version) })
+		entries = append(entries, &pb.ReclaimEntry{EntryKey: key, Version: uint64(version)})
 
 		if limit > 0 && len(entries) >= limit {
 			break
@@ -862,7 +863,7 @@ func (this *KeyValueStorageCtx) Increment(req *pb.IncrementRequest, commitVersio
 	buf := make([]byte, 8)
 	binary.BigEndian.PutUint64(buf, uint64(counter))
 	envelope := store.EncodeEnvelope(int64(version), expiresAt, buf)
-	entry := &badger.Entry{ Key: entryKey, Value: envelope }
+	entry := &badger.Entry{Key: entryKey, Value: envelope}
 
 	if err := txn.SetEntry(entry); err != nil {
 		return nil, xerrors.Errorf("update counter error: %v", err)
@@ -874,7 +875,7 @@ func (this *KeyValueStorageCtx) Increment(req *pb.IncrementRequest, commitVersio
 
 	this.notify(entryKey, buf, store.WatchSet, int64(version))
 
-	return &pb.IncrementResponse{ Previous: prev, Current: counter, Version: version }, nil
+	return &pb.IncrementResponse{Previous: prev, Current: counter, Version: version}, nil
 
 }
 
@@ -919,7 +920,7 @@ func (this *KeyValueStorageCtx) SetBatch(req *pb.BatchRequest, commitVersion uin
 		expiresAt := resolveExpiry(record.TtlSeconds, record.ExpiresAt)
 
 		envelope := store.EncodeEnvelope(int64(version), expiresAt, record.Value)
-		entry := &badger.Entry{ Key: entryKey, Value: envelope, UserMeta: byte(record.Metadata) }
+		entry := &badger.Entry{Key: entryKey, Value: envelope, UserMeta: byte(record.Metadata)}
 
 		if err := txn.SetEntry(entry); err != nil {
 			return nil, xerrors.Errorf("batch set entry error: %v", err)
@@ -936,6 +937,6 @@ func (this *KeyValueStorageCtx) SetBatch(req *pb.BatchRequest, commitVersion uin
 		this.notify(c.key, c.value, store.WatchSet, c.version)
 	}
 
-	return &pb.Status{ Updated: true}, nil
+	return &pb.Status{Updated: true}, nil
 
 }
