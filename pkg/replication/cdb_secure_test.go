@@ -34,6 +34,8 @@ import (
 // "127.0.0.1" accepts it.
 type secureCerts struct {
 	caPEM      []byte
+	ca         *x509.Certificate
+	caKey      *ecdsa.PrivateKey
 	serverCert tls.Certificate
 	clientCert tls.Certificate
 }
@@ -63,6 +65,8 @@ func newSecureCerts(t *testing.T) secureCerts {
 
 	return secureCerts{
 		caPEM:      caPEM,
+		ca:         ca,
+		caKey:      caKey,
 		serverCert: issueLeaf(t, "127.0.0.1", true, ca, caKey),
 		clientCert: issueLeaf(t, "cdb-client", false, ca, caKey),
 	}

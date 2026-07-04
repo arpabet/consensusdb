@@ -34,6 +34,7 @@ type VrpcDataService struct {
 	Server     valueserver.Server `inject:""`
 	Storage    KeyValueStorage    `inject:""`
 	Replicator Replicator         `inject:"optional"`
+	Auth       *AuthService       `inject:"optional"`
 	Log        *zap.Logger        `inject:""`
 
 	svc *KeyValueService
@@ -42,6 +43,14 @@ type VrpcDataService struct {
 func (t *VrpcDataService) BeanName() string { return "vrpc-data-service" }
 
 func (t *VrpcDataService) PostConstruct() error {
+	// Authentication (opt-in via auth.enabled): every handshake must present a
+	// valid credential or a registered client certificate; the derived principal
+	// reaches every handler's context.
+	if t.Auth != nil && t.Auth.Enabled {
+		t.Server.SetAuthenticator(t.Auth.Authenticate)
+		t.Log.Info("VrpcAuthEnabled")
+	}
+
 	// Build the same service the gRPC scanner does over the shared Storage /
 	// Replicator, so both wires route writes and reads identically.
 	t.svc = &KeyValueService{Storage: t.Storage, Replicator: t.Replicator, Log: t.Log}

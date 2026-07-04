@@ -71,3 +71,9 @@ variable "serf_port" {
   type        = number
   default     = 8301
 }
+
+variable "auth_enabled" {
+  description = "Require data-plane authentication (enable AFTER `iam bootstrap` has created the admin — etcd-style flow)"
+  type        = bool
+  default     = false
+}

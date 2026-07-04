@@ -54,12 +54,20 @@ func main() {
 		// Defaults to this node's own data-plane port so `consensusdb raft …`
 		// works when exec'd on a running node (e.g. inside the pod).
 		"raft-vrpc-client.address": "tcp://127.0.0.1:8444",
+
+		// Data-plane authentication (etcd model): create identities with
+		// `consensusdb iam bootstrap|user-add|sa-add` while disabled, then set
+		// auth.enabled=true (AUTH_ENABLED=true) and restart. When enabled, every
+		// connection must present a password/token credential or a registered
+		// mTLS client certificate.
+		"auth.enabled": "false",
 	}
 
 	// "run" scope: storage + servers are only constructed when serving.
 	runScope := []interface{}{
 		&server.Configuration{},
 		&server.StorageBean{},
+		&server.AuthService{},
 		servion.HttpServerScanner("http-server",
 			&run.WelcomeHandler{},
 			servion.MetricsHandler(),
@@ -89,6 +97,12 @@ func main() {
 		&cmd.UnsealCommand{},
 		&cmd.StartCommand{},
 		&cmd.StopCommand{},
+
+		// Identity management: `consensusdb iam bootstrap|user-add|sa-add`.
+		&cmd.IamGroup{},
+		&cmd.IamBootstrapCommand{},
+		&cmd.IamUserAddCommand{},
+		&cmd.IamSaAddCommand{},
 
 		servion.RunCommand(runScope...),
 	}

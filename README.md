@@ -135,6 +135,52 @@ certificates whose SANs cover **all** node hostnames/IPs (or a shared `ServerNam
 `TestCdbMutualTLS` and `TestCdbQUIC` (in `pkg/replication`) exercise both ends end
 to end. See the `store/providers/cdb` README for the full client matrix.
 
+# Authentication
+
+The data plane authenticates every connection when `auth.enabled=true`
+(`AUTH_ENABLED=true`). Three methods, all resolving to one **principal** that
+reaches every handler (authorization builds on it in a later phase):
+
+| Method | Credential (value-rpc handshake) | Principal |
+|---|---|---|
+| Username + password | `{method:"password", user, pass}` — argon2id at rest | `user:<name>` |
+| API token | `{method:"token", token}` — `<sa>.<secret>`, sha256 at rest | `serviceAccount:<name>` |
+| mTLS client certificate | none — the verified cert's **SAN URI** (or CN) is looked up in the cert index | `serviceAccount:<name>` |
+
+An explicit credential wins over the peer certificate (etcd semantics); the
+credential is re-presented automatically on every reconnect and leader redirect.
+Identities are records in the system tenant (`__system`/`IAM` — replicated and
+versioned like any data): `user/<name>`, `sa/<name>`, `cert/<identity>`.
+
+**Enablement (etcd-style, no chicken-and-egg):**
+
+```bash
+# 1. while auth is disabled, create the identities on a running node
+consensusdb iam bootstrap admin --password '…'      # initial admin (or generated+printed)
+consensusdb iam user-add alice                       # humans (password printed once)
+consensusdb iam sa-add staphi                        # workloads (token printed once)
+consensusdb iam sa-add webby --cert-idents urn:cdb:sa:webby   # mTLS identity
+
+# 2. enable and restart
+AUTH_ENABLED=true consensusdb run
+```
+
+The iam CLI dials `iam.address` (default `tcp://127.0.0.1:8444`); once auth is
+enabled, give the CLI its own credential via `IAM_USER`/`IAM_PASSWORD` or
+`IAM_TOKEN`. Clients authenticate with the cdb provider options:
+
+```go
+cdb.New("app", addr, tenant, region, cdb.WithCredential(cdb.PasswordCredential("alice", pass)))
+cdb.New("app", addr, tenant, region, cdb.WithCredential(cdb.TokenCredential(token)))
+// mTLS identity: a registered client certificate needs no credential at all
+cdb.New("app", "tls://…:8444", tenant, region, cdb.WithTLSConfig(mtlsCfg))
+```
+
+On Kubernetes: deploy with `auth_enabled=false`, `kubectl exec consensusdb-0 --
+/app/consensusdb iam bootstrap admin`, then set `auth_enabled=true` in
+`terraform.tfvars` and re-apply. `TestCdbAuthPasswordAndToken` and
+`TestCdbAuthMutualTLSIdentity` (in `pkg/replication`) exercise the full ladder.
+
 # Deploy to Kubernetes (Karagatan)
 
 The **`Deploy to Karagatan`** GitHub Action (`.github/workflows/deploy.yaml`) builds

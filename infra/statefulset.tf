@@ -131,6 +131,12 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
             name  = "RAFT_VRPC_CLIENT_ADDRESS"
             value = "tcp://127.0.0.1:${var.vrpc_port}"
           }
+          # Data-plane authentication. Flip to true only after `iam bootstrap`
+          # has created the admin (see the README auth runbook).
+          env {
+            name  = "AUTH_ENABLED"
+            value = tostring(var.auth_enabled)
+          }
           env {
             name  = "COS"
             value = var.cos
