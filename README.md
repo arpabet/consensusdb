@@ -296,33 +296,45 @@ authorized by `cdb.backups`/`cdb.proofs.read`. `TestVerifyBackupAgainstQuorum`
 proves the offline round trip (backup → load → match quorum, with mismatch
 rejection); `pkg/console` tests the job/REST loop.
 
-## Web admin console
+## Web apps — dashboard + admin console
 
-The node serves a **Vue + Vite** admin console at **`/console`** (source in
-`webapp/`, embedded into the binary via go-bindata as `pkg/webui` — run
-`make webui` after front-end changes). It calls the admin REST API under `/api`
-(bearer/basic auth → principal → permission).
+The node serves **two** embedded **Vue + Vite** apps (source in `webapp/`, one
+build with two entries embedded via go-bindata as `pkg/webui` — run `make webui`
+after front-end changes). Both call the admin REST API under `/api` (bearer/basic
+auth → principal → permission):
 
-- **First-run onboarding** — on a fresh cluster (`GET /api/setup/status` reports
-  it) a **multi-step wizard** creates the first admin user
-  (`POST /api/setup/bootstrap`, self-guarded so it's inert once done), lets you
-  pick an auth method, and can generate + download the **ledger CA** — then points
-  you at enabling `AUTH_ENABLED`.
-- **Dashboard** — cluster/raft status, the live ledger head, **per-region
-  footprint** (keys, size on-transfer/on-disk), and store-wide **reads/writes per
-  second** (the client derives rates from `/api/stats` deltas).
-- **Nodes** (admin only) — every raft member with **up/down** health and **per-node
-  CPU / memory / storage** load (storage turns **red over 80%**), the overall
-  cluster load, a button to **add a node** (introduce a running node to raft via
-  `AddVoter`), and **remove** with a confirmation dialog. The serving node fans out
-  to each peer's `/api/node/metrics` for load, and proxies membership changes to
-  the leader — so it works from a single Service endpoint in Kubernetes. Ideal for
-  scaling the StatefulSet in/out.
-- **Verify ledger** — the backup-verification form with a **progress bar** driven
-  by the background job above.
-- **Database** (admin only, shown only when `/api/me` reports `isAdmin`) —
-  **export** the database to an encrypted download and **import** from a dump
-  file (import refused while replication is active).
+- the **read-only dashboard** at **`/`** — monitoring only, no mutating actions;
+- the **admin console** at **`/console`** — all management, requires an admin
+  sign-in.
+
+**Sign-in** accepts a **username + password** (HTTP Basic) *or* an **IAM token** —
+so the password admin created during onboarding can actually sign in.
+
+### Dashboard (`/`, read-only)
+
+Cluster/raft status, the live ledger head, **per-region footprint** (keys, size
+on-transfer/on-disk), and store-wide **reads/writes per second** (rates derived
+from `/api/stats` deltas). Open to any authenticated user (an auditor role is
+enough); anonymous when `auth.enabled=false`.
+
+### Admin console (`/console`, admin)
+
+- **First-run onboarding** — on a fresh cluster (`GET /api/setup/status`) a wizard
+  creates the first admin (`POST /api/setup/bootstrap`, self-guarded so it's inert
+  once done) and can generate + download the **ledger CA**, then points you at
+  enabling `AUTH_ENABLED`.
+- **Access** — manage identities without the CLI: **users** (password login),
+  **application tokens** (service accounts — the token is shown once at creation),
+  and **role bindings** at instance / tenant / **region** scope. Backed by
+  `/api/iam/*` (reads need `cdb.iam.get`, writes `cdb.iam.set`).
+- **Nodes** — every raft member with **up/down** health and **per-node CPU /
+  memory / storage** load (storage turns **red over 80%**), overall cluster load,
+  **add a node** (`AddVoter`) and **remove** (with confirmation). The serving node
+  fans out to peers' `/api/node/metrics` and proxies membership to the leader, so
+  it works from a single Kubernetes Service endpoint.
+- **Database** — **export** to an encrypted download and **import** from a dump
+  (refused while replication is active).
+- **Verify ledger** — backup-verification with a **progress bar**.
 
 `GET /api/me` returns `{principal, isAdmin}` for UI gating; the admin-only
 operations are also enforced server-side (`cdb.backups.*`, `cdb.cluster.admin`).

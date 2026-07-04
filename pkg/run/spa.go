@@ -17,30 +17,105 @@ import (
 )
 
 /*
-SpaHandler serves the web admin console (the Vue + Vite app in webapp/) under
-/console. The built assets are baked into the binary: `go-bindata` generates
-pkg/webui/bindata.go from webapp/dist (see the Makefile `webui` target), so the
-server is self-contained — no webapp/dist directory is needed at runtime.
+Serving for the two embedded web apps (built by `make webui` from webapp/ into
+pkg/webui, one build with two HTML entries and shared assets):
 
-It serves the embedded assets directly (avoiding http.FileServer's index.html
-redirect) with a single-page-app fallback: an unknown, extension-less path
-returns index.html so the client-side app boots. If the binary was built without
-generating the assets, it serves a short placeholder so the server still runs.
+  - the read-only dashboard  (index.html)   at /
+  - the admin console         (console.html) at /console
+  - their shared built assets                at /assets
+
+Both are single-page apps; their assets are content-hashed and live under
+/assets, so each page mount just serves its one HTML entry (with a placeholder
+when the binary was built without the embedded apps).
 */
-type SpaHandler struct {
+
+func embeddedModTime() time.Time {
+	if info, err := webui.AssetInfo("index.html"); err == nil {
+		return info.ModTime()
+	}
+	return time.Time{}
+}
+
+// serveEmbedded writes an embedded asset with a content-type and cache header, or
+// 404 if it is not present.
+func serveEmbedded(w http.ResponseWriter, r *http.Request, name string, modTime time.Time) {
+	data, err := webui.Asset(name)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	ctype := mime.TypeByExtension(path.Ext(name))
+	if ctype == "" {
+		ctype = http.DetectContentType(data)
+	}
+	w.Header().Set("Content-Type", ctype)
+	if strings.HasPrefix(name, "assets/") {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable") // content-hashed
+	} else {
+		w.Header().Set("Cache-Control", "no-cache")
+	}
+	http.ServeContent(w, r, name, modTime, bytes.NewReader(data))
+}
+
+// PageHandler serves one embedded single-page app (a fixed HTML entry) at a mount.
+type PageHandler struct {
+	pattern string
+	page    string
+	modTime time.Time
 	ok      bool
+}
+
+// NewPageHandler serves the embedded page at the given gorilla/mux pattern
+// (e.g. "/" → index.html, "/console/{rest:.*}" → console.html).
+func NewPageHandler(pattern, page string) *PageHandler {
+	return &PageHandler{pattern: pattern, page: page}
+}
+
+func (t *PageHandler) BeanName() string { return "page-" + t.page }
+
+func (t *PageHandler) PostConstruct() error {
+	if info, err := webui.AssetInfo(t.page); err == nil {
+		t.ok = true
+		t.modTime = info.ModTime()
+	}
+	return nil
+}
+
+func (t *PageHandler) Pattern() string { return t.pattern }
+
+func (t *PageHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !t.ok {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		_, _ = w.Write([]byte(placeholder))
+		return
+	}
+	serveEmbedded(w, r, t.page, t.modTime)
+}
+
+// AssetsHandler serves the shared built assets under /assets.
+type AssetsHandler struct {
 	modTime time.Time
 }
 
-func NewSpaHandler() *SpaHandler { return &SpaHandler{} }
+func NewAssetsHandler() *AssetsHandler { return &AssetsHandler{} }
 
-func (t *SpaHandler) BeanName() string { return "spa-handler" }
+func (t *AssetsHandler) BeanName() string { return "assets-handler" }
 
-/*
-ConsoleRedirect redirects the bare /console to /console/. The SpaHandler is
-mounted at /console/{rest:.*}, which gorilla/mux only matches with the trailing
-slash, so without this a user typing http://host:8441/console gets a 404.
-*/
+func (t *AssetsHandler) PostConstruct() error { t.modTime = embeddedModTime(); return nil }
+
+func (t *AssetsHandler) Pattern() string { return "/assets/{rest:.*}" }
+
+func (t *AssetsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimPrefix(path.Clean(r.URL.Path), "/") // "assets/<file>"
+	if !strings.HasPrefix(name, "assets/") {
+		http.NotFound(w, r)
+		return
+	}
+	serveEmbedded(w, r, name, t.modTime)
+}
+
+// ConsoleRedirect redirects the bare /console to /console/, which the admin page
+// mount (/console/{rest:.*}) matches.
 type ConsoleRedirect struct{}
 
 func NewConsoleRedirect() *ConsoleRedirect { return &ConsoleRedirect{} }
@@ -53,64 +128,11 @@ func (t *ConsoleRedirect) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/console/", http.StatusMovedPermanently)
 }
 
-func (t *SpaHandler) PostConstruct() error {
-	// index.html present in the embedded set ⇒ the console was baked in.
-	if info, err := webui.AssetInfo("index.html"); err == nil {
-		t.ok = true
-		t.modTime = info.ModTime()
-	}
-	return nil
-}
-
-func (t *SpaHandler) Pattern() string { return "/console/{rest:.*}" }
-
-func (t *SpaHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !t.ok {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write([]byte(placeholder))
-		return
-	}
-
-	// Strip the /console mount and normalize to an asset name (no leading slash).
-	name := strings.TrimPrefix(path.Clean("/"+strings.TrimPrefix(r.URL.Path, "/console")), "/")
-	if name == "" {
-		name = "index.html"
-	}
-
-	data, err := webui.Asset(name)
-	if err != nil {
-		// SPA fallback: an unknown route without a file extension boots the app;
-		// a missing real asset (has an extension) is a genuine 404.
-		if strings.Contains(path.Base(name), ".") {
-			http.NotFound(w, r)
-			return
-		}
-		name = "index.html"
-		if data, err = webui.Asset(name); err != nil {
-			http.NotFound(w, r)
-			return
-		}
-	}
-
-	ctype := mime.TypeByExtension(path.Ext(name))
-	if ctype == "" {
-		ctype = http.DetectContentType(data)
-	}
-	w.Header().Set("Content-Type", ctype)
-	if name == "index.html" {
-		w.Header().Set("Cache-Control", "no-cache")
-	} else {
-		// Vite emits content-hashed asset filenames, so they are immutable.
-		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
-	}
-	http.ServeContent(w, r, name, t.modTime, bytes.NewReader(data))
-}
-
-const placeholder = `<!doctype html><html><head><meta charset="utf-8"><title>ConsensusDB Console</title></head>
+const placeholder = `<!doctype html><html><head><meta charset="utf-8"><title>ConsensusDB</title></head>
 <body style="font-family:system-ui;max-width:40rem;margin:4rem auto;line-height:1.5">
-<h2>ConsensusDB admin console</h2>
-<p>The console was not baked into this build. Regenerate the embedded assets and rebuild:</p>
+<h2>ConsensusDB web apps not embedded</h2>
+<p>This binary was built without the embedded dashboard/console. Regenerate and rebuild:</p>
 <pre style="background:#f4f4f4;padding:1rem;border-radius:6px">make webui   # npm run build + go-bindata → pkg/webui
 go build</pre>
-<p>The REST API it calls is live at <code>/api/</code>.</p>
+<p>The REST API is live at <code>/api/</code>.</p>
 </body></html>`

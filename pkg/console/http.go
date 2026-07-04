@@ -165,6 +165,49 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			t.generateLedgerCA(w)
 		}
 
+	// Admin: IAM management — users, service accounts (application tokens),
+	// roles, and role bindings. Reads need cdb.iam.get, writes cdb.iam.set.
+	case path == "/api/iam/users" && method == http.MethodGet:
+		if authorize(iam.PermIamGet) {
+			t.iamListUsers(w)
+		}
+	case path == "/api/iam/users" && method == http.MethodPost:
+		if authorize(iam.PermIamSet) {
+			t.iamCreateUser(w, r)
+		}
+	case strings.HasPrefix(path, "/api/iam/users/") && method == http.MethodDelete:
+		if authorize(iam.PermIamSet) {
+			t.iamDeleteUser(w, strings.TrimPrefix(path, "/api/iam/users/"))
+		}
+	case path == "/api/iam/service-accounts" && method == http.MethodGet:
+		if authorize(iam.PermIamGet) {
+			t.iamListServiceAccounts(w)
+		}
+	case path == "/api/iam/service-accounts" && method == http.MethodPost:
+		if authorize(iam.PermIamSet) {
+			t.iamCreateServiceAccount(w, r)
+		}
+	case strings.HasPrefix(path, "/api/iam/service-accounts/") && method == http.MethodDelete:
+		if authorize(iam.PermIamSet) {
+			t.iamDeleteServiceAccount(w, strings.TrimPrefix(path, "/api/iam/service-accounts/"))
+		}
+	case path == "/api/iam/roles" && method == http.MethodGet:
+		if authorize(iam.PermIamGet) {
+			t.iamListRoles(w)
+		}
+	case path == "/api/iam/bindings" && method == http.MethodGet:
+		if authorize(iam.PermIamGet) {
+			t.iamListBindings(w)
+		}
+	case path == "/api/iam/bindings" && method == http.MethodPost:
+		if authorize(iam.PermIamSet) {
+			t.iamChangeBinding(w, r, true)
+		}
+	case path == "/api/iam/bindings/revoke" && method == http.MethodPost:
+		if authorize(iam.PermIamSet) {
+			t.iamChangeBinding(w, r, false)
+		}
+
 	default:
 		writeErr(w, http.StatusNotFound, "not found")
 	}

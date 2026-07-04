@@ -1,22 +1,32 @@
-# ConsensusDB admin console (Vue 3 + Vite)
+# ConsensusDB web apps (Vue 3 + Vite)
 
-The web console for a consensusdb cluster. It calls the admin REST API the node
-serves under `/api` and is itself served by the node under `/console`.
+**Two** apps built from this one project (multi-page, `base: /`, shared assets),
+both calling the admin REST API under `/api`:
 
-Current views:
+- **Dashboard** (`index.html` → `src/dashboard.js` → `DashboardApp.vue`), served
+  by the node at **`/`** — read-only monitoring, no mutating actions.
+- **Admin console** (`console.html` → `src/admin.js` → `AdminApp.vue`), served at
+  **`/console`** — all management, requires an admin sign-in.
 
-- **Onboarding** — a first-run multi-step wizard (create the admin, choose an auth
-  method, generate/download the ledger CA) shown when the cluster needs setup.
+Sign-in (`components/Login.vue`, shared) accepts a username + password *or* an IAM
+token.
+
+Dashboard view:
+
 - **Dashboard** — cluster/raft status, the live ledger head, per-region footprint
   (keys, size on-transfer and on-disk), and reads/writes per second.
-- **Verify ledger** — start a background verification of a backup dump against a
-  quorum certificate and watch a **progress bar**; the result shows whether the
-  backup is exactly the state a quorum certified.
-- **Nodes** (admin only) — raft members with up/down health and per-node
-  CPU/memory/storage load (storage red over 80%), overall cluster load, add a node
-  (join to raft), and remove a node with a confirmation dialog.
-- **Database** (admin only) — export the database to an encrypted download, or
-  import from a dump file.
+
+Admin console views:
+
+- **Onboarding** — a first-run wizard (create the admin, optionally generate the
+  ledger CA) shown when the cluster needs setup.
+- **Access** — users (password login), application tokens (service accounts —
+  shown once), and role bindings at instance/tenant/region scope.
+- **Nodes** — raft members with up/down health and per-node CPU/memory/storage
+  load (storage red over 80%), overall cluster load, add/remove nodes.
+- **Database** — export to an encrypted download, or import from a dump file.
+- **Verify ledger** — verify a backup against a quorum certificate with a
+  **progress bar**.
 
 ## Develop
 
@@ -62,7 +72,12 @@ regenerated `pkg/webui/bindata.go` alongside your front-end changes.
 | GET  | `/api/ledger/verify/{id}`  | read  | poll job `{state, progress, result, error}` |
 | GET  | `/api/database/export`     | admin | stream an (optionally encrypted) dump download |
 | POST | `/api/database/import`     | admin | load an uploaded dump |
+| GET/POST | `/api/iam/users`        | iam   | list / create users; `DELETE /api/iam/users/{name}` |
+| GET/POST | `/api/iam/service-accounts` | iam | list / create (mint token, once); `DELETE …/{name}` |
+| GET  | `/api/iam/roles`           | iam   | predefined + custom roles |
+| GET/POST | `/api/iam/bindings`     | iam   | list / grant; `POST /api/iam/bindings/revoke` |
 
 Requests (except onboarding) carry an `Authorization` header (Bearer IAM token or
 Basic user:password). *read* = `cdb.proofs.read`, *admin* = `cdb.cluster.admin` /
-`cdb.backups.*`. When `auth.enabled=false` the console is open (anonymous).
+`cdb.backups.*`, *iam* = `cdb.iam.get` (read) / `cdb.iam.set` (write). When
+`auth.enabled=false` the apps are open (anonymous).

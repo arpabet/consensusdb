@@ -1,12 +1,23 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
-// The console is served under /console by the consensusdb http-server, and calls
-// the admin REST API under /api. In dev, proxy /api to a running node (8441).
+// Two apps, one build, shared assets under /assets:
+//   index.html   → the read-only dashboard, served by the node at /
+//   console.html → the admin console,       served by the node at /console
+// Both call the admin REST API under /api. In dev, proxy /api to a running node.
 export default defineConfig({
   plugins: [vue()],
-  base: '/console/',
-  build: { outDir: 'dist', emptyOutDir: true },
+  base: '/',
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        index: 'index.html',
+        console: 'console.html',
+      },
+    },
+  },
   server: {
     proxy: {
       '/api': { target: 'http://localhost:8441', changeOrigin: true },

@@ -1,17 +1,15 @@
 <script setup>
 import { ref } from 'vue'
-import { api, setToken } from '../api.js'
+import { api } from '../api.js'
 
 const emit = defineEmits(['done'])
 
-// Multi-step first-run wizard: create the admin, pick an auth method, optionally
-// generate the ledger CA, and finish.
+// First-run wizard: create the admin, optionally generate the ledger CA, finish.
 const step = ref(1)
-const totalSteps = 4
+const totalSteps = 3
 const error = ref('')
 
 const admin = ref({ username: '', password: '', confirm: '' })
-const authMethod = ref('password') // password | token | mtls
 const ca = ref(null) // { caKey, caPub } once generated
 
 async function createAdmin() {
@@ -59,21 +57,8 @@ function finish() {
       <button :disabled="!admin.username" @click="createAdmin">Create admin →</button>
     </template>
 
-    <!-- Step 2: auth method -->
+    <!-- Step 2: ledger CA (optional) -->
     <template v-else-if="step === 2">
-      <p class="hint">How should clients authenticate?</p>
-      <label><input type="radio" value="password" v-model="authMethod" /> Username + password (over TLS)</label>
-      <label><input type="radio" value="token" v-model="authMethod" /> API tokens (service accounts)</label>
-      <label><input type="radio" value="mtls" v-model="authMethod" /> Mutual TLS (client certificates)</label>
-      <p class="hint" style="margin-top:0.75rem">
-        Enforcement is turned on by setting <code>AUTH_ENABLED=true</code> and restarting the
-        nodes. Until then the cluster accepts anonymous access.
-      </p>
-      <button @click="step = 3">Next →</button>
-    </template>
-
-    <!-- Step 3: ledger CA (optional) -->
-    <template v-else-if="step === 3">
       <p class="hint">
         The verifiable ledger uses a certificate authority to certify node signing
         keys. Generate one now (keep the private key offline), or skip and use the
@@ -86,14 +71,19 @@ function finish() {
         <button @click="download('ca.pub', ca.caPub)">Download ca.pub (public)</button>
       </template>
       <div style="margin-top:0.75rem">
-        <button @click="step = 4">{{ ca ? 'Next →' : 'Skip →' }}</button>
+        <button @click="step = 3">{{ ca ? 'Next →' : 'Skip →' }}</button>
       </div>
     </template>
 
-    <!-- Step 4: done -->
+    <!-- Step 3: done -->
     <template v-else>
-      <p>Setup complete. Sign in with the admin you created.</p>
-      <button @click="finish">Go to console →</button>
+      <p>Setup complete. Sign in with the <strong>username and password</strong> you just created.</p>
+      <p class="hint">
+        Authentication is not enforced until you set <code>AUTH_ENABLED=true</code> and restart the nodes.
+        Clients can authenticate with a password (over TLS), an application token (Access page),
+        or a client certificate (mutual TLS) — all are accepted once enabled.
+      </p>
+      <button @click="finish">Go to admin console →</button>
     </template>
 
     <p v-if="error" class="err-text">{{ error }}</p>

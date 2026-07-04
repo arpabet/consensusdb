@@ -59,32 +59,33 @@ Stop the node with `Ctrl-C`.
 
 ## 2. Open the dashboard
 
-The dashboard is **baked into the binary** — nothing to build. Open:
+Both web apps are **baked into the binary** — nothing to build:
 
-```
-http://localhost:8441/console
-```
+- **Dashboard** (read-only monitoring): <http://localhost:8441/>
+- **Admin console** (management): <http://localhost:8441/console>
 
-(To *change* the dashboard, edit `webapp/` and run `make webui`, which rebuilds it
-and re-embeds it; see the [webapp README](webapp/README.md). For live front-end
-development, `npm --prefix webapp run dev` proxies the API to a running node.)
+(To *change* them, edit `webapp/` and run `make webui`, which rebuilds and
+re-embeds; see the [webapp README](webapp/README.md). For live front-end
+development, `npm --prefix webapp run dev`.)
 
-**First run** shows an onboarding wizard: create your admin account (a username and
-a password of at least 8 characters), pick an auth method, and optionally download
-a ledger CA. That admin is stored in the database.
+**First run:** open the **admin console** (`/console`) — an onboarding wizard
+creates your admin account (a username and a password of at least 8 characters)
+and can generate a ledger CA. That admin is stored in the database.
 
-**Signing in** uses an IAM **token**. Create one from the CLI (see the next
-section) and paste it into the sign-in box. With authentication off the console is
-open, so any token gets you in; once you enable auth the token must belong to an
-admin (for the Nodes/Database tabs) or an auditor (read-only).
+**Signing in** (both apps) accepts your **username + password** *or* an **IAM
+token**. With authentication off the apps are open; once you enable auth, the
+dashboard needs any authenticated user (auditor+) and the admin console needs an
+admin. You can manage users and tokens right in the admin console's **Access**
+page — or with the CLI below.
 
 ---
 
 ## 3. Create identities and tokens
 
-Identities are managed with `consensusdb iam …`, which talks to the running node's
-data plane on `tcp://127.0.0.1:8444` (so run these in another terminal while the
-node is up).
+Manage users, application tokens, and role bindings in the admin console's
+**Access** page — or with `consensusdb iam …`, which talks to the running node's
+data plane on `tcp://127.0.0.1:8444` (run these in another terminal while the node
+is up).
 
 ```bash
 # create the first admin (or use the dashboard wizard — either works)
