@@ -59,3 +59,15 @@ variable "vrpc_port" {
   type        = number
   default     = 8444
 }
+
+variable "raft_port" {
+  description = "raft replication port (peer-to-peer over the headless service)"
+  type        = number
+  default     = 8300
+}
+
+variable "serf_port" {
+  description = "serf bind port (gates replication enablement; see RaftHost)"
+  type        = number
+  default     = 8301
+}

@@ -50,12 +50,39 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
       }
 
       spec {
+        # Spread raft voters across nodes so one node failure costs one voter,
+        # not quorum. Preferred (not required) so small clusters still schedule.
+        affinity {
+          pod_anti_affinity {
+            preferred_during_scheduling_ignored_during_execution {
+              weight = 100
+              pod_affinity_term {
+                topology_key = "kubernetes.io/hostname"
+                label_selector {
+                  match_labels = {
+                    app = var.deployment
+                  }
+                }
+              }
+            }
+          }
+        }
+
         container {
           name              = var.deployment
           image             = "${var.registry_hostname}/${var.project}/${var.deployment}:${var.image_tag}"
           image_pull_policy = "IfNotPresent"
 
-          args = ["run"]
+          # Ordinal 0 is the raft seed: it bootstraps a single-voter cluster on
+          # first start. The other ordinals start in join mode and are added by
+          # the leader via `consensusdb raft join` (see the README runbook).
+          command = ["/bin/sh", "-c"]
+          args = [<<-EOT
+            ordinal="$${HOSTNAME##*-}"
+            if [ "$ordinal" = "0" ]; then export RAFT_BOOTSTRAP=true; else export RAFT_BOOTSTRAP=false; fi
+            exec /app/consensusdb run
+          EOT
+          ]
 
           port {
             name           = "http"
@@ -64,6 +91,14 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
           port {
             name           = "vrpc"
             container_port = var.vrpc_port
+          }
+          port {
+            name           = "raft"
+            container_port = var.raft_port
+          }
+          port {
+            name           = "serf"
+            container_port = var.serf_port
           }
 
           # Persist badger under the mounted volume, and enable the value-rpc data
@@ -75,6 +110,26 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
           env {
             name  = "VRPC_SERVER_BIND_ADDRESS"
             value = "tcp://0.0.0.0:${var.vrpc_port}"
+          }
+          # Enable raft replication (RaftHost requires both bind addresses). The
+          # advertised peer address is derived from the pod's private IP.
+          env {
+            name  = "RAFT_BIND_ADDRESS"
+            value = "0.0.0.0:${var.raft_port}"
+          }
+          env {
+            name  = "SERF_BIND_ADDRESS"
+            value = "0.0.0.0:${var.serf_port}"
+          }
+          # Raft snapshots and serf artifacts live on the data volume too.
+          env {
+            name  = "APPLICATION_DATA_DIR"
+            value = var.data_dir
+          }
+          # Lets `kubectl exec <pod> -- /app/consensusdb raft …` dial this node.
+          env {
+            name  = "RAFT_VRPC_CLIENT_ADDRESS"
+            value = "tcp://127.0.0.1:${var.vrpc_port}"
           }
           env {
             name  = "COS"
@@ -161,6 +216,33 @@ resource "kubernetes_service_v1" "headless" {
       name        = "vrpc"
       port        = var.vrpc_port
       target_port = var.vrpc_port
+    }
+    port {
+      name        = "raft"
+      port        = var.raft_port
+      target_port = var.raft_port
+    }
+    port {
+      name        = "serf"
+      port        = var.serf_port
+      target_port = var.serf_port
+    }
+  }
+}
+
+# Voluntary disruptions (node drains, upgrades) may take at most one voter at a
+# time, so a 3-node cluster never loses raft quorum to maintenance.
+resource "kubernetes_pod_disruption_budget_v1" "consensusdb" {
+  metadata {
+    name      = var.deployment
+    namespace = var.namespace
+  }
+  spec {
+    max_unavailable = "1"
+    selector {
+      match_labels = {
+        app = var.deployment
+      }
     }
   }
 }

@@ -165,10 +165,47 @@ secret). Deployment values (namespace, sizes, ports) live in `infra/terraform.tf
 Terraform state is stored in a Kubernetes secret in the namespace (`state.tf`), which
 must already exist.
 
-**Single-node by default** (`num_replicas = 1`, raft disabled) — correct and
-immediately usable. Scaling to a multi-node raft cluster additionally needs
-`raft.bind-address` / `serf.bind-address` and peer bootstrap (each pod joins
-`consensusdb-0` over the headless service); that config is a follow-up.
+## 3-node cluster formation (runbook)
+
+The StatefulSet deploys **3 raft voters** (`num_replicas = 3`): replication is
+enabled via `RAFT_BIND_ADDRESS`/`SERF_BIND_ADDRESS`, ordinal **0 bootstraps** a
+single-voter cluster on first start (`RAFT_BOOTSTRAP=true`, derived from the pod
+ordinal), and ordinals 1–2 start in **join mode**. Pod anti-affinity spreads the
+voters across nodes and a PodDisruptionBudget caps voluntary disruptions at one
+voter, so maintenance never costs quorum.
+
+Forming the cluster is a one-time step — add each joiner as a voter, addressed by
+its **stable headless DNS name**:
+
+```bash
+# each joiner logs its node id on start:
+kubectl -n consensusdb logs consensusdb-1 | grep RaftJoinMode   # → id=<node_id>
+
+# the leader (pod 0 right after bootstrap) adds the voters:
+kubectl -n consensusdb exec consensusdb-0 -- /app/consensusdb raft join \
+  <node_id_1> consensusdb-1.consensusdb-headless.consensusdb.svc.cluster.local:8300
+kubectl -n consensusdb exec consensusdb-0 -- /app/consensusdb raft join \
+  <node_id_2> consensusdb-2.consensusdb-headless.consensusdb.svc.cluster.local:8300
+
+# verify: three voters
+kubectl -n consensusdb exec consensusdb-0 -- /app/consensusdb raft config
+```
+
+Membership is persisted in the raft log — restarts rejoin automatically. Two
+operational notes:
+
+- **Address changes**: joiners are recorded under DNS names (stable across pod
+  restarts). The seed records its own advertised **pod IP** at bootstrap; if pod
+  0 is rescheduled and peers can't reach its old IP, re-run `raft join <node_id_0>
+  consensusdb-0.…:8300` from the current leader — `join` with an existing id
+  updates that server's address.
+- **Scaling up**: raise `num_replicas`, then `raft join` the new ordinal the same
+  way. Scale-downs must `RemoveServer` before deleting the pod (leader-side; CLI
+  follow-up).
+
+Metrics for the cluster (raft leader contact, commit/apply latency, badger LSM
+counters) are on `:8441/metrics` for Prometheus; logs are structured JSON when
+`COS=prod` (set by the deployment).
 
 # Quick start
 

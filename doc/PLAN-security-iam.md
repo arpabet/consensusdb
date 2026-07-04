@@ -226,7 +226,7 @@ already canonical**.
 
 | Phase | Deliverable | Size |
 |---|---|---|
-| **S1** | 3-node infra: raft/serf env in statefulset, anti-affinity, PDB, `num_replicas=3`, bootstrap/join runbook; prod zap; raft+badger metrics | S |
+| **S1** ✅ DONE 2026-07-03 | 3-node infra: raft/serf env in statefulset (per-ordinal bootstrap via pod hostname), anti-affinity, PDB, `num_replicas=3`, raft+serf ports on container/headless svc, bootstrap/join runbook (README); prod zap via `COS=prod`; raft metrics (go-metrics→prometheus sink, armon+hashicorp globals) + badger expvar collector on `/metrics` (`pkg/run/metrics.go`); `consensusdb raft config\|join\|bootstrap` CLI registered (`cmd.RaftGroup` roots the parentless raftvrpc group) | S |
 | **S2** | AuthN: password + token + mTLS-mapping Authenticator on the data plane; system-tenant identity records; `iam bootstrap`; cdb client `WithCredential(...)` option | M |
 | **S3** | IAM: roles/permissions/bindings model + policy cache + enforcement in all handlers; predefined roles; CLI for IAM CRUD; audit log stream | M–L |
 | **S4** | Backups: `admin.backup/restore` + CLI + CronJob to object storage (WORM), restore runbook, backup-age metric/alert | S–M |

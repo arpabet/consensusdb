@@ -11,7 +11,9 @@ require google.golang.org/grpc v1.81.1 // indirect
 require go.uber.org/atomic v1.11.0 // indirect
 
 require (
+	github.com/armon/go-metrics v0.4.1
 	github.com/hashicorp/go-hclog v1.6.3
+	github.com/hashicorp/go-metrics v0.5.4
 	github.com/hashicorp/raft v1.7.3
 	go.arpabet.com/cligo v0.5.0
 	go.arpabet.com/glue v1.5.1
@@ -19,7 +21,7 @@ require (
 	go.arpabet.com/raft/raftmod v0.3.1
 	go.arpabet.com/raft/raftvrpc v0.3.1
 	go.arpabet.com/servion v1.5.0
-	go.arpabet.com/store v1.3.2
+	go.arpabet.com/store v1.3.3
 	go.arpabet.com/store/providers/badger v1.3.2
 	go.arpabet.com/value v1.3.1
 	go.arpabet.com/value-rpc v1.5.2
@@ -35,7 +37,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.5.0 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2 // indirect
-	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.2.0 // indirect
@@ -54,7 +55,6 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
-	github.com/hashicorp/go-metrics v0.5.4 // indirect
 	github.com/hashicorp/go-msgpack/v2 v2.1.5 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-sockaddr v1.0.7 // indirect
@@ -107,7 +107,7 @@ require (
 )
 
 require (
-	github.com/prometheus/client_golang v1.23.2 // indirect
+	github.com/prometheus/client_golang v1.23.2
 	go.arpabet.com/store/middleware/crypto v0.0.0-00010101000000-000000000000
 	go.arpabet.com/store/providers/cdb v0.0.0-00010101000000-000000000000
 	go.arpabet.com/uuid v1.1.1

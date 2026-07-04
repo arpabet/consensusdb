@@ -6,6 +6,8 @@
 package main
 
 import (
+	"os"
+
 	"go.arpabet.com/cligo"
 	"go.arpabet.com/consensusdb/cmd"
 	"go.arpabet.com/consensusdb/pkg/constants"
@@ -13,6 +15,7 @@ import (
 	"go.arpabet.com/consensusdb/pkg/run"
 	"go.arpabet.com/consensusdb/pkg/server"
 	"go.arpabet.com/glue"
+	"go.arpabet.com/raft/raftvrpc"
 	"go.arpabet.com/servion"
 )
 
@@ -46,6 +49,11 @@ func main() {
 		// the raft↔control port offset.
 		"vrpc-server.bind-address": "",
 		"raft.rpc-bean-name":       "vrpc-server",
+
+		// Where the `raft config|join|bootstrap` CLI dials the control plane.
+		// Defaults to this node's own data-plane port so `consensusdb raft …`
+		// works when exec'd on a running node (e.g. inside the pod).
+		"raft-vrpc-client.address": "tcp://127.0.0.1:8444",
 	}
 
 	// "run" scope: storage + servers are only constructed when serving.
@@ -65,10 +73,15 @@ func main() {
 	// host as the raft control plane (dormant when vrpc-server.bind-address empty).
 	runScope = append(runScope, &server.VrpcDataService{})
 
+	// raft + badger runtime metrics on the /metrics endpoint.
+	runScope = append(runScope, &run.MetricsBridge{})
+
 	// Root scope: lightweight beans available to every command.
 	beans := []interface{}{
 		properties,
-		servion.ZapLogFactory(true),
+		// Structured production logs (JSON to stdout) when COS=prod; human-readable
+		// development logs otherwise.
+		servion.ZapLogFactory(os.Getenv("COS") != "prod"),
 
 		&cmd.VersionCommand{},
 		&cmd.LicensesCommand{},
@@ -78,6 +91,17 @@ func main() {
 		&cmd.StopCommand{},
 
 		servion.RunCommand(runScope...),
+	}
+	// Cluster management CLI: `consensusdb raft config|join|bootstrap`, dialing
+	// the control plane at raft-vrpc-client.address. The published
+	// raftvrpc.RaftGroup has no parent group, which cligo rejects — cmd.RaftGroup
+	// stands in for it (the commands attach to any group named "raft").
+	beans = append(beans, &cmd.RaftGroup{})
+	for _, b := range raftvrpc.Commands() {
+		if _, isGroup := b.(cligo.CliGroup); isGroup {
+			continue
+		}
+		beans = append(beans, b)
 	}
 
 	cligo.Main(
