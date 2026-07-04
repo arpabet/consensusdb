@@ -246,8 +246,19 @@ err = ds.EnumerateRaw(ctx, nil, nil, 100, false, false, func(e *store.RawEntry) 
 })
 ```
 
-See the `store/providers/cdb` README for TLS/mTLS/QUIC (`WithTLSConfig`) and the
-full capability matrix.
+To address many tenants and regions over **one** connection — the native cdb
+access model (MajorKey + RegionName per request) — use the multi-store:
+
+```go
+multi, _ := cdb.NewMulti("app", "tcp://localhost:8444")
+users := multi.Region("alice", "USERS")     // tenant alice, table USERS
+prof  := multi.Region(profileId, "PROFILE") // per-user collocation; views are O(1)
+```
+
+Regions are GemFire/GemStone-style logical tables; the major key is the
+collocation unit (a tenant or profile id — one owner's data lives together,
+scannable and movable as a whole). See the `store/providers/cdb` README for
+TLS/mTLS/QUIC (`WithTLSConfig`), `MultiDataStore`, and the full capability matrix.
 
 ```
 
