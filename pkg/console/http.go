@@ -83,9 +83,11 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := valuerpc.ContextWithPrincipal(r.Context(), principal)
 
-	// admin reports whether the caller holds cluster-admin (used for UI gating
-	// and to gate the admin-only operations below).
+	// admin reports whether the caller holds cluster-admin (gates the admin
+	// console and admin-only operations); canRead reports whether the caller can
+	// see the read-only dashboard (roles/cdb.viewer and up all hold records.get).
 	admin := t.Policy.Authorize(ctx, iam.PermClusterAdmin, "", "") == nil
+	canRead := t.Policy.Authorize(ctx, iam.PermRecordsGet, "", "") == nil
 
 	authorize := func(perm string) bool {
 		if err := t.Policy.Authorize(ctx, perm, "", ""); err != nil {
@@ -97,22 +99,22 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case path == "/api/me" && method == http.MethodGet:
-		writeJSON(w, http.StatusOK, map[string]any{"principal": principal, "isAdmin": admin})
+		writeJSON(w, http.StatusOK, map[string]any{"principal": principal, "isAdmin": admin, "canRead": canRead})
 
 	case path == "/api/cluster" && method == http.MethodGet:
-		if authorize(iam.PermProofsRead) {
+		if authorize(iam.PermRecordsGet) {
 			t.cluster(w)
 		}
 	case path == "/api/ledger/status" && method == http.MethodGet:
-		if authorize(iam.PermProofsRead) {
+		if authorize(iam.PermRecordsGet) {
 			t.ledgerStatus(w)
 		}
 	case path == "/api/stats" && method == http.MethodGet:
-		if authorize(iam.PermProofsRead) {
+		if authorize(iam.PermRecordsGet) {
 			t.stats(w)
 		}
 	case path == "/api/regions" && method == http.MethodGet:
-		if authorize(iam.PermProofsRead) {
+		if authorize(iam.PermRecordsGet) {
 			t.regions(w)
 		}
 	case path == "/api/node/metrics" && method == http.MethodGet:
@@ -206,6 +208,23 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case path == "/api/iam/bindings/revoke" && method == http.MethodPost:
 		if authorize(iam.PermIamSet) {
 			t.iamChangeBinding(w, r, false)
+		}
+	case strings.HasPrefix(path, "/api/iam/service-accounts/") && strings.HasSuffix(path, "/certs") && method == http.MethodPost:
+		if authorize(iam.PermIamSet) {
+			name := strings.TrimSuffix(strings.TrimPrefix(path, "/api/iam/service-accounts/"), "/certs")
+			t.iamServiceAccountCert(w, r, name)
+		}
+	case path == "/api/iam/groups" && method == http.MethodGet:
+		if authorize(iam.PermIamGet) {
+			t.iamListGroups(w)
+		}
+	case path == "/api/iam/groups" && method == http.MethodPost:
+		if authorize(iam.PermIamSet) {
+			t.iamSetGroup(w, r)
+		}
+	case strings.HasPrefix(path, "/api/iam/groups/") && method == http.MethodDelete:
+		if authorize(iam.PermIamSet) {
+			t.iamDeleteGroup(w, strings.TrimPrefix(path, "/api/iam/groups/"))
 		}
 
 	default:

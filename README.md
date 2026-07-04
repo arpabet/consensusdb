@@ -303,38 +303,42 @@ build with two entries embedded via go-bindata as `pkg/webui` — run `make webu
 after front-end changes). Both call the admin REST API under `/api` (bearer/basic
 auth → principal → permission):
 
-- the **read-only dashboard** at **`/`** — monitoring only, no mutating actions;
+- the **read-only dashboard** at **`/dashboard`** (`/` redirects here) — monitoring
+  only, no mutating actions;
 - the **admin console** at **`/console`** — all management, requires an admin
   sign-in.
 
 **Sign-in** accepts a **username + password** (HTTP Basic) *or* an **IAM token** —
 so the password admin created during onboarding can actually sign in.
 
-### Dashboard (`/`, read-only)
+### Dashboard (`/dashboard`, read-only)
 
 Cluster/raft status, the live ledger head, **per-region footprint** (keys, size
-on-transfer/on-disk), and store-wide **reads/writes per second** (rates derived
-from `/api/stats` deltas). Open to any authenticated user (an auditor role is
-enough); anonymous when `auth.enabled=false`.
+on-transfer/on-disk), and store-wide **reads/writes per second**. Requires at least
+**`roles/cdb.viewer`** (`/api/me` reports `canRead`); anonymous when
+`auth.enabled=false`.
 
 ### Admin console (`/console`, admin)
 
 - **First-run onboarding** — on a fresh cluster (`GET /api/setup/status`) a wizard
-  creates the first admin (`POST /api/setup/bootstrap`, self-guarded so it's inert
-  once done) and can generate + download the **ledger CA**, then points you at
-  enabling `AUTH_ENABLED`.
-- **Access** — manage identities without the CLI: **users** (password login),
-  **application tokens** (service accounts — the token is shown once at creation),
-  and **role bindings** at instance / tenant / **region** scope. Backed by
-  `/api/iam/*` (reads need `cdb.iam.get`, writes `cdb.iam.set`).
-- **Nodes** — every raft member with **up/down** health and **per-node CPU /
-  memory / storage** load (storage turns **red over 80%**), overall cluster load,
-  **add a node** (`AddVoter`) and **remove** (with confirmation). The serving node
-  fans out to peers' `/api/node/metrics` and proxies membership to the leader, so
-  it works from a single Kubernetes Service endpoint.
-- **Database** — **export** to an encrypted download and **import** from a dump
-  (refused while replication is active).
-- **Verify ledger** — backup-verification with a **progress bar**.
+  creates the first admin (`POST /api/setup/bootstrap`) and can generate the
+  **ledger CA**, then points you at enabling `AUTH_ENABLED`.
+- **IAM** — a GCP-style page: every principal (user / service account / group) and
+  the **roles** granted to it, each scoped to the **whole database**, a **tenant
+  (major key)**, or a **region**. Multiple assignments per principal. Grant/revoke
+  with a dialog.
+- **Users** — password identities: create/list/delete, filterable, with each
+  user's role/scope summary.
+- **Access** — **service accounts** (application tokens shown once + **mutual-TLS
+  certificate identities**) and **groups**.
+- **Nodes** — raft members with **up/down** health and **per-node CPU / memory /
+  storage** load (red over 80%), overall load, **add**/**remove** (proxied to the
+  leader — works from one Kubernetes Service endpoint).
+- **Database** — **export**/**import** dumps. **Verify ledger** — backup
+  verification with a progress bar.
+
+Backed by `/api/iam/*` (reads need `cdb.iam.get`, writes `cdb.iam.set`), `/api/*`
+(admin = `cdb.cluster.admin` / `cdb.backups.*`).
 
 `GET /api/me` returns `{principal, isAdmin}` for UI gating; the admin-only
 operations are also enforced server-side (`cdb.backups.*`, `cdb.cluster.admin`).

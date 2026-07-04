@@ -61,7 +61,7 @@ Stop the node with `Ctrl-C`.
 
 Both web apps are **baked into the binary** — nothing to build:
 
-- **Dashboard** (read-only monitoring): <http://localhost:8441/>
+- **Dashboard** (read-only monitoring): <http://localhost:8441/dashboard> (`/` redirects here)
 - **Admin console** (management): <http://localhost:8441/console>
 
 (To *change* them, edit `webapp/` and run `make webui`, which rebuilds and
@@ -74,9 +74,11 @@ and can generate a ledger CA. That admin is stored in the database.
 
 **Signing in** (both apps) accepts your **username + password** *or* an **IAM
 token**. With authentication off the apps are open; once you enable auth, the
-dashboard needs any authenticated user (auditor+) and the admin console needs an
-admin. You can manage users and tokens right in the admin console's **Access**
-page — or with the CLI below.
+dashboard needs at least `roles/cdb.viewer` and the admin console needs an admin.
+Manage identities right in the admin console — **IAM** (grant roles to principals
+at whole-DB / tenant / region scope, GCP-style), **Users**, and **Access**
+(service accounts + application tokens + mTLS cert identities + groups) — or with
+the CLI below.
 
 ---
 

@@ -3,30 +3,31 @@
 **Two** apps built from this one project (multi-page, `base: /`, shared assets),
 both calling the admin REST API under `/api`:
 
-- **Dashboard** (`index.html` → `src/dashboard.js` → `DashboardApp.vue`), served
-  by the node at **`/`** — read-only monitoring, no mutating actions.
+- **Dashboard** (`dashboard.html` → `src/dashboard.js` → `DashboardApp.vue`),
+  served at **`/dashboard`** (`/` redirects here) — read-only monitoring, gated on
+  `roles/cdb.viewer` (the `canRead` flag from `/api/me`).
 - **Admin console** (`console.html` → `src/admin.js` → `AdminApp.vue`), served at
   **`/console`** — all management, requires an admin sign-in.
 
 Sign-in (`components/Login.vue`, shared) accepts a username + password *or* an IAM
 token.
 
-Dashboard view:
+Dashboard view: cluster/raft status, the live ledger head, per-region footprint,
+and reads/writes per second.
 
-- **Dashboard** — cluster/raft status, the live ledger head, per-region footprint
-  (keys, size on-transfer and on-disk), and reads/writes per second.
+Admin console tabs:
 
-Admin console views:
-
-- **Onboarding** — a first-run wizard (create the admin, optionally generate the
-  ledger CA) shown when the cluster needs setup.
-- **Access** — users (password login), application tokens (service accounts —
-  shown once), and role bindings at instance/tenant/region scope.
+- **IAM** (`IAM.vue`) — GCP-style: each principal (user / service account / group)
+  and its roles, scoped to the whole database, a tenant (major key), or a region;
+  grant/revoke, multiple assignments per principal.
+- **Users** (`Users.vue`) — password identities: create/delete, filterable, with a
+  per-user role/scope summary.
+- **Access** (`Access.vue`) — service accounts (application tokens shown once +
+  mutual-TLS certificate identities) and groups.
 - **Nodes** — raft members with up/down health and per-node CPU/memory/storage
-  load (storage red over 80%), overall cluster load, add/remove nodes.
-- **Database** — export to an encrypted download, or import from a dump file.
-- **Verify ledger** — verify a backup against a quorum certificate with a
-  **progress bar**.
+  load (red over 80%), overall load, add/remove nodes.
+- **Database** — export/import dumps. **Verify ledger** — with a progress bar.
+- **Onboarding** — first-run wizard (create the admin, optionally generate the CA).
 
 ## Develop
 
@@ -74,8 +75,10 @@ regenerated `pkg/webui/bindata.go` alongside your front-end changes.
 | POST | `/api/database/import`     | admin | load an uploaded dump |
 | GET/POST | `/api/iam/users`        | iam   | list / create users; `DELETE /api/iam/users/{name}` |
 | GET/POST | `/api/iam/service-accounts` | iam | list / create (mint token, once); `DELETE …/{name}` |
+| POST | `/api/iam/service-accounts/{name}/certs` | iam | add/remove a mTLS cert identity (`{identity, remove}`) |
 | GET  | `/api/iam/roles`           | iam   | predefined + custom roles |
 | GET/POST | `/api/iam/bindings`     | iam   | list / grant; `POST /api/iam/bindings/revoke` |
+| GET/POST | `/api/iam/groups`       | iam   | list / create-or-replace; `DELETE /api/iam/groups/{name}` |
 
 Requests (except onboarding) carry an `Authorization` header (Bearer IAM token or
 Basic user:password). *read* = `cdb.proofs.read`, *admin* = `cdb.cluster.admin` /

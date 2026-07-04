@@ -97,11 +97,13 @@ func main() {
 		servion.HttpServerScanner("http-server",
 			&console.ConsoleHandler{}, // /api/* admin REST for both web apps
 			// Two embedded single-page apps (pkg/webui): the read-only dashboard
-			// at /, the admin console at /console, sharing built assets at /assets.
-			run.NewPageHandler("/", "index.html"),
+			// at /dashboard, the admin console at /console, sharing /assets.
+			run.NewPageHandler("/dashboard/{rest:.*}", "dashboard.html"),
 			run.NewPageHandler("/console/{rest:.*}", "console.html"),
-			run.NewConsoleRedirect(), // /console → /console/
-			run.NewAssetsHandler(),   // /assets/*
+			run.NewRedirect("/", "/dashboard/"),          // homepage → dashboard
+			run.NewRedirect("/dashboard", "/dashboard/"), // bare → slash
+			run.NewRedirect("/console", "/console/"),     // bare → slash
+			run.NewAssetsHandler(),                       // /assets/*
 			servion.MetricsHandler(),
 			// Plain-text "OK" health endpoints for Kubernetes probes.
 			run.NewHealthHandler("/healthz"),

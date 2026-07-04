@@ -6,8 +6,15 @@ import Dashboard from './components/Dashboard.vue'
 
 // The read-only monitoring dashboard, served at /. It never mutates anything —
 // all management lives in the admin console at /console.
-const phase = ref('loading') // loading | setup | login | app
+const phase = ref('loading') // loading | setup | login | denied | app
 const me = ref(null)
+
+function gate(m) {
+  me.value = m
+  // The dashboard needs at least roles/cdb.viewer (records.get); the server
+  // reports this as canRead.
+  phase.value = m.canRead ? 'app' : 'denied'
+}
 
 async function boot() {
   try {
@@ -20,16 +27,14 @@ async function boot() {
     /* fall through and try to read */
   }
   try {
-    me.value = await api.me()
-    phase.value = 'app'
+    gate(await api.me())
   } catch (e) {
     phase.value = 'login'
   }
 }
 
 function onAuthed(m) {
-  me.value = m
-  phase.value = 'app'
+  gate(m)
 }
 
 function signOut() {
@@ -61,6 +66,13 @@ onMounted(boot)
     </div>
 
     <Login v-else-if="phase === 'login'" @authed="onAuthed" />
+
+    <div v-else-if="phase === 'denied'" class="panel" style="max-width:32rem">
+      <h2>Access denied</h2>
+      <p>Your account can't view the dashboard. It needs at least the
+        <code>roles/cdb.viewer</code> role. Ask an administrator to grant it in the
+        <a href="/console">admin console → IAM</a>.</p>
+    </div>
 
     <Dashboard v-else-if="phase === 'app'" />
   </div>

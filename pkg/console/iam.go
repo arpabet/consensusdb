@@ -391,6 +391,146 @@ func dedup(in []string) []string {
 	return out
 }
 
+// ---------------------------------------------------------------------------
+// Service-account certificate identities (mutual TLS)
+// ---------------------------------------------------------------------------
+
+// iamServiceAccountCert adds or removes a certificate identity (a SAN URI or CN)
+// on a service account. Adding also writes the cert index (cert/<identity> → SA)
+// so an mTLS client presenting that identity authenticates as this account.
+func (t *ConsoleHandler) iamServiceAccountCert(w http.ResponseWriter, r *http.Request, saName string) {
+	var req struct {
+		Identity string `json:"identity"`
+		Remove   bool   `json:"remove"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		return
+	}
+	if saName == "" || strings.TrimSpace(req.Identity) == "" {
+		writeErr(w, http.StatusBadRequest, "service account and identity are required")
+		return
+	}
+	identity := strings.TrimSpace(req.Identity)
+
+	rec, err := t.svc.Get(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.ServiceAccountPrefix + saName)})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if rec == nil || len(rec.Value) == 0 {
+		writeErr(w, http.StatusNotFound, "service account not found")
+		return
+	}
+	sa := &iam.ServiceAccountRecord{}
+	if err := iam.Decode(rec.Value, sa); err != nil {
+		writeErr(w, http.StatusInternalServerError, "decode record")
+		return
+	}
+
+	if req.Remove {
+		sa.CertIdentities = without(sa.CertIdentities, identity)
+		if _, err := t.svc.Remove(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.CertPrefix + identity)}); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	} else {
+		sa.CertIdentities = dedup(append(sa.CertIdentities, identity))
+		idx, err := iam.Encode(&iam.CertIndexRecord{ServiceAccount: saName})
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, "encode cert index")
+			return
+		}
+		if _, err := t.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(iam.CertPrefix + identity), Value: idx}); err != nil {
+			writeErr(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+
+	raw, err := iam.Encode(sa)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "encode record")
+		return
+	}
+	if _, err := t.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(iam.ServiceAccountPrefix + saName), Value: raw}); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"name": saName, "certIdentities": sa.CertIdentities})
+}
+
+func without(list []string, v string) []string {
+	var out []string
+	for _, s := range list {
+		if s != v {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// ---------------------------------------------------------------------------
+// Groups
+// ---------------------------------------------------------------------------
+
+type groupOut struct {
+	Name    string   `json:"name"`
+	Members []string `json:"members"`
+}
+
+func (t *ConsoleHandler) iamListGroups(w http.ResponseWriter) {
+	var groups []groupOut
+	err := t.scanIAM(func(minor string, value []byte) {
+		if name, ok := strings.CutPrefix(minor, iam.GroupPrefix); ok {
+			g := &iam.GroupRecord{}
+			if iam.Decode(value, g) == nil {
+				groups = append(groups, groupOut{name, g.Members})
+			}
+		}
+	})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "scan groups")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"groups": groups})
+}
+
+// iamSetGroup creates or replaces a group's membership (like `iam group-set`).
+func (t *ConsoleHandler) iamSetGroup(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name    string   `json:"name"`
+		Members []string `json:"members"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		return
+	}
+	if req.Name == "" || strings.ContainsAny(req.Name, "/ ") {
+		writeErr(w, http.StatusBadRequest, "group name is required and must not contain '/' or spaces")
+		return
+	}
+	raw, err := iam.Encode(&iam.GroupRecord{Name: req.Name, Members: dedup(req.Members)})
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "encode record")
+		return
+	}
+	if _, err := t.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(iam.GroupPrefix + req.Name), Value: raw}); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"name": req.Name, "members": dedup(req.Members)})
+}
+
+func (t *ConsoleHandler) iamDeleteGroup(w http.ResponseWriter, name string) {
+	if name == "" {
+		writeErr(w, http.StatusBadRequest, "group name required")
+		return
+	}
+	if _, err := t.svc.Remove(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.GroupPrefix + name)}); err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deleted": name})
+}
+
 // decodeJSON reads a small JSON body into v, writing a 400 on failure.
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) error {
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(v); err != nil {

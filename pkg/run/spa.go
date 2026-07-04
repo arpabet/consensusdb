@@ -20,9 +20,9 @@ import (
 Serving for the two embedded web apps (built by `make webui` from webapp/ into
 pkg/webui, one build with two HTML entries and shared assets):
 
-  - the read-only dashboard  (index.html)   at /
-  - the admin console         (console.html) at /console
-  - their shared built assets                at /assets
+  - the read-only dashboard  (dashboard.html) at /dashboard (/ redirects here)
+  - the admin console         (console.html)   at /console
+  - their shared built assets                  at /assets
 
 Both are single-page apps; their assets are content-hashed and live under
 /assets, so each page mount just serves its one HTML entry (with a placeholder
@@ -30,7 +30,7 @@ when the binary was built without the embedded apps).
 */
 
 func embeddedModTime() time.Time {
-	if info, err := webui.AssetInfo("index.html"); err == nil {
+	if info, err := webui.AssetInfo("dashboard.html"); err == nil {
 		return info.ModTime()
 	}
 	return time.Time{}
@@ -114,18 +114,21 @@ func (t *AssetsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serveEmbedded(w, r, name, t.modTime)
 }
 
-// ConsoleRedirect redirects the bare /console to /console/, which the admin page
-// mount (/console/{rest:.*}) matches.
-type ConsoleRedirect struct{}
+// Redirect issues a permanent redirect from a fixed path to a target — used to
+// send / to the dashboard and the bare /dashboard and /console to their
+// trailing-slash page mounts (which gorilla/mux only matches with the slash).
+type Redirect struct {
+	from, to string
+}
 
-func NewConsoleRedirect() *ConsoleRedirect { return &ConsoleRedirect{} }
+func NewRedirect(from, to string) *Redirect { return &Redirect{from: from, to: to} }
 
-func (t *ConsoleRedirect) BeanName() string { return "console-redirect" }
+func (t *Redirect) BeanName() string { return "redirect-" + t.from }
 
-func (t *ConsoleRedirect) Pattern() string { return "/console" }
+func (t *Redirect) Pattern() string { return t.from }
 
-func (t *ConsoleRedirect) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	http.Redirect(w, r, "/console/", http.StatusMovedPermanently)
+func (t *Redirect) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, t.to, http.StatusMovedPermanently)
 }
 
 const placeholder = `<!doctype html><html><head><meta charset="utf-8"><title>ConsensusDB</title></head>
