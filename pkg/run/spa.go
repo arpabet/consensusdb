@@ -36,6 +36,23 @@ func NewSpaHandler() *SpaHandler { return &SpaHandler{} }
 
 func (t *SpaHandler) BeanName() string { return "spa-handler" }
 
+/*
+ConsoleRedirect redirects the bare /console to /console/. The SpaHandler is
+mounted at /console/{rest:.*}, which gorilla/mux only matches with the trailing
+slash, so without this a user typing http://host:8441/console gets a 404.
+*/
+type ConsoleRedirect struct{}
+
+func NewConsoleRedirect() *ConsoleRedirect { return &ConsoleRedirect{} }
+
+func (t *ConsoleRedirect) BeanName() string { return "console-redirect" }
+
+func (t *ConsoleRedirect) Pattern() string { return "/console" }
+
+func (t *ConsoleRedirect) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/console/", http.StatusMovedPermanently)
+}
+
 func (t *SpaHandler) PostConstruct() error {
 	// index.html present in the embedded set ⇒ the console was baked in.
 	if info, err := webui.AssetInfo("index.html"); err == nil {

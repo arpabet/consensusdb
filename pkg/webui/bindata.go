@@ -173,7 +173,7 @@ func assetsIndexDycdrl5cJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/index-DyCdRL5C.js", size: 87690, mode: os.FileMode(420), modTime: time.Unix(1783152315, 0)}
+	info := bindataFileInfo{name: "assets/index-DyCdRL5C.js", size: 87690, mode: os.FileMode(420), modTime: time.Unix(1783152560, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -193,7 +193,7 @@ func assetsIndexOfqt_td7Css() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/index-oFQt_Td7.css", size: 2402, mode: os.FileMode(420), modTime: time.Unix(1783152315, 0)}
+	info := bindataFileInfo{name: "assets/index-oFQt_Td7.css", size: 2402, mode: os.FileMode(420), modTime: time.Unix(1783152560, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -213,7 +213,7 @@ func indexHtml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "index.html", size: 419, mode: os.FileMode(420), modTime: time.Unix(1783152315, 0)}
+	info := bindataFileInfo{name: "index.html", size: 419, mode: os.FileMode(420), modTime: time.Unix(1783152560, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }

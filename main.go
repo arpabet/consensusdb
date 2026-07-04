@@ -97,7 +97,8 @@ func main() {
 		servion.HttpServerScanner("http-server",
 			&run.WelcomeHandler{},
 			&console.ConsoleHandler{}, // /api/* admin REST for the web console
-			run.NewSpaHandler(),       // serves the embedded web console (pkg/webui) at /console
+			run.NewConsoleRedirect(),  // /console → /console/
+			run.NewSpaHandler(),       // serves the embedded web console (pkg/webui) at /console/
 			servion.MetricsHandler(),
 			// Plain-text "OK" health endpoints for Kubernetes probes.
 			run.NewHealthHandler("/healthz"),
