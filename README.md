@@ -181,6 +181,46 @@ On Kubernetes: deploy with `auth_enabled=false`, `kubectl exec consensusdb-0 --
 `terraform.tfvars` and re-apply. `TestCdbAuthPasswordAndToken` and
 `TestCdbAuthMutualTLSIdentity` (in `pkg/replication`) exercise the full ladder.
 
+# Authorization (IAM)
+
+With `auth.enabled=true`, every data-plane operation is authorized against a
+GCP-style policy: **permissions → roles → bindings**, evaluated for the
+connection's principal at the addressed **(tenant, region)** scope.
+
+- **Permissions** the server enforces: `cdb.records.{get,put,delete,increment,
+  batch,enumerate,watch}`, and `cdb.iam.{get,set}` for the system tenant.
+- **Roles** are permission lists. Predefined: `roles/cdb.viewer`,
+  `roles/cdb.editor`, `roles/cdb.auditor`, `roles/cdb.tenantAdmin`,
+  `roles/cdb.admin`. Custom roles are the GCP "text form" — a named permission
+  list you create.
+- **Bindings** `{role, members[]}` attach at **instance → tenant → region**,
+  inherited downward; a grant is never broader than its binding's scope. Members
+  are `user:…`, `serviceAccount:…`, or `group:…` (groups expand one level).
+- **Tenant-isolation floor**: a binding on tenant A never authorizes tenant B —
+  scope is the request key's own `major`/`region`, so a caller cannot address one
+  tenant while authorized for another. The **system tenant** (`__system`, holding
+  IAM itself) requires `cdb.iam.*` instead of `cdb.records.*`.
+
+Policy lives in the system tenant (like identities) and is **replicated,
+versioned, and auditable** the same way. Each node compiles it into an immutable
+in-memory snapshot and reloads on any `__system` change (fed by the raft apply
+path) — grants take effect cluster-wide **without a restart**. `bootstrap` admins
+have full access.
+
+```bash
+# a read-only auditor role, granted to a group at a tenant
+consensusdb iam group-set analysts --members user:carol,user:dave
+consensusdb iam role-add roles/reports.viewer --permissions cdb.records.get,cdb.records.enumerate
+consensusdb iam binding-add roles/reports.viewer --members group:analysts --tenant acme
+
+# a service account that may only write one region
+consensusdb iam binding-add roles/cdb.editor --members serviceAccount:staphi --tenant acme --region APP
+```
+
+`TestCdbAuthorizationEnforced` (in `pkg/replication`) drives the whole path:
+allow/deny by role, the tenant-isolation floor, the `__system` guard, and the
+live watch-driven policy reload.
+
 # Deploy to Kubernetes (Karagatan)
 
 The **`Deploy to Karagatan`** GitHub Action (`.github/workflows/deploy.yaml`) builds

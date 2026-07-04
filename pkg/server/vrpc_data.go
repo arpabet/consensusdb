@@ -10,12 +10,13 @@ import (
 	"context"
 	"sort"
 
+	"go.arpabet.com/consensusdb/pkg/iam"
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/store"
 	"go.arpabet.com/value"
 	"go.arpabet.com/value-rpc/valueclient"
-	"go.arpabet.com/value-rpc/valueserver"
 	"go.arpabet.com/value-rpc/valuerpc"
+	"go.arpabet.com/value-rpc/valueserver"
 	"go.uber.org/zap"
 	"golang.org/x/xerrors"
 )
@@ -35,6 +36,7 @@ type VrpcDataService struct {
 	Storage    KeyValueStorage    `inject:""`
 	Replicator Replicator         `inject:"optional"`
 	Auth       *AuthService       `inject:"optional"`
+	Policy     *PolicyService     `inject:"optional"`
 	Log        *zap.Logger        `inject:""`
 
 	svc *KeyValueService
@@ -55,6 +57,11 @@ func (t *VrpcDataService) PostConstruct() error {
 	// Replicator, so both wires route writes and reads identically.
 	t.svc = &KeyValueService{Storage: t.Storage, Replicator: t.Replicator, Log: t.Log}
 
+	// Authorization guards: each handler checks the required permission for the
+	// addressed (tenant, region) before running. When auth is disabled the
+	// PolicyService is a no-op, so the guards cost nothing.
+	p := t.Policy
+
 	must := func(err error) {
 		if err != nil {
 			t.Log.Error("VrpcDataRegister", zap.Error(err))
@@ -62,17 +69,41 @@ func (t *VrpcDataService) PostConstruct() error {
 	}
 	// Reads are served locally (any node); writes route through the Replicator and
 	// may return NotLeaderError, wrapped so the client can redirect to the leader.
-	must(valueserver.AddUnary(t.Server, "kv.get", keyRequestCodec, recordCodec, t.svc.Get))
-	must(valueserver.AddUnary(t.Server, "kv.getrecent", keyRequestCodec, recordCodec, t.svc.GetRecent))
-	must(valueserver.AddUnary(t.Server, "kv.put", recordRequestCodec, statusCodec, redirectable(t.svc.Put)))
-	must(valueserver.AddUnary(t.Server, "kv.touch", recordRequestCodec, statusCodec, redirectable(t.svc.Touch)))
-	must(valueserver.AddUnary(t.Server, "kv.remove", keyRequestCodec, statusCodec, redirectable(t.svc.Remove)))
-	must(valueserver.AddUnary(t.Server, "kv.increment", incrementRequestCodec, incrementResponseCodec, redirectable(t.svc.Increment)))
-	must(valueserver.AddUnary(t.Server, "kv.batch", batchRequestCodec, statusCodec, redirectable(t.svc.Batch)))
+	must(valueserver.AddUnary(t.Server, "kv.get", keyRequestCodec, recordCodec,
+		guardKey(p, iam.PermRecordsGet, keyReqKey, t.svc.Get)))
+	must(valueserver.AddUnary(t.Server, "kv.getrecent", keyRequestCodec, recordCodec,
+		guardKey(p, iam.PermRecordsGet, keyReqKey, t.svc.GetRecent)))
+	must(valueserver.AddUnary(t.Server, "kv.put", recordRequestCodec, statusCodec,
+		guardKey(p, iam.PermRecordsPut, recordReqKey, redirectable(t.svc.Put))))
+	must(valueserver.AddUnary(t.Server, "kv.touch", recordRequestCodec, statusCodec,
+		guardKey(p, iam.PermRecordsPut, recordReqKey, redirectable(t.svc.Touch))))
+	must(valueserver.AddUnary(t.Server, "kv.remove", keyRequestCodec, statusCodec,
+		guardKey(p, iam.PermRecordsDelete, keyReqKey, redirectable(t.svc.Remove))))
+	must(valueserver.AddUnary(t.Server, "kv.increment", incrementRequestCodec, incrementResponseCodec,
+		guardKey(p, iam.PermRecordsIncrement, incrementReqKey, redirectable(t.svc.Increment))))
+	must(valueserver.AddUnary(t.Server, "kv.batch", batchRequestCodec, statusCodec, t.guardedBatch()))
 	// Server-streams: enumerate records under a prefix, and watch changes.
 	must(valueserver.AddOutgoingStreamTyped(t.Server, "kv.enumerate", enumerateRequestCodec, recordCodec, t.enumerate))
 	must(valueserver.AddOutgoingStreamTyped(t.Server, "kv.watch", watchRequestCodec, watchEventCodec, t.watch))
 	return nil
+}
+
+// guardedBatch authorizes a batch write: the batch must target a single
+// tenant+region (rejected otherwise) and the caller must hold cdb.records.batch
+// on it.
+func (t *VrpcDataService) guardedBatch() func(context.Context, *pb.BatchRequest) (*pb.Status, error) {
+	inner := redirectable(t.svc.Batch)
+	return func(ctx context.Context, req *pb.BatchRequest) (*pb.Status, error) {
+		tenant, region, ok := batchScope(req)
+		if !ok {
+			return nil, valuerpc.NewError(valuerpc.CodeInvalidArgument,
+				"batch must target a single tenant and region")
+		}
+		if err := t.Policy.Authorize(ctx, iam.PermRecordsBatch, tenant, region); err != nil {
+			return nil, err
+		}
+		return inner(ctx, req)
+	}
 }
 
 // NotLeaderPrefix marks a value-rpc error meaning "not leader; redirect". The
@@ -101,6 +132,10 @@ func redirectable[Req, Resp any](fn func(context.Context, Req) (Resp, error)) fu
 // minor key (lexical, reversed on request) before streaming — O(n) server memory,
 // which is why it is opt-in. This is what lets the cdb provider advertise Ordered.
 func (t *VrpcDataService) enumerate(ctx context.Context, req *pb.EnumerateRequest) (<-chan *pb.Record, error) {
+	tenant, region := scopeOf(req.Prefix)
+	if err := t.Policy.Authorize(ctx, iam.PermRecordsEnumerate, tenant, region); err != nil {
+		return nil, err
+	}
 	out := make(chan *pb.Record)
 
 	scan := func(sender BlockSender) error {
@@ -154,6 +189,10 @@ func (s *collectSender) Send(block *pb.Block) error {
 // watch streams change events for keys under the request's prefix. Best-effort:
 // the underlying WatchHub drops events for a watcher that falls behind.
 func (t *VrpcDataService) watch(ctx context.Context, req *pb.WatchRequest) (<-chan *pb.WatchEvent, error) {
+	tenant, region := scopeOf(req.Prefix)
+	if err := t.Policy.Authorize(ctx, iam.PermRecordsWatch, tenant, region); err != nil {
+		return nil, err
+	}
 	prefix, err := watchPrefix(req.Prefix)
 	if err != nil {
 		return nil, err

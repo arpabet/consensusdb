@@ -38,6 +38,23 @@ func PutRecord(ctx context.Context, cli valueclient.Client, minor string, val []
 	return err
 }
 
+// GetRecord reads and decodes an IAM record; found=false when absent.
+func GetRecord(ctx context.Context, cli valueclient.Client, minor string, obj interface{}) (found bool, err error) {
+	req := value.EmptyMap(true).Put("key", keyValue(minor)).Put("head_only", value.Boolean(false))
+	res, err := cli.CallFunction(ctx, "kv.get", req)
+	if err != nil {
+		return false, err
+	}
+	m, ok := res.(value.Map)
+	if !ok || !m.GetBool("found").Boolean() {
+		return false, nil
+	}
+	if err := Decode(m.GetString("value").Raw(), obj); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func putRecord(ctx context.Context, cli valueclient.Client, minor string, val []byte, createOnly bool) (bool, error) {
 	req := value.EmptyMap(true).
 		Put("key", keyValue(minor)).

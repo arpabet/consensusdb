@@ -68,6 +68,7 @@ func main() {
 		&server.Configuration{},
 		&server.StorageBean{},
 		&server.AuthService{},
+		&server.PolicyService{},
 		servion.HttpServerScanner("http-server",
 			&run.WelcomeHandler{},
 			servion.MetricsHandler(),
@@ -98,11 +99,14 @@ func main() {
 		&cmd.StartCommand{},
 		&cmd.StopCommand{},
 
-		// Identity management: `consensusdb iam bootstrap|user-add|sa-add`.
+		// Identity + authorization: `consensusdb iam …`.
 		&cmd.IamGroup{},
 		&cmd.IamBootstrapCommand{},
 		&cmd.IamUserAddCommand{},
 		&cmd.IamSaAddCommand{},
+		&cmd.IamRoleAddCommand{},
+		&cmd.IamGroupSetCommand{},
+		&cmd.IamBindingAddCommand{},
 
 		servion.RunCommand(runScope...),
 	}
