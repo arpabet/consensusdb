@@ -5,6 +5,7 @@ import { api } from '../api.js'
 // Service accounts (application tokens + mutual-TLS certificate identities) and
 // groups. Human users are on the Users tab; role assignments on the IAM tab.
 const accounts = ref([])
+const users = ref([])
 const groups = ref([])
 const bindings = ref([])
 const error = ref('')
@@ -14,8 +15,22 @@ const newSA = ref({ name: '' })
 const newToken = ref(null) // { name, token } shown once
 const certFor = ref(null) // service account whose certs are being managed
 const newCert = ref('')
-const newGroup = ref({ name: '', members: '' })
+const groupEditor = ref(null) // { name, members: [], isNew } while open
+const memberToAdd = ref('') // principal selected in the add-member dropdown
 const confirmDelete = ref(null) // { kind, name }
+
+// Principals selectable as group members (existing users + service accounts) that
+// are not already in the group being edited.
+const groupCandidates = computed(() => {
+  if (!groupEditor.value) return []
+  const inGroup = new Set(groupEditor.value.members)
+  return [
+    ...users.value.map((u) => 'user:' + u.name),
+    ...accounts.value.map((a) => 'serviceAccount:' + a.name),
+  ]
+    .filter((p) => !inGroup.has(p))
+    .sort()
+})
 
 // serviceAccount:name → [{role, scope}]
 const accessBySA = computed(() => {
@@ -34,8 +49,9 @@ function scopeLabel(s) { if (!s) return 'db'; const [t, r] = s.split('/'); retur
 async function refresh() {
   error.value = ''
   try {
-    const [s, g, b] = await Promise.all([api.serviceAccounts(), api.groups(), api.bindings()])
+    const [s, u, g, b] = await Promise.all([api.serviceAccounts(), api.users(), api.groups(), api.bindings()])
     accounts.value = s.serviceAccounts || []
+    users.value = u.users || []
     groups.value = g.groups || []
     bindings.value = b.bindings || []
     if (certFor.value) certFor.value = accounts.value.find((a) => a.name === certFor.value.name) || null
@@ -65,9 +81,28 @@ function addCert() {
 }
 function removeCert(id) { run(() => api.removeCert(certFor.value.name, id)) }
 
-function setGroup() {
-  const members = newGroup.value.members.split(/[\s,]+/).map((m) => m.trim()).filter(Boolean)
-  run(async () => { await api.setGroup(newGroup.value.name.trim(), members); newGroup.value = { name: '', members: '' } })
+function openNewGroup() {
+  groupEditor.value = { name: '', members: [], isNew: true }
+  memberToAdd.value = ''
+}
+function openEditGroup(g) {
+  groupEditor.value = { name: g.name, members: [...(g.members || [])], isNew: false }
+  memberToAdd.value = ''
+}
+function addGroupMember() {
+  const m = memberToAdd.value
+  if (m && !groupEditor.value.members.includes(m)) groupEditor.value.members.push(m)
+  memberToAdd.value = ''
+}
+function removeGroupMember(m) {
+  groupEditor.value.members = groupEditor.value.members.filter((x) => x !== m)
+}
+function saveGroup() {
+  const g = groupEditor.value
+  run(async () => {
+    await api.setGroup(g.name.trim(), g.members)
+    groupEditor.value = null
+  })
 }
 
 function doDelete() {
@@ -123,23 +158,60 @@ onMounted(refresh)
 
   <!-- Groups -->
   <div class="panel">
-    <h2>Groups</h2>
+    <div style="display:flex;align-items:center;margin-bottom:0.5rem">
+      <h2 style="margin:0">Groups</h2>
+      <button style="margin-left:auto" @click="openNewGroup">+ New group</button>
+    </div>
     <p class="hint">A named set of members you can grant roles to at once (on the IAM tab).</p>
     <table style="width:100%;border-collapse:collapse;font-size:0.85rem;margin:0.5rem 0">
       <thead><tr style="color:var(--muted);text-align:left"><th style="padding:0.3rem 0">Group</th><th>Members</th><th></th></tr></thead>
       <tbody>
         <tr v-for="g in groups" :key="g.name" style="border-top:1px solid var(--border)">
           <td style="padding:0.45rem 0" class="mono">{{ g.name }}</td>
-          <td>{{ (g.members || []).join(', ') || '—' }}</td>
-          <td style="text-align:right"><button style="background:var(--err);padding:0.25rem 0.5rem" @click="confirmDelete = { kind: 'group', name: g.name }">Delete</button></td>
+          <td>
+            <span v-for="m in (g.members || [])" :key="m" class="badge" style="margin:0.1rem 0.2rem 0.1rem 0;background:var(--panel-2)">{{ m }}</span>
+            <span v-if="!(g.members || []).length" class="hint">—</span>
+          </td>
+          <td style="text-align:right;white-space:nowrap">
+            <button style="background:var(--panel-2);padding:0.25rem 0.5rem" @click="openEditGroup(g)">Edit</button>
+            <button style="background:var(--err);padding:0.25rem 0.5rem;margin-left:0.4rem" @click="confirmDelete = { kind: 'group', name: g.name }">Delete</button>
+          </td>
         </tr>
         <tr v-if="!groups.length"><td colspan="3" class="hint" style="padding:0.5rem 0">No groups.</td></tr>
       </tbody>
     </table>
-    <div class="grid" style="align-items:end">
-      <div><label>Group name</label><input v-model="newGroup.name" placeholder="accounting" /></div>
-      <div><label>Members (user:… / serviceAccount:…, comma-separated)</label><input v-model="newGroup.members" placeholder="user:alice, user:bob" /></div>
-      <div><button :disabled="busy || !newGroup.name" @click="setGroup">Save group</button></div>
+  </div>
+
+  <!-- group editor modal -->
+  <div v-if="groupEditor" class="modal-backdrop" @click.self="groupEditor = null">
+    <div class="panel" style="max-width:30rem;width:100%">
+      <h2>{{ groupEditor.isNew ? 'New group' : 'Edit group — ' + groupEditor.name }}</h2>
+      <template v-if="groupEditor.isNew">
+        <label>Group name</label>
+        <input v-model="groupEditor.name" placeholder="accounting" />
+      </template>
+
+      <label style="margin-top:0.5rem">Members</label>
+      <div v-if="!groupEditor.members.length" class="hint" style="padding:0.3rem 0">No members yet.</div>
+      <div v-for="m in groupEditor.members" :key="m" style="display:flex;align-items:center;gap:0.5rem;padding:0.2rem 0;border-top:1px solid var(--border)">
+        <span class="mono" style="font-size:0.8rem">{{ m }}</span>
+        <button style="background:var(--err);padding:0.1rem 0.45rem;font-size:0.75rem;margin-left:auto" @click="removeGroupMember(m)">remove</button>
+      </div>
+
+      <label style="margin-top:0.5rem">Add member</label>
+      <div style="display:flex;gap:0.5rem">
+        <select v-model="memberToAdd" style="flex:1" @keyup.enter="addGroupMember">
+          <option value="" disabled>Select a user or service account…</option>
+          <option v-for="p in groupCandidates" :key="p" :value="p">{{ p }}</option>
+        </select>
+        <button :disabled="!memberToAdd" @click="addGroupMember">Add</button>
+      </div>
+      <p v-if="!groupCandidates.length" class="hint">All existing users and service accounts are already members.</p>
+
+      <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.75rem">
+        <button style="background:var(--panel-2)" @click="groupEditor = null">Cancel</button>
+        <button :disabled="busy || !groupEditor.name.trim()" @click="saveGroup">Save group</button>
+      </div>
     </div>
   </div>
 
@@ -180,4 +252,5 @@ onMounted(refresh)
   position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
   display: flex; align-items: center; justify-content: center; padding: 1rem;
 }
+select { padding: 0.5rem; background: var(--panel-2); color: var(--fg); border: 1px solid var(--border); border-radius: 6px; }
 </style>
