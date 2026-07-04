@@ -41,6 +41,8 @@ const (
 	PermRecordsWatch     = "cdb.records.watch"
 	PermIamGet           = "cdb.iam.get"
 	PermIamSet           = "cdb.iam.set"
+	PermBackupsCreate    = "cdb.backups.create"
+	PermBackupsRestore   = "cdb.backups.restore"
 	PermClusterAdmin     = "cdb.cluster.admin"
 )
 
@@ -50,7 +52,7 @@ func AllPermissions() []string {
 	return []string{
 		PermRecordsGet, PermRecordsPut, PermRecordsDelete, PermRecordsIncrement,
 		PermRecordsBatch, PermRecordsEnumerate, PermRecordsWatch,
-		PermIamGet, PermIamSet, PermClusterAdmin,
+		PermIamGet, PermIamSet, PermBackupsCreate, PermBackupsRestore, PermClusterAdmin,
 	}
 }
 
@@ -122,7 +124,7 @@ func PredefinedRoles() map[string][]string {
 		"roles/cdb.admin": {
 			PermRecordsGet, PermRecordsPut, PermRecordsDelete, PermRecordsIncrement,
 			PermRecordsBatch, PermRecordsEnumerate, PermRecordsWatch,
-			PermIamGet, PermIamSet, PermClusterAdmin,
+			PermIamGet, PermIamSet, PermBackupsCreate, PermBackupsRestore, PermClusterAdmin,
 		},
 	}
 }

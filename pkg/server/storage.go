@@ -83,9 +83,10 @@ type KeyValueStorage interface {
 	// deterministic.
 	Reclaim(req *pb.ReclaimRequest) (removed int, err error);
 
-	// Backup writes a self-describing snapshot of the whole store to w and
-	// returns the last applied version. Used by the raft FSM snapshot.
-	Backup(w io.Writer) (uint64, error)
+	// Backup writes a snapshot of the store to w and returns the max badger
+	// version written. since==0 is a full backup; a non-zero since (a previous
+	// return value) writes only entries changed after it — an incremental backup.
+	Backup(w io.Writer, since uint64) (uint64, error)
 
 	// Load restores the store contents from a stream produced by Backup.
 	// Used by the raft FSM restore.
@@ -143,8 +144,8 @@ func (this *KeyValueStorageCtx) Close() error {
 // loadMaxPendingWrites bounds badger.Load concurrency during snapshot restore.
 const loadMaxPendingWrites = 256
 
-func (this *KeyValueStorageCtx) Backup(w io.Writer) (uint64, error) {
-	return this.db.Backup(w, 0)
+func (this *KeyValueStorageCtx) Backup(w io.Writer, since uint64) (uint64, error) {
+	return this.db.Backup(w, since)
 }
 
 func (this *KeyValueStorageCtx) Load(r io.Reader) error {
@@ -229,7 +230,9 @@ func (t *StorageBean) Reclaim(req *pb.ReclaimRequest) (int, error) {
 	return t.storage.Reclaim(req)
 }
 
-func (t *StorageBean) Backup(w io.Writer) (uint64, error) { return t.storage.Backup(w) }
+func (t *StorageBean) Backup(w io.Writer, since uint64) (uint64, error) {
+	return t.storage.Backup(w, since)
+}
 func (t *StorageBean) Load(r io.Reader) error             { return t.storage.Load(r) }
 
 func (t *StorageBean) Close() error {

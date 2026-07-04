@@ -221,6 +221,46 @@ consensusdb iam binding-add roles/cdb.editor --members serviceAccount:staphi --t
 allow/deny by role, the tenant-isolation floor, the `__system` guard, and the
 live watch-driven policy reload.
 
+# Backup & restore
+
+`consensusdb backup|restore` streams a whole-store dump over the admin control
+surface to/from a **local file** or **S3-compatible object storage** — AWS S3,
+MinIO (open source, on-prem), or Google Cloud Storage's S3 endpoint, selected by
+the endpoint alone. Dumps are **plain** or **password-protected** (argon2id →
+AES-256-GCM, chunked so GB-scale streams need no buffering, with truncation and
+tamper detection). **Encryption and the object-storage keys live on the client**,
+so a node never holds a backup password or bucket credential.
+
+```bash
+# encrypted backup to S3-compatible storage (MinIO/AWS/GCS)
+BACKUP_S3_ENDPOINT=minio.internal:9000 BACKUP_S3_ACCESS_KEY=… BACKUP_S3_SECRET_KEY=… \
+  consensusdb backup s3://backups/cdb/full.dump --password "$PW"
+
+# incremental (only entries after a previous backup's reported version)
+consensusdb backup s3://backups/cdb/inc.dump --since 12345 --password "$PW"
+
+# plain local dump
+consensusdb backup /var/backups/cdb.dump
+
+# restore INTO A FRESH NODE, then bootstrap the cluster
+consensusdb restore s3://backups/cdb/full.dump --password "$PW"
+```
+
+Backup is read-only and safe on any node; it is authorized by `cdb.backups.create`
+(`roles/cdb.admin` includes it). **Restore bypasses raft**, so it is refused while
+replication is active — restore into a fresh node and then bootstrap (see the
+cluster runbook). It is authorized by `cdb.backups.restore`.
+
+**Scheduled off-site backups (WORM):** setting `backup_schedule` in
+`terraform.tfvars` deploys a **CronJob** that runs `consensusdb backup` to
+`backup_dest_prefix` (an `s3://…` URL) and writes each object with **object-lock
+retention** (`backup_retain_days`) — a cluster admin cannot alter or delete a
+backup until it expires (the compliance-grade off-site copy; the bucket must have
+object-lock enabled). The dump password and S3 keys are Kubernetes secrets.
+`TestBackupRestoreRoundTrip` (in `pkg/replication`) proves the full encrypted
+round trip and the wrong-password rejection; the crypto and object-store layers
+are unit-tested in `pkg/backup`.
+
 # Deploy to Kubernetes (Karagatan)
 
 The **`Deploy to Karagatan`** GitHub Action (`.github/workflows/deploy.yaml`) builds

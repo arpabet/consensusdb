@@ -82,6 +82,9 @@ func main() {
 	// host as the raft control plane (dormant when vrpc-server.bind-address empty).
 	runScope = append(runScope, &server.VrpcDataService{})
 
+	// Admin control surface: streaming backup / restore over the same vrpc host.
+	runScope = append(runScope, &server.AdminService{})
+
 	// raft + badger runtime metrics on the /metrics endpoint.
 	runScope = append(runScope, &run.MetricsBridge{})
 
@@ -107,6 +110,10 @@ func main() {
 		&cmd.IamRoleAddCommand{},
 		&cmd.IamGroupSetCommand{},
 		&cmd.IamBindingAddCommand{},
+
+		// Backup / restore to a file or S3-compatible object storage.
+		&cmd.BackupCommand{},
+		&cmd.RestoreCommand{},
 
 		servion.RunCommand(runScope...),
 	}

@@ -23,7 +23,7 @@ type fsmSnapshot struct {
 }
 
 func (t *fsmSnapshot) Persist(sink raft.SnapshotSink) error {
-	if _, err := t.storage.Backup(sink); err != nil {
+	if _, err := t.storage.Backup(sink, 0); err != nil {
 		sink.Cancel()
 		return errors.Wrap(err, "backup storage into snapshot sink")
 	}
