@@ -6,6 +6,7 @@
 package replication
 
 import (
+	"bytes"
 	"context"
 	"testing"
 	"time"
@@ -27,6 +28,11 @@ func startWatch(t *testing.T, kv server.KeyValueStorage, prefix []byte) (<-chan 
 	ctx, cancel := context.WithCancel(context.Background())
 	go func() {
 		_ = kv.WatchRaw(ctx, prefix, func(ev *store.WatchEvent) bool {
+			// Skip reserved system tenants (e.g. the __ledger hash-chain head the
+			// FSM persists on every apply) — apps watch data, not internals.
+			if k, err := server.DecodeKey(ev.Key); err == nil && bytes.HasPrefix(k.MajorKey, []byte("__")) {
+				return true
+			}
 			select {
 			case events <- ev:
 			case <-ctx.Done():

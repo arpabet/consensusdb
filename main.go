@@ -10,6 +10,7 @@ import (
 
 	"go.arpabet.com/cligo"
 	"go.arpabet.com/consensusdb/cmd"
+	"go.arpabet.com/consensusdb/pkg/console"
 	"go.arpabet.com/consensusdb/pkg/constants"
 	"go.arpabet.com/consensusdb/pkg/replication"
 	"go.arpabet.com/consensusdb/pkg/run"
@@ -61,6 +62,12 @@ func main() {
 		// connection must present a password/token credential or a registered
 		// mTLS client certificate.
 		"auth.enabled": "false",
+
+		// Verifiable ledger: this node co-signs checkpoints when pointed at its
+		// BLS key + CA-issued cert (see `consensusdb ledger keygen|issue`).
+		// Empty disables signing; the chain digest is still served.
+		"ledger.node-key":  "",
+		"ledger.node-cert": "",
 	}
 
 	// "run" scope: storage + servers are only constructed when serving.
@@ -71,9 +78,13 @@ func main() {
 		&server.PolicyService{},
 		servion.HttpServerScanner("http-server",
 			&run.WelcomeHandler{},
+			&console.ConsoleHandler{}, // /api/* admin REST for the web console
+			run.NewSpaHandler(),       // serves the built web console (webapp/dist)
 			servion.MetricsHandler(),
 			servion.HealthHandler(),
 		),
+		// Background jobs for the console (backup ledger verification).
+		console.NewJobManager(),
 	}
 	// Raft replication beans (dormant unless raft/serf bind-addresses are set).
 	runScope = append(runScope, replication.Beans()...)
@@ -114,6 +125,14 @@ func main() {
 		// Backup / restore to a file or S3-compatible object storage.
 		&cmd.BackupCommand{},
 		&cmd.RestoreCommand{},
+
+		// Verifiable ledger: CA, node keys, offline verification.
+		&cmd.LedgerGroup{},
+		&cmd.LedgerCAInitCommand{},
+		&cmd.LedgerKeygenCommand{},
+		&cmd.LedgerIssueCommand{},
+		&cmd.LedgerVerifyCommand{},
+		&cmd.LedgerVerifyBackupCommand{},
 
 		servion.RunCommand(runScope...),
 	}

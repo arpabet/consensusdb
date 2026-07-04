@@ -12,6 +12,7 @@ require go.uber.org/atomic v1.11.0 // indirect
 
 require (
 	github.com/armon/go-metrics v0.4.1
+	github.com/cloudflare/circl v1.6.3
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-metrics v0.5.4
 	github.com/hashicorp/raft v1.7.3

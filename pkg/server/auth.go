@@ -66,26 +66,42 @@ func (t *AuthService) Authenticate(conn valuerpc.MsgConn, credential value.Value
 }
 
 func (t *AuthService) passwordPrincipal(conn valuerpc.MsgConn, m value.Map) (string, error) {
-	name := m.GetString("user").String()
-	pass := m.GetString("pass").String()
+	principal, err := t.AuthenticatePassword(m.GetString("user").String(), m.GetString("pass").String())
+	if err != nil {
+		t.deny(conn, m.GetString("user").String(), "invalid user credentials")
+	}
+	return principal, err
+}
+
+func (t *AuthService) tokenPrincipal(conn valuerpc.MsgConn, m value.Map) (string, error) {
+	principal, err := t.AuthenticateToken(m.GetString("token").String())
+	if err != nil {
+		t.deny(conn, "", "invalid token")
+	}
+	return principal, err
+}
+
+// AuthenticatePassword validates a username/password and returns the principal.
+// Connection-independent, so both the value-rpc handshake and the HTTP admin API
+// use it.
+func (t *AuthService) AuthenticatePassword(name, pass string) (string, error) {
 	rec := &iam.UserRecord{}
 	if !t.load(iam.UserPrefix+name, rec) || rec.Disabled || !iam.VerifyPassword(rec.PasswordHash, pass) {
-		t.deny(conn, name, "invalid user credentials")
 		return "", xerrors.New("invalid user credentials")
 	}
 	return iam.PrincipalUser(name), nil
 }
 
-func (t *AuthService) tokenPrincipal(conn valuerpc.MsgConn, m value.Map) (string, error) {
-	name, secret, ok := iam.ParseToken(m.GetString("token").String())
+// AuthenticateToken validates an API token and returns the service-account
+// principal.
+func (t *AuthService) AuthenticateToken(token string) (string, error) {
+	name, secret, ok := iam.ParseToken(token)
 	if !ok {
-		t.deny(conn, "", "malformed token")
 		return "", xerrors.New("invalid token")
 	}
 	rec := &iam.ServiceAccountRecord{}
 	if !t.load(iam.ServiceAccountPrefix+name, rec) || rec.Disabled ||
 		rec.TokenHash == "" || !iam.VerifyTokenSecret(rec.TokenHash, secret) {
-		t.deny(conn, name, "invalid token")
 		return "", xerrors.New("invalid token")
 	}
 	return iam.PrincipalServiceAccount(name), nil

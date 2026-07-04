@@ -1,0 +1,66 @@
+:root {
+  --bg: #0f1420;
+  --panel: #182031;
+  --panel-2: #1f2a3e;
+  --text: #e6edf7;
+  --muted: #93a1b8;
+  --accent: #4f8cff;
+  --ok: #2ec26b;
+  --err: #ff5c6c;
+  --border: #2a3650;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.wrap { max-width: 60rem; margin: 0 auto; padding: 1.5rem; }
+
+header { display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 1.5rem; }
+header h1 { font-size: 1.25rem; margin: 0; }
+header .sub { color: var(--muted); font-size: 0.85rem; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 40rem) { .grid { grid-template-columns: 1fr; } }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+}
+.panel h2 { font-size: 0.95rem; margin: 0 0 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.kv { display: flex; justify-content: space-between; padding: 0.3rem 0; border-bottom: 1px dashed var(--border); }
+.kv:last-child { border-bottom: none; }
+.kv .k { color: var(--muted); }
+.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; word-break: break-all; }
+
+label { display: block; font-size: 0.8rem; color: var(--muted); margin: 0.5rem 0 0.2rem; }
+input, textarea {
+  width: 100%; background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; font-size: 0.85rem;
+}
+textarea { min-height: 3rem; font-family: ui-monospace, monospace; }
+
+button {
+  background: var(--accent); color: white; border: none; border-radius: 6px;
+  padding: 0.55rem 1rem; font-size: 0.9rem; cursor: pointer; margin-top: 0.75rem;
+}
+button:disabled { opacity: 0.5; cursor: default; }
+
+.bar { height: 10px; background: var(--panel-2); border-radius: 6px; overflow: hidden; margin: 0.5rem 0; }
+.bar > i { display: block; height: 100%; background: var(--accent); transition: width 0.2s ease; }
+
+.badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+.badge.ok { background: rgba(46,194,107,0.15); color: var(--ok); }
+.badge.err { background: rgba(255,92,108,0.15); color: var(--err); }
+.badge.run { background: rgba(79,140,255,0.15); color: var(--accent); }
+
+.err-text { color: var(--err); font-size: 0.85rem; }
+.hint { color: var(--muted); font-size: 0.8rem; margin-top: 0.25rem; }

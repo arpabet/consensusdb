@@ -221,6 +221,81 @@ consensusdb iam binding-add roles/cdb.editor --members serviceAccount:staphi --t
 allow/deny by role, the tenant-isolation floor, the `__system` guard, and the
 live watch-driven policy reload.
 
+# Verifiable ledger — seeing the consensus
+
+consensusdb is not just raft-replicated; the agreed history is **cryptographically
+verifiable**. Every committed raft entry is folded into a deterministic hash chain
+in the FSM apply path:
+
+	chain[i] = SHA-256( chain[i-1] ‖ index ‖ term ‖ commandBytes )
+
+Because it is a pure function of the committed log, **every replica derives the
+identical chain** — a divergent head is proof of corruption or tampering, and it
+is *detectable*, not silent. The head is persisted (in a reserved `__ledger`
+tenant) so it survives snapshots and restarts.
+
+A quorum of nodes co-signs a **Checkpoint** of the chain head, and the aggregate
+of those signatures is a **QuorumCertificate**: compact, third-party-checkable
+evidence that a majority of the certified cluster agreed on exactly this history.
+
+**Signatures use BLS12-381 (keys in G2), so each is 48 bytes and N node
+signatures aggregate into a single 48-byte signature** — the smallest practical
+footprint for a multi-signer certificate (versus N × 64 bytes for Ed25519). A
+quorum certificate is the checkpoint + the signer id list + one 48-byte aggregate,
+independent of cluster size. Node keys are certified by a common **Ed25519 CA**;
+verification needs only the CA public key, the node certs, and the checkpoint —
+**it works entirely offline, with no running service** (the anti-vendor-lock
+lesson from QLDB).
+
+CLI (the CA private key stays offline):
+
+```bash
+consensusdb ledger ca-init  ca.key ca.pub                 # once: the ledger CA
+consensusdb ledger keygen   node0.key node0.pub           # per node: BLS key pair
+consensusdb ledger issue    ca.key node-0 node0.key node0.cert   # CA vouches (w/ PoP)
+# point each node at its identity: ledger.node-key / ledger.node-cert
+# collect signed digests (ledger.digest) from a quorum, aggregate, then:
+consensusdb ledger verify   ca.pub quorum.bin node0.cert node1.cert --threshold 2
+```
+
+`ledger.digest` returns a node's current signed checkpoint (authorized by
+`cdb.proofs.read`; `roles/cdb.auditor` grants read + proofs and nothing else).
+Anchoring each checkpoint to WORM object storage (via the backup infra) makes even
+a cluster admin unable to rewrite the anchored history — a follow-up. The full
+path is proven by `TestLedgerQuorumOverConvergedChain` (3 replicas converge → a
+2-of-3 quorum certificate verifies offline, tamper fails) and the `pkg/ledger`
+unit tests.
+
+## Verifying a backup
+
+Because the chain head is stored in every dump, a backup can be tied back to a
+quorum certificate: `consensusdb ledger verify-backup` loads the dump into a
+throwaway store, reads the persisted head, and confirms a quorum certificate
+attests **exactly that head** — proving, entirely offline, that the backup is the
+state a majority of the cluster certified at a height:
+
+```bash
+consensusdb ledger verify-backup s3://backups/cdb/full.dump ca.pub quorum.bin \
+  node0.cert node1.cert --password "$PW" --threshold 2
+# → VERIFIED ✓  height=… digest=… signers=2
+```
+
+Verification also runs as a **background job over REST** (for the web console): a
+node's `POST /api/ledger/verify` starts a job and `GET /api/ledger/verify/{id}`
+reports `{state, progress, result}` — a progress bar over a large dump. Both are
+authorized by `cdb.backups`/`cdb.proofs.read`. `TestVerifyBackupAgainstQuorum`
+proves the offline round trip (backup → load → match quorum, with mismatch
+rejection); `pkg/console` tests the job/REST loop.
+
+## Web admin console
+
+The node serves a **Vue + Vite** admin console at **`/console`** (source in
+`webapp/`, built into `webapp/dist`, baked into the image). It calls the admin
+REST API under `/api` and shows the cluster/raft status, the live ledger head, and
+a **backup-verification form with a progress bar** driven by the background job
+above. Authenticate with an IAM token that has `cdb.proofs.read` (e.g.
+`roles/cdb.auditor`). See `webapp/README.md` for dev/build.
+
 # Backup & restore
 
 `consensusdb backup|restore` streams a whole-store dump over the admin control

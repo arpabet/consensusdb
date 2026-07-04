@@ -62,22 +62,42 @@ func OpenSink(ctx context.Context, dest string, cfg S3Config) (io.WriteCloser, e
 
 // OpenSource returns a ReadCloser for the dump at src.
 func OpenSource(ctx context.Context, src string, cfg S3Config) (io.ReadCloser, error) {
+	rc, _, err := OpenSourceSized(ctx, src, cfg)
+	return rc, err
+}
+
+// OpenSourceSized is OpenSource that also returns the total byte size when known
+// (0 = unknown), so callers can drive a progress indicator.
+func OpenSourceSized(ctx context.Context, src string, cfg S3Config) (io.ReadCloser, int64, error) {
 	bucket, key, ok, err := parseS3(src)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if !ok {
-		return os.Open(fileURLPath(src))
+		path := fileURLPath(src)
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, 0, err
+		}
+		var size int64
+		if fi, err := f.Stat(); err == nil {
+			size = fi.Size()
+		}
+		return f, size, nil
 	}
 	client, err := s3Client(cfg)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	obj, err := client.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return obj, nil
+	var size int64
+	if st, err := obj.Stat(); err == nil {
+		size = st.Size
+	}
+	return obj, size, nil
 }
 
 // --- file ----------------------------------------------------------------------

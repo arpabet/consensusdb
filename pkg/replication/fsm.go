@@ -7,9 +7,11 @@ package replication
 
 import (
 	"io"
+	"sync"
 
 	"github.com/hashicorp/raft"
 	"github.com/pkg/errors"
+	"go.arpabet.com/consensusdb/pkg/ledger"
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/consensusdb/pkg/server"
 	"go.uber.org/zap"
@@ -21,10 +23,18 @@ FSM is the raft finite state machine for the key-value store. It implements
 raftapi.RaftService (glue.InitializingBean + raft.FSM). Apply runs on every node
 for each committed log entry and mutates the local storage; reads are served
 directly from storage and never go through the log.
+
+Apply also folds each committed entry into a deterministic hash chain (see
+pkg/ledger): identical inputs on every replica ⇒ identical chain, so a divergent
+head is proof of corruption/tampering. The head is persisted so it survives
+snapshots and restarts, and is exposed for checkpoint signing.
 */
 type FSM struct {
 	Storage server.KeyValueStorage `inject:""`
 	Log     *zap.Logger            `inject:""`
+
+	chainMu sync.Mutex
+	chain   *ledger.HashChain
 }
 
 // fsmResult is returned from Apply and surfaced to the proposer via the
@@ -38,9 +48,35 @@ type fsmResult struct {
 
 func (t *FSM) BeanName() string { return "raft-fsm" }
 
-func (t *FSM) PostConstruct() error { return nil }
+func (t *FSM) PostConstruct() error {
+	index, digest := ledger.LoadHead(t.Storage)
+	t.chain = ledger.NewHashChain(index, digest)
+	return nil
+}
+
+// ChainHead returns the current hash-chain height and digest (concurrent-safe).
+func (t *FSM) ChainHead() (uint64, [32]byte) {
+	t.chainMu.Lock()
+	defer t.chainMu.Unlock()
+	t.ensureChain()
+	return t.chain.Head()
+}
+
+// ensureChain lazily seeds the chain from the persisted head, so an FSM used
+// without PostConstruct (e.g. in tests) still works. Caller holds chainMu.
+func (t *FSM) ensureChain() {
+	if t.chain == nil {
+		index, digest := ledger.LoadHead(t.Storage)
+		t.chain = ledger.NewHashChain(index, digest)
+	}
+}
 
 func (t *FSM) Apply(entry *raft.Log) interface{} {
+	// Fold every committed entry into the hash chain first — this is deterministic
+	// and covers even entries whose storage op errors, so the chain reflects the
+	// exact committed log on every replica. The head is persisted for snapshots.
+	t.advanceChain(entry)
+
 	op, msg, err := decodeCommand(entry.Data)
 	if err != nil {
 		t.Log.Error("FSMDecode", zap.Uint64("index", entry.Index), zap.Error(err))
@@ -72,6 +108,16 @@ func (t *FSM) Apply(entry *raft.Log) interface{} {
 	default:
 		return &fsmResult{err: xerrors.Errorf("unhandled raft op %d", op)}
 	}
+}
+
+// advanceChain folds one entry into the hash chain and persists the new head.
+func (t *FSM) advanceChain(entry *raft.Log) {
+	t.chainMu.Lock()
+	t.ensureChain()
+	t.chain.Advance(entry.Index, entry.Term, entry.Data)
+	index, digest := t.chain.Head()
+	t.chainMu.Unlock()
+	ledger.StoreHead(t.Storage, index, digest, entry.Index)
 }
 
 // Snapshot captures a consistent backup of the storage engine. The backup is

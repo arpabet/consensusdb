@@ -43,6 +43,7 @@ const (
 	PermIamSet           = "cdb.iam.set"
 	PermBackupsCreate    = "cdb.backups.create"
 	PermBackupsRestore   = "cdb.backups.restore"
+	PermProofsRead       = "cdb.proofs.read"
 	PermClusterAdmin     = "cdb.cluster.admin"
 )
 
@@ -52,7 +53,7 @@ func AllPermissions() []string {
 	return []string{
 		PermRecordsGet, PermRecordsPut, PermRecordsDelete, PermRecordsIncrement,
 		PermRecordsBatch, PermRecordsEnumerate, PermRecordsWatch,
-		PermIamGet, PermIamSet, PermBackupsCreate, PermBackupsRestore, PermClusterAdmin,
+		PermIamGet, PermIamSet, PermBackupsCreate, PermBackupsRestore, PermProofsRead, PermClusterAdmin,
 	}
 }
 
@@ -119,12 +120,12 @@ func PredefinedRoles() map[string][]string {
 	return map[string][]string{
 		"roles/cdb.viewer":      viewer,
 		"roles/cdb.editor":      editor,
-		"roles/cdb.auditor":     viewer, // + cdb.proofs.read once the ledger lands
+		"roles/cdb.auditor":     append([]string{PermProofsRead}, viewer...),
 		"roles/cdb.tenantAdmin": append([]string{PermIamGet}, editor...),
 		"roles/cdb.admin": {
 			PermRecordsGet, PermRecordsPut, PermRecordsDelete, PermRecordsIncrement,
 			PermRecordsBatch, PermRecordsEnumerate, PermRecordsWatch,
-			PermIamGet, PermIamSet, PermBackupsCreate, PermBackupsRestore, PermClusterAdmin,
+			PermIamGet, PermIamSet, PermBackupsCreate, PermBackupsRestore, PermProofsRead, PermClusterAdmin,
 		},
 	}
 }

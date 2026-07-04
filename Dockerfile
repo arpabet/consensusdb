@@ -1,3 +1,12 @@
+# Build the Vue + Vite admin console (webapp/) into static assets. Runs on the
+# build platform; the output is architecture-independent.
+FROM --platform=$BUILDPLATFORM node:20-alpine AS webbuilder
+WORKDIR /web
+COPY webapp/package.json webapp/package-lock.json* ./
+RUN npm install --no-audit --no-fund
+COPY webapp/ ./
+RUN npm run build
+
 # Multi-arch build: the builder runs natively on the host platform and
 # cross-compiles the static Go binary for the requested target (no emulation),
 # so `docker buildx --platform linux/amd64,linux/arm64` is fast and reliable.
@@ -26,9 +35,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /consensusdb /app/consensusdb
+# The web console is served from webapp/dist under /console (webapp.dir default).
+COPY --from=webbuilder /web/dist /app/webapp/dist
 
-# 8441 http (health, metrics, welcome). The value-rpc data plane binds
-# vrpc-server.bind-address (e.g. 8444) — publish it when enabled.
+# 8441 http (health, metrics, /console web UI, /api admin REST). The value-rpc
+# data plane binds vrpc-server.bind-address (e.g. 8444) — publish it when enabled.
 EXPOSE 8441 8444
 
 ENTRYPOINT ["/app/consensusdb"]

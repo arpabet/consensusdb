@@ -51,5 +51,8 @@ func Beans() []interface{} {
 		&Replicator{},
 		&Reclaimer{},
 		&RaftHost{},
+
+		// Verifiable ledger: the ledger.digest control function (S6).
+		&LedgerService{},
 	}
 }
