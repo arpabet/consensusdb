@@ -10,6 +10,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -51,21 +52,40 @@ type iamDial struct {
 }
 
 func (t *iamDial) run(cb func(ctx context.Context, cli valueclient.Client) error) error {
-	cli := valueclient.NewClient(t.Address, "")
+	// glue does not inject value: tags on embedded struct fields (it treats an
+	// anonymous field as interface exposure), so these values arrive empty. Resolve
+	// them from the environment and defaults here, which also honors the documented
+	// IAM_ADDRESS / IAM_TOKEN / IAM_USER / IAM_PASSWORD overrides.
+	address := firstNonEmpty(t.Address, os.Getenv("IAM_ADDRESS"), "tcp://127.0.0.1:8444")
+	token := firstNonEmpty(t.Token, os.Getenv("IAM_TOKEN"))
+	user := firstNonEmpty(t.User, os.Getenv("IAM_USER"))
+	password := firstNonEmpty(t.Password, os.Getenv("IAM_PASSWORD"))
+
+	cli := valueclient.NewClient(address, "")
 	switch {
-	case t.Token != "":
+	case token != "":
 		cli.SetCredential(value.EmptyMap(true).
-			Put("method", value.Utf8("token")).Put("token", value.Utf8(t.Token)))
-	case t.User != "":
+			Put("method", value.Utf8("token")).Put("token", value.Utf8(token)))
+	case user != "":
 		cli.SetCredential(value.EmptyMap(true).
 			Put("method", value.Utf8("password")).
-			Put("user", value.Utf8(t.User)).Put("pass", value.Utf8(t.Password)))
+			Put("user", value.Utf8(user)).Put("pass", value.Utf8(password)))
 	}
 	if err := cli.Connect(); err != nil {
-		return xerrors.Errorf("connect %s: %v", t.Address, err)
+		return xerrors.Errorf("connect %s: %v", address, err)
 	}
 	defer cli.Close()
 	return cb(context.Background(), cli)
+}
+
+// firstNonEmpty returns the first non-empty string, or "".
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 // generatePassword returns a random password when none was supplied.

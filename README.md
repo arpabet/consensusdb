@@ -2,6 +2,9 @@
 
 ConsensusDB Database
 
+> **New here?** [QUICKSTART.md](QUICKSTART.md) walks you from a fresh build to a
+> running node, the dashboard, identities, and a cluster.
+
 A strongly consistent, raft-replicated key-value store that serves the
 `go.arpabet.com/store` interface over the network. It lets any store-based
 application drop its embedded engine (badger, pebble, bbolt, …) and become
