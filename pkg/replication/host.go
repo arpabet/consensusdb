@@ -6,28 +6,33 @@
 package replication
 
 import (
+	"time"
+
 	"github.com/hashicorp/raft"
 	"github.com/pkg/errors"
 	"go.arpabet.com/raft/raftapi"
 	"go.uber.org/zap"
-	"golang.org/x/xerrors"
 )
 
 /*
-RaftHost drives the raftmod RaftServer lifecycle inside the cligo+servion world.
-raftmod's RaftServer is a sprint.Server (Bind/Serve/Shutdown) which, in
-sprintframework, is driven by the server role manager. Here we call those phases
-ourselves on PostConstruct.
+RaftHost bootstraps the single-voter cluster on a seed node.
 
-Replication is opt-in: it is disabled unless both raft.bind-address and
-serf.bind-address are configured (raftmod's RaftServer.Bind no-ops otherwise).
+The raftmod RaftServer is a servion.Server, so servion's server role manager owns
+its Bind/Serve/Shutdown lifecycle — exactly like the http and value-rpc servers.
+RaftHost deliberately does NOT drive those phases: doing so raced servion and
+double-bound the raft port (servion then logged a bind "address already in use"
+error on every cluster start). Its only job is cluster formation, which can only
+happen once servion's Serve has created the raft node — so it watches for the node
+to come up and bootstraps asynchronously.
+
+Replication is opt-in: RaftHost (and the rest of ClusterBeans) is registered only
+in cluster mode. Even so, it re-checks raft.bind-address / serf.bind-address so a
+stray registration stays inert.
 
 Membership: a seed node (raft.bootstrap=true, the default) forms a single-voter
 cluster and becomes leader; further nodes set raft.bootstrap=false and are added
-to the cluster by the leader through the control-plane Join RPC (raftvrpc /
-raftgrpc), which calls raft.AddVoter and lets raft replicate the config to the
-new node. Serf-based auto-membership is not wired (commented out upstream in
-raftmod).
+by the leader through the control-plane Join RPC (raftvrpc), which calls
+raft.AddVoter and lets raft replicate the config to the new node.
 */
 type RaftHost struct {
 	RaftServer  raftapi.RaftServer `inject:""`
@@ -37,6 +42,12 @@ type RaftHost struct {
 	RaftAddress string `value:"raft.bind-address,default="`
 	SerfAddress string `value:"serf.bind-address,default="`
 
+	// Mode is the resolved run mode (main.go sets consensusdb.mode from
+	// config.ResolveMode). In cluster mode an empty bind address is a
+	// misconfiguration worth failing loudly for; when unset (tests build the full
+	// bean graph without addresses) RaftHost simply stays inert.
+	Mode string `value:"consensusdb.mode,default=single"`
+
 	// Bootstrap controls first-start cluster formation. A seed node bootstraps a
 	// single-voter cluster and becomes leader; additional (joiner) nodes set
 	// raft.bootstrap=false and instead wait to be added by the leader via the
@@ -44,49 +55,73 @@ type RaftHost struct {
 	// has persisted raft state this is a no-op regardless.
 	Bootstrap bool `value:"raft.bootstrap,default=true"`
 
-	started bool
+	// ReadyTimeout bounds how long the seed waits for servion to start the raft
+	// server before giving up on bootstrap (a bind failure is logged by servion).
+	ReadyTimeout time.Duration `value:"raft.bootstrap-timeout,default=30s"`
+
+	stop chan struct{}
 }
 
 func (t *RaftHost) BeanName() string { return "raft-host" }
 
 func (t *RaftHost) PostConstruct() error {
 	if t.RaftAddress == "" || t.SerfAddress == "" {
+		if t.Mode == "cluster" {
+			// Cluster wired but no addresses: fail loudly here (build phase), before
+			// servion would otherwise drive the raft server to Serve an unbound
+			// transport and panic.
+			return errors.New("cluster mode requires raft.bind-address and serf.bind-address; set RAFT_BIND_ADDRESS / SERF_BIND_ADDRESS or run `consensusdb init --cluster`")
+		}
 		t.Log.Info("RaftDisabled",
 			zap.String("reason", "raft.bind-address and serf.bind-address are required to enable replication"))
 		return nil
 	}
-
-	if err := t.RaftServer.Bind(); err != nil {
-		return errors.Wrap(err, "raft server bind")
-	}
-	if _, ok := t.RaftServer.Transport(); !ok {
-		t.Log.Warn("RaftNotBound", zap.String("raft", t.RaftAddress), zap.String("serf", t.SerfAddress))
-		return nil
-	}
-	if err := t.RaftServer.Serve(); err != nil {
-		return errors.Wrap(err, "raft server serve")
-	}
-	t.started = true
-
 	if !t.Bootstrap {
 		t.Log.Info("RaftJoinMode",
 			zap.String("reason", "raft.bootstrap=false; awaiting Join from the cluster leader"),
 			zap.String("id", t.NodeService.NodeIdHex()))
 		return nil
 	}
-
-	return t.bootstrap()
+	// Seed node: bootstrap once servion has started the raft server.
+	t.stop = make(chan struct{})
+	go t.bootstrapWhenReady()
+	return nil
 }
 
-// bootstrap forms a single-node cluster on first start. On a node that already
-// has persisted raft state this is a no-op (raft returns ErrCantBootstrap).
-func (t *RaftHost) bootstrap() error {
-	r, ok := t.RaftServer.Raft()
-	if !ok {
-		return xerrors.New("raft not initialized after Serve")
-	}
-	transport, _ := t.RaftServer.Transport()
+// bootstrapWhenReady waits for servion's Serve to create the raft node and its
+// transport, then forms the single-voter cluster. It gives up after ReadyTimeout
+// (servion logs the underlying bind error if Serve never ran).
+func (t *RaftHost) bootstrapWhenReady() {
+	ticker := time.NewTicker(50 * time.Millisecond)
+	defer ticker.Stop()
+	deadline := time.Now().Add(t.ReadyTimeout)
 
+	for {
+		r, rok := t.RaftServer.Raft()
+		transport, tok := t.RaftServer.Transport()
+		if rok && tok {
+			if err := t.bootstrap(r, transport); err != nil {
+				t.Log.Error("RaftBootstrap", zap.Error(err))
+			}
+			return
+		}
+		select {
+		case <-t.stop:
+			return
+		case <-ticker.C:
+			if time.Now().After(deadline) {
+				t.Log.Warn("RaftBootstrapTimeout",
+					zap.Duration("waited", t.ReadyTimeout),
+					zap.String("reason", "raft server did not start; check for a bind error above"))
+				return
+			}
+		}
+	}
+}
+
+// bootstrap forms a single-node cluster. On a node that already has persisted
+// raft state this is a no-op (raft returns ErrCantBootstrap).
+func (t *RaftHost) bootstrap(r *raft.Raft, transport raft.Transport) error {
 	cfg := raft.Configuration{
 		Servers: []raft.Server{
 			{
@@ -111,9 +146,12 @@ func (t *RaftHost) bootstrap() error {
 	return nil
 }
 
+// Destroy stops the bootstrap watcher if it is still waiting. servion shuts the
+// raft server itself down (it owns the lifecycle).
 func (t *RaftHost) Destroy() error {
-	if t.started {
-		return t.RaftServer.Shutdown()
+	if t.stop != nil {
+		close(t.stop)
+		t.stop = nil
 	}
 	return nil
 }

@@ -11,27 +11,53 @@ import (
 )
 
 /*
-Beans returns the replication bean set to register in the run scope alongside the
-storage and gRPC service. It bundles:
+BaseBeans are the replication-package beans a node always needs, in single-node
+mode as well as cluster mode:
 
   - the sprint bridge beans (Application, NodeService, env resolver) and the
     hclog factory that raftmod requires for dependency injection;
-  - the "raft-store" badger managed data store backing the raft log;
-  - the raftmod stores/lookup/server beans needed to run a raft node (the serf
-    membership beans are intentionally omitted — see RaftHost);
-  - the FSM, the Replicator (server.Replicator write path) and the RaftHost that
-    drives the raft server lifecycle.
+  - the value-rpc data-plane host (the vrpc server that serves the key-value
+    operations to clients). It is a mem/dormant server when
+    vrpc-server.bind-address is empty, so it never fails to construct.
 
-Replication stays dormant until raft.bind-address and serf.bind-address are set;
-without them KeyValueService writes go straight to local storage.
+These carry no raft dependency, so a single-node process constructs cleanly with
+only these; KeyValueService writes go straight to local storage.
 */
-func Beans() []interface{} {
+func BaseBeans() []interface{} {
 	return []interface{}{
 		NewApplication(),
 		NewNodeService(),
 		NewEnvPropertyResolver(),
 		HCLogFactory(),
 
+		// value-rpc data-plane host for client key-value operations.
+		VrpcServerFactory("vrpc-server"),
+	}
+}
+
+/*
+ClusterBeans are the raft/replication beans a node needs only when it
+participates in a cluster. They are registered only in cluster mode (see
+config.ResolveMode); in single-node mode they are omitted entirely, so the
+raftmod RaftServer — which servion would otherwise drive to Serve an unbound
+transport and panic — is simply not present. The bundle is:
+
+  - the "raft-store" badger managed data store backing the raft log;
+  - the raftmod stores/lookup/server beans needed to run a raft node (the serf
+    membership beans are intentionally omitted — see RaftHost);
+  - the raftvrpc control plane (Bootstrap/Join/GetConfiguration/ApplyCommand) and
+    the client pool used to reach the leader (forwarding + membership);
+  - the FSM, the Replicator (server.Replicator write path), the Reclaimer and the
+    RaftHost that drives the raft server lifecycle;
+  - the verifiable-ledger LedgerService (the ledger.digest control function, S6),
+    which co-signs the FSM's hash chain and therefore only exists with raft.
+
+Every required (inject:"") reference to these types lives inside this bundle
+(they inject one another); everything outside — server.*, console.* — injects
+them as inject:"optional", so omitting the bundle leaves no dependency unmet.
+*/
+func ClusterBeans() []interface{} {
+	return []interface{}{
 		RaftStoreFactory(),
 
 		raftmod.RaftLogStoreFactory(),
@@ -40,10 +66,6 @@ func Beans() []interface{} {
 		raftmod.ServerLookup(),
 		raftmod.RaftServer(),
 
-		// value-rpc control plane: a hosted vrpc server, the raftvrpc control
-		// service (Bootstrap/Join/GetConfiguration/ApplyCommand) registered on it,
-		// and the client pool used to reach the leader (forwarding + membership).
-		VrpcServerFactory("vrpc-server"),
 		raftvrpc.RaftVrpcClientPool(),
 		raftvrpc.RaftVrpcServer(),
 
@@ -52,7 +74,15 @@ func Beans() []interface{} {
 		&Reclaimer{},
 		&RaftHost{},
 
-		// Verifiable ledger: the ledger.digest control function (S6).
 		&LedgerService{},
 	}
+}
+
+/*
+Beans returns the full replication bean set (base + cluster). It is retained for
+callers and tests that want the whole stack regardless of mode; the run wiring in
+main.go registers BaseBeans always and ClusterBeans only in cluster mode.
+*/
+func Beans() []interface{} {
+	return append(BaseBeans(), ClusterBeans()...)
 }

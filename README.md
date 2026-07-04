@@ -107,6 +107,12 @@ and TLS material is loaded from the filesystem:
 | `quic://0.0.0.0:8444`  | QUIC (TLS/UDP)   | `tls-cert`, `tls-key` |
 | `unix:///run/cdb.sock` | Unix socket      | — |
 
+In **single-node** mode the scheme picks the transport as above. In **cluster**
+mode use a bare `host:port` (plain TCP): the raft control plane derives its port
+from `vrpc-server.bind-address` and does not parse a scheme. A TLS/QUIC data plane
+alongside raft needs the control-plane pool to strip the scheme first (a raftvrpc
+change), so today secure-transport clusters terminate TLS at a proxy instead.
+
 ```yaml
 vrpc-server.bind-address: tls://0.0.0.0:8444
 vrpc-server.tls-cert:     /etc/cdb/server.crt   # PEM server certificate
@@ -371,8 +377,10 @@ Because consensusdb is **stateful**, `infra/` deploys a **StatefulSet** (not a
 Deployment) with a per-replica `PersistentVolumeClaim` for the badger data
 directory (`consensusdb.data-dir` → `/data`), a **headless service** for stable pod
 identities, and a **ClusterIP service** for clients. The value-rpc data plane is
-enabled (`VRPC_SERVER_BIND_ADDRESS=tcp://0.0.0.0:8444`) so the `store/providers/cdb`
-client can connect. It is an internal service — no public gateway route.
+enabled (`VRPC_SERVER_BIND_ADDRESS=0.0.0.0:8444`, a bare host:port) so the
+`store/providers/cdb` client can connect, and cluster mode is selected by
+`RAFT_BIND_ADDRESS`/`SERF_BIND_ADDRESS`. It is an internal service — no public
+gateway route.
 
 It is a **shared, multi-tenant instance**: multiple services target the same
 cluster and are isolated inside consensusdb by tenant (the cdb client's `tenant`
@@ -464,11 +472,31 @@ open http://localhost:8441/
 
 
 ### Run
-```
-./consensusdb run
-./consensusdb run -c consensus.yaml
+
+A freshly built binary just runs — single-node, no configuration:
 
 ```
+./consensusdb run
+```
+
+On first run it writes a durable settings file at `~/.consensusdb/consensusdb.yaml`
+(single-node defaults: the admin console on 8441, the value-rpc data plane on 8444,
+data under `~/.consensusdb/data`) and reads it on every later run — no IPs or ports
+have to be supplied.
+
+To form a cluster, initialize the settings once — `init` detects this host's
+routable address and records the raft/serf bind addresses — then run:
+
+```
+./consensusdb init --cluster                                # seed node (bootstraps the cluster)
+./consensusdb init --cluster --seed=false --host 10.0.0.5   # a joiner
+./consensusdb run
+```
+
+`consensusdb init` with no flags writes the single-node file explicitly (`--out`
+writes elsewhere; `--force` overwrites). Environment variables and `-c file` /
+`-D key=value` flags override the file (priority: flags > env > settings file >
+built-in defaults), so Kubernetes can drive everything through env with no file.
 
 ### Check
 
@@ -476,8 +504,8 @@ open http://localhost:8441/
 lsof -n -i:$PORT | grep LISTEN
 ```
 
-You have to see consensusdb listening on 8441 (http: health, metrics, welcome).
-The value-rpc data plane binds 8444 when `vrpc-server.bind-address` is set.
+You have to see consensusdb listening on 8441 (http: console, health, metrics) and
+the value-rpc data plane on 8444 (both on by default).
 
 ### Go Client Example
 
@@ -526,15 +554,35 @@ TLS/mTLS/QUIC (`WithTLSConfig`), `MultiDataStore`, and the full capability matri
 
 ### Configuration
 
-Properties (overridable via a `-c` config file or environment; env keys uppercase
-the property and turn `.`/`-` into `_`, e.g. `VRPC_SERVER_BIND_ADDRESS`):
+The durable settings file (`~/.consensusdb/consensusdb.yaml`, or
+`$CONSENSUSDB_CONFIG`) is plain YAML grouped by property prefix. Every value is
+also a property, overridable via a `-c` config file or environment (env keys
+uppercase the property and turn `.`/`-` into `_`, e.g. `VRPC_SERVER_BIND_ADDRESS`,
+`CONSENSUSDB_DATA_DIR`, `RAFT_BIND_ADDRESS`):
 
+```yaml
+consensusdb:
+  mode: single                   # single | cluster (cluster wires the raft stack)
+  data-dir: ~/.consensusdb/data
+  encryption-key: ""             # base64 AES-256, empty = off
+http-server:
+  bind-address: 0.0.0.0:8441     # admin console + REST
+vrpc-server:
+  bind-address: 0.0.0.0:8444     # data plane (bare host:port); empty disables it
+auth:
+  enabled: false
+# cluster mode only (written by `init --cluster`):
+raft:
+  bind-address: 10.0.0.5:8300
+  bootstrap: true                # seed node; joiners set false
+serf:
+  bind-address: 10.0.0.5:8301
 ```
-http-server.bind-address:   0.0.0.0:8441
-vrpc-server.bind-address:   tcp://0.0.0.0:8444   # data plane; empty disables it
-consensusdb.data-dir:       /tmp/consensusdb
-consensusdb.encryption-key:                      # base64 AES-256, empty = off
-```
+
+`CONSENSUSDB_HOME` relocates the base directory (settings + data); `CONSENSUSDB_MODE`
+forces single/cluster. In **single-node mode the raft stack is not wired at all**,
+so the node stays lightweight — ideal for desktop / embedded use — and a fresh
+single-node run never needs replication configured.
 
 ### Influencers
 

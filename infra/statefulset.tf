@@ -108,8 +108,11 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
             value = var.data_dir
           }
           env {
-            name  = "VRPC_SERVER_BIND_ADDRESS"
-            value = "tcp://0.0.0.0:${var.vrpc_port}"
+            name = "VRPC_SERVER_BIND_ADDRESS"
+            # Bare host:port (no scheme): the raft control-plane client pool derives
+            # its port offset from this via net.SplitHostPort, which rejects a
+            # "tcp://" prefix.
+            value = "0.0.0.0:${var.vrpc_port}"
           }
           # Enable raft replication (RaftHost requires both bind addresses). The
           # advertised peer address is derived from the pod's private IP.

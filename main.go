@@ -10,6 +10,7 @@ import (
 
 	"go.arpabet.com/cligo"
 	"go.arpabet.com/consensusdb/cmd"
+	"go.arpabet.com/consensusdb/pkg/config"
 	"go.arpabet.com/consensusdb/pkg/console"
 	"go.arpabet.com/consensusdb/pkg/constants"
 	"go.arpabet.com/consensusdb/pkg/replication"
@@ -29,26 +30,43 @@ func main() {
 
 	constants.SetAppInfo(Version, Built)
 
-	// Defaults; override via a properties file or environment.
-	// Replication is opt-in: set raft.bind-address and serf.bind-address (e.g.
-	// "0.0.0.0:8300" / "0.0.0.0:8301") to enable the raft write path. Left
-	// empty here, so writes go directly to local storage (single-node, no raft).
+	// Durable settings file: written on first `run` (single-node defaults) and
+	// read on every later run. Env vars and -D flags still override it
+	// (priority: flags > env > config file > these in-code defaults). Kubernetes
+	// can drive everything through env with no file at all.
+	configPath := config.DefaultConfigPath()
+
+	// Decide single-node vs cluster before building beans, so the raft stack is
+	// wired only when clustering is actually configured (env CONSENSUSDB_MODE /
+	// RAFT_BIND_ADDRESS, or the settings file). In single-node mode the raftmod
+	// server is not registered at all, so servion cannot drive it to Serve an
+	// unbound transport (which would panic on a fresh run).
+	mode := config.ResolveMode(configPath)
+
+	// In-code defaults (lowest priority). The seamless out-of-the-box node: an
+	// admin console, a usable value-rpc data plane, and a durable data directory
+	// under the user's home. Set raft.bind-address / serf.bind-address (or
+	// `consensusdb init --cluster`) to switch on replication.
 	properties := glue.MapPropertySource{
+		// The resolved run mode, so cluster-only beans (RaftHost) can tell a real
+		// cluster misconfig from a benign single-node/test build. Env
+		// CONSENSUSDB_MODE still overrides.
+		"consensusdb.mode":         mode,
 		"http-server.bind-address": "0.0.0.0:8441",
 		"http-server.options":      "handlers",
-		"consensusdb.data-dir":     "/tmp/consensusdb",
+		"consensusdb.data-dir":     config.DefaultDataDir(),
 		"consensusdb.file-io":      "true",
 		// Encryption at rest: set to a base64 AES-256 master key (see the `seal`
 		// command) to start the store encrypted. Empty means unencrypted;
 		// override via config or the CONSENSUSDB_ENCRYPTION_KEY environment.
 		"consensusdb.encryption-key": "",
 
-		// value-rpc control plane (Bootstrap/Join/GetConfiguration/ApplyCommand).
-		// Empty bind-address keeps it in-process (disabled); set e.g.
-		// "tcp://0.0.0.0:8444" together with raft.bind-address to enable clustering.
-		// raft.rpc-bean-name points the client pool at this server so it can derive
-		// the raft↔control port offset.
-		"vrpc-server.bind-address": "",
+		// value-rpc data plane for clients (and, in cluster mode, the raft control
+		// plane Bootstrap/Join/GetConfiguration/ApplyCommand on the same host).
+		// On by default so a fresh node is immediately usable; set empty to keep
+		// it in-process. A bare host:port (no scheme) — the raft client pool
+		// derives the raft↔control port offset from it via raft.rpc-bean-name.
+		"vrpc-server.bind-address": "0.0.0.0:8444",
 		"raft.rpc-bean-name":       "vrpc-server",
 
 		// Where the `raft config|join|bootstrap` CLI dials the control plane.
@@ -85,9 +103,19 @@ func main() {
 		),
 		// Background jobs for the console (backup ledger verification).
 		console.NewJobManager(),
+		// Writes the durable settings file on first run (single-node defaults);
+		// no-op when it already exists. Only in the run scope, so `version`/`iam`
+		// don't create files as a side effect.
+		run.NewConfigInitializer(configPath, mode),
 	}
-	// Raft replication beans (dormant unless raft/serf bind-addresses are set).
-	runScope = append(runScope, replication.Beans()...)
+	// Data-plane + sprint-bridge beans a node always needs.
+	runScope = append(runScope, replication.BaseBeans()...)
+	// Raft/replication beans only in cluster mode. Omitting them in single-node
+	// mode is what keeps the raftmod raft server out of servion's server set, so
+	// there is nothing to drive to a panicking Serve on a fresh single-node run.
+	if mode == config.ModeCluster {
+		runScope = append(runScope, replication.ClusterBeans()...)
+	}
 
 	// value-rpc data plane: the key-value operations over vrpc, on the same vrpc
 	// host as the raft control plane (dormant when vrpc-server.bind-address empty).
@@ -108,6 +136,8 @@ func main() {
 
 		&cmd.VersionCommand{},
 		&cmd.LicensesCommand{},
+		// First-run onboarding: write the durable settings file.
+		&cmd.InitCommand{},
 		&cmd.SealCommand{},
 		&cmd.UnsealCommand{},
 		&cmd.StartCommand{},
@@ -153,6 +183,9 @@ func main() {
 		cligo.Title("ConsensusDB"),
 		cligo.Version(Version),
 		cligo.Build(Built),
+		// Load the durable settings file if present (skipped silently when
+		// absent). A --config/-c flag adds higher-priority files on top.
+		cligo.ConfigFile(configPath),
 		cligo.Beans(beans...),
 	)
 }

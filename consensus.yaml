@@ -1,13 +1,23 @@
 # Example configuration. Load it with:  consensusdb run -c consensus.yaml
-# Keys are glue properties (flat, dotted). Anything omitted falls back to the
-# built-in defaults in main.go.
+# Keys are glue properties (dotted, or nested — both flatten the same). Anything
+# omitted falls back to the durable settings file (~/.consensusdb/consensusdb.yaml)
+# and then the built-in defaults in main.go. Environment variables override files.
 
-http-server.bind-address: 0.0.0.0:8441
-http-server.options: handlers
-
-grpc-server.bind-address: 0.0.0.0:8442
-grpc-server.options: health;reflection
-
-consensusdb.data-dir: /tmp/consensusdb
+consensusdb.mode: single            # single | cluster (cluster wires the raft stack)
+consensusdb.data-dir: ./data
 consensusdb.file-io: true
-consensusdb.num-cpu: 0
+consensusdb.encryption-key:         # base64 AES-256 master key; empty = off
+
+http-server.bind-address: 0.0.0.0:8441   # admin console + REST
+vrpc-server.bind-address: 0.0.0.0:8444   # data plane; bare host:port (no scheme)
+
+auth.enabled: false
+
+# Cluster mode (raft). Uncomment and set mode=cluster plus both bind addresses to
+# form or join a cluster (or run `consensusdb init --cluster`, which detects the
+# host address for you). Use bare host:port here — the raft control plane derives
+# its port from vrpc-server.bind-address.
+# consensusdb.mode: cluster
+# raft.bind-address: 10.0.0.5:8300
+# raft.bootstrap:    true            # seed node; joiners set false
+# serf.bind-address: 10.0.0.5:8301

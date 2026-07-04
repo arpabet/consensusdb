@@ -80,9 +80,9 @@ func (t *Application) ApplicationDir() string {
 }
 
 func (t *Application) Run(args []string) error { return nil }
-func (t *Application) Active() bool             { return true }
-func (t *Application) Shutdown(restart bool)    {}
-func (t *Application) Restarting() bool         { return false }
+func (t *Application) Active() bool            { return true }
+func (t *Application) Shutdown(restart bool)   {}
+func (t *Application) Restarting() bool        { return false }
 
 // ---------------------------------------------------------------------------
 // NodeService
@@ -148,7 +148,19 @@ func (t *NodeService) Parse(uuid.UUID) (timestampMillis int64, nodeId int64, clo
 }
 
 // ---------------------------------------------------------------------------
-// SystemEnvironmentPropertyResolver
+// EnvPropertyResolver — maps environment variables onto properties.
+//
+// It satisfies two interfaces:
+//   - glue.PropertyResolver (GetProperty + Priority) — glue auto-registers any
+//     bean that implements it, which is what actually feeds env vars into the
+//     property store.
+//   - sprint.SystemEnvironmentPropertyResolver (PromptProperty + Environ) — the
+//     raftmod beans inject this, so it must remain.
+//
+// The earlier version implemented ONLY the sprint methods, so glue never
+// recognized it as a resolver and environment variables never reached properties
+// (e.g. RAFT_BIND_ADDRESS did not set raft.bind-address, so the Kubernetes
+// env-driven config had no effect). GetProperty + Priority fix that.
 // ---------------------------------------------------------------------------
 
 type EnvPropertyResolver struct{}
@@ -157,11 +169,24 @@ func NewEnvPropertyResolver() *EnvPropertyResolver { return &EnvPropertyResolver
 
 func (t *EnvPropertyResolver) BeanName() string { return "env-property-resolver" }
 
-func (t *EnvPropertyResolver) PromptProperty(key string) (string, bool) {
-	v, ok := os.LookupEnv(envKey(key))
-	return v, ok
+// Priority (glue.PropertyResolver) puts env resolution above file/map property
+// sources (glue's default 100) and below -D command-line overrides (cligo's
+// 1000): flags > env > config file > in-code defaults.
+func (t *EnvPropertyResolver) Priority() int { return 200 }
+
+// GetProperty (glue.PropertyResolver) resolves a dotted property key from the
+// matching environment variable (raft.bind-address → RAFT_BIND_ADDRESS).
+func (t *EnvPropertyResolver) GetProperty(key string) (string, bool) {
+	return os.LookupEnv(envKey(key))
 }
 
+// PromptProperty (sprint.SystemEnvironmentPropertyResolver) — required by the
+// raftmod beans that inject this interface.
+func (t *EnvPropertyResolver) PromptProperty(key string) (string, bool) {
+	return os.LookupEnv(envKey(key))
+}
+
+// Environ (sprint.SystemEnvironmentPropertyResolver).
 func (t *EnvPropertyResolver) Environ(withValues bool) []string {
 	if withValues {
 		return os.Environ()
