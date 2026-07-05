@@ -20,9 +20,9 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.6
 	go.arpabet.com/cligo v0.5.0
 	go.arpabet.com/glue v1.5.1
-	go.arpabet.com/raft/raftapi v0.4.1
-	go.arpabet.com/raft/raftmod v0.4.1
-	go.arpabet.com/raft/raftvrpc v0.4.1
+	go.arpabet.com/raft/raftapi v0.4.2
+	go.arpabet.com/raft/raftmod v0.4.2
+	go.arpabet.com/raft/raftvrpc v0.4.2
 	go.arpabet.com/servion v1.5.3
 	go.arpabet.com/store v1.3.3
 	go.arpabet.com/store/providers/badger v1.3.2
@@ -105,7 +105,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.arpabet.com/raft-badger v1.2.2 // indirect
-	go.arpabet.com/raft/raftpb v0.4.1 // indirect
+	go.arpabet.com/raft/raftpb v0.4.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect

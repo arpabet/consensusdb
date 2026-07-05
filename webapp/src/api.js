@@ -62,6 +62,10 @@ export const api = {
   users: () => req('GET', '/iam/users'),
   createUser: (username, password) => req('POST', '/iam/users', { username, password }),
   deleteUser: (name) => req('DELETE', `/iam/users/${encodeURIComponent(name)}`),
+  // personal access tokens (expiring "pat-…" bearer tokens) per user
+  userTokens: (name) => req('GET', `/iam/users/${encodeURIComponent(name)}/tokens`),
+  createUserToken: (name, label, ttlDays) => req('POST', `/iam/users/${encodeURIComponent(name)}/tokens`, { label, ttlDays }),
+  revokeUserToken: (name, id) => req('DELETE', `/iam/users/${encodeURIComponent(name)}/tokens/${encodeURIComponent(id)}`),
   serviceAccounts: () => req('GET', '/iam/service-accounts'),
   createServiceAccount: (name) => req('POST', '/iam/service-accounts', { name }),
   deleteServiceAccount: (name) => req('DELETE', `/iam/service-accounts/${encodeURIComponent(name)}`),

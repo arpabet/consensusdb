@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -34,6 +35,10 @@ const (
 	nodeCertFile = "node-cert.pem"
 	nodeKeyFile  = "node-key.pem"
 	caCertFile   = "ca.pem"
+
+	// nodeSelfCertTTL is how long a node's own certificate is valid; rotation is a
+	// re-enroll (or, for the seed, a re-genesis).
+	nodeSelfCertTTL = 5 * 365 * 24 * time.Hour
 )
 
 // NodeIdentity is a node's locally-stored mTLS material.
@@ -80,6 +85,58 @@ func (id *NodeIdentity) ServerTLSConfig() (*tls.Config, error) {
 // ClientTLSConfig builds a mutual-TLS client config (dialing raft peers).
 func (id *NodeIdentity) ClientTLSConfig() (*tls.Config, error) {
 	return iam.ClientTLSConfig(id.CAPEM, id.CertPEM, id.KeyPEM)
+}
+
+// MutualConfig builds one tls.Config for both roles of the consensus transport
+// (raft peers dial and accept each other). This is the config injected as the
+// "raft-transport-tls" bean.
+func (id *NodeIdentity) MutualConfig() (*tls.Config, error) {
+	return iam.MutualTLSConfig(id.CAPEM, id.CertPEM, id.KeyPEM)
+}
+
+// GenesisIdentity is the seed node's first identity: it generates a brand-new CA
+// and self-issues a node leaf (server+client) from it. It returns the node
+// identity (to save and use) and the CA record, which the caller persists to
+// __system/PKI once the node leads so that every later cert — client and node —
+// chains to this same root. hosts are the node's advertised IP/DNS for the SANs.
+func GenesisIdentity(nodeID string, hosts []string) (*NodeIdentity, *iam.CARecord, error) {
+	caRec, err := iam.GenerateCA()
+	if err != nil {
+		return nil, nil, err
+	}
+	ca, err := caRec.Load()
+	if err != nil {
+		return nil, nil, err
+	}
+	keyPEM, pub, err := iam.GenerateLeafKey()
+	if err != nil {
+		return nil, nil, err
+	}
+	dns, ips := splitNodeHosts(append([]string{nodeID}, hosts...))
+	certPEM, err := ca.Sign(&iam.CertRequest{
+		PublicKey: pub, CommonName: nodeID, DNSNames: dns, IPs: ips,
+		Server: true, Client: true, TTL: nodeSelfCertTTL,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return &NodeIdentity{CertPEM: certPEM, KeyPEM: keyPEM, CAPEM: caRec.CertPEM}, caRec, nil
+}
+
+func splitNodeHosts(hosts []string) (dns []string, ips []net.IP) {
+	seen := map[string]bool{}
+	for _, h := range hosts {
+		if h = strings.TrimSpace(h); h == "" || seen[h] {
+			continue
+		}
+		seen[h] = true
+		if ip := net.ParseIP(h); ip != nil {
+			ips = append(ips, ip)
+		} else {
+			dns = append(dns, h)
+		}
+	}
+	return dns, ips
 }
 
 // EnrollNode redeems a join token against an existing node's console: it generates

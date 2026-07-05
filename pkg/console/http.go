@@ -186,6 +186,21 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if authorize(iam.PermIamSet) {
 			t.iamCreateUser(w, r)
 		}
+	// Personal access tokens (PATs) per user — must precede the user-delete case,
+	// which would otherwise match these longer paths.
+	case strings.HasPrefix(path, "/api/iam/users/") && strings.HasSuffix(path, "/tokens") && method == http.MethodGet:
+		if authorize(iam.PermIamGet) {
+			t.iamListUserTokens(w, strings.TrimSuffix(strings.TrimPrefix(path, "/api/iam/users/"), "/tokens"))
+		}
+	case strings.HasPrefix(path, "/api/iam/users/") && strings.HasSuffix(path, "/tokens") && method == http.MethodPost:
+		if authorize(iam.PermIamSet) {
+			t.iamCreateUserToken(w, r, strings.TrimSuffix(strings.TrimPrefix(path, "/api/iam/users/"), "/tokens"))
+		}
+	case strings.HasPrefix(path, "/api/iam/users/") && strings.Contains(path, "/tokens/") && method == http.MethodDelete:
+		if authorize(iam.PermIamSet) {
+			parts := strings.SplitN(strings.TrimPrefix(path, "/api/iam/users/"), "/tokens/", 2)
+			t.iamRevokeUserToken(w, parts[0], parts[1])
+		}
 	case strings.HasPrefix(path, "/api/iam/users/") && method == http.MethodDelete:
 		if authorize(iam.PermIamSet) {
 			t.iamDeleteUser(w, strings.TrimPrefix(path, "/api/iam/users/"))

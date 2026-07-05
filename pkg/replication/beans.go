@@ -60,6 +60,11 @@ func ClusterBeans() []interface{} {
 	return []interface{}{
 		RaftStoreFactory(),
 
+		// Mandatory node↔node mutual TLS on the consensus transport: this factory
+		// provisions the node identity (seed genesis or join enrollment) and yields
+		// the "raft-transport-tls" config raftmod's RaftServer injects.
+		NodeTLSConfigFactory(),
+
 		raftmod.RaftLogStoreFactory(),
 		raftmod.RaftStableStoreFactory(),
 		raftmod.RaftSnapshotFactory(),

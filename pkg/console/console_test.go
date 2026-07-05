@@ -393,3 +393,62 @@ func TestJoinTokenNodeEnrollment(t *testing.T) {
 		t.Fatal("expired join token accepted")
 	}
 }
+
+// A user PAT is minted (shown once), authenticates as the user, is listed and
+// revoked, and expired PATs are rejected.
+func TestUserPAT(t *testing.T) {
+	h, _ := newConsole(t)
+	do(h, http.MethodPost, "/api/setup/bootstrap", []byte(`{"username":"root","password":"supersecret"}`))
+	if rec := do(h, http.MethodPost, "/api/iam/users", []byte(`{"username":"alice","password":"alicesecret"}`)); rec.Code != http.StatusCreated {
+		t.Fatalf("create user = %d %s", rec.Code, rec.Body.String())
+	}
+
+	// Mint a PAT for alice.
+	rec := do(h, http.MethodPost, "/api/iam/users/alice/tokens", []byte(`{"label":"laptop","ttlDays":30}`))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("mint PAT = %d %s", rec.Code, rec.Body.String())
+	}
+	var pat struct{ ID, Token, Label string }
+	json.Unmarshal(rec.Body.Bytes(), &pat)
+	if pat.Token[:4] != "pat-" || pat.Label != "laptop" {
+		t.Fatalf("bad PAT response: %s", rec.Body.String())
+	}
+	// The PAT authenticates as the user.
+	if p, err := h.Auth.AuthenticateToken(pat.Token); err != nil || p != iam.PrincipalUser("alice") {
+		t.Fatalf("PAT auth = %q err=%v, want user:alice", p, err)
+	}
+
+	// It appears in the user's token list with its label.
+	rec = do(h, http.MethodGet, "/api/iam/users/alice/tokens", nil)
+	var listed struct {
+		Tokens []struct {
+			ID, Label string
+			ExpiresAt int64
+		} `json:"tokens"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &listed)
+	if len(listed.Tokens) != 1 || listed.Tokens[0].Label != "laptop" || listed.Tokens[0].ExpiresAt == 0 {
+		t.Fatalf("PAT list = %s", rec.Body.String())
+	}
+
+	// Revoke it — auth stops working and the list empties.
+	if rec := do(h, http.MethodDelete, "/api/iam/users/alice/tokens/"+pat.ID, nil); rec.Code != http.StatusOK {
+		t.Fatalf("revoke = %d %s", rec.Code, rec.Body.String())
+	}
+	if _, err := h.Auth.AuthenticateToken(pat.Token); err == nil {
+		t.Fatal("revoked PAT still authenticates")
+	}
+	rec = do(h, http.MethodGet, "/api/iam/users/alice/tokens", nil)
+	json.Unmarshal(rec.Body.Bytes(), &listed)
+	if len(listed.Tokens) != 0 {
+		t.Fatalf("PAT list not empty after revoke: %s", rec.Body.String())
+	}
+
+	// An expired PAT is rejected by authentication.
+	expTok, expHash, _ := iam.NewToken(iam.TokenPrefixUser)
+	raw, _ := iam.Encode(&iam.TokenRecord{Principal: iam.PrincipalUser("alice"), ExpiresAt: time.Now().Add(-time.Hour).Unix(), Label: "old"})
+	h.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(iam.TokenIndexKey(expHash)), Value: raw})
+	if _, err := h.Auth.AuthenticateToken(expTok); err == nil {
+		t.Fatal("expired PAT authenticated")
+	}
+}

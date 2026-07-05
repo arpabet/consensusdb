@@ -35,10 +35,14 @@ const (
 )
 
 // TokenRecord is the reverse index from a token's hash to the principal it
-// authenticates (and, for PATs, an expiry).
+// authenticates. Service-account tokens are long-lived and unlabelled; user
+// personal access tokens (PATs) carry an expiry, a human label, and a creation
+// time for management.
 type TokenRecord struct {
 	Principal string `value:"principal"` // "serviceAccount:<name>" or "user:<name>"
 	ExpiresAt int64  `value:"expiresAt"` // unix seconds; 0 = never expires
+	Label     string `value:"label"`     // human label (PATs); empty for SA tokens
+	CreatedAt int64  `value:"createdAt"` // unix seconds
 }
 
 // HashToken returns the sha256 hex of a token — its reverse-index key.

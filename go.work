@@ -7,10 +7,6 @@ go 1.25.8
 // are reconciled at release time; until then everything rides local HEAD.
 use (
 	.
-	../raft/raftapi
-	../raft/raftmod
-	../raft/raftpb
-	../raft/raftvrpc
 	../store
 	../store/middleware/crypto
 	../store/providers/badger

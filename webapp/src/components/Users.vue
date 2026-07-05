@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api.js'
 import CertManager from './CertManager.vue'
+import TokenManager from './TokenManager.vue'
 
 // User management: password identities. Their role/tenant assignments are managed
 // on the IAM tab; here we show a summary and allow create/delete. Filterable
@@ -14,6 +15,7 @@ const filter = ref('')
 const newUser = ref({ username: '', password: '' })
 const confirmDelete = ref(null)
 const certFor = ref(null) // user whose mTLS certificates are being managed
+const tokenFor = ref(null) // user whose personal access tokens are being managed
 
 // user:name → [{role, scope}]
 const accessByUser = computed(() => {
@@ -100,6 +102,7 @@ onMounted(refresh)
             <span v-if="!(accessByUser['user:' + u.name] || []).length" class="hint">—</span>
           </td>
           <td style="text-align:right;white-space:nowrap">
+            <button style="background:var(--panel-2);padding:0.25rem 0.5rem;margin-right:0.35rem" @click="tokenFor = u">Tokens</button>
             <button style="background:var(--panel-2);padding:0.25rem 0.5rem;margin-right:0.35rem" @click="certFor = u">Certificates</button>
             <button style="background:var(--err);padding:0.25rem 0.5rem" @click="confirmDelete = u">Delete</button>
           </td>
@@ -117,6 +120,8 @@ onMounted(refresh)
     :label="certFor.name"
     @close="certFor = null"
   />
+
+  <TokenManager v-if="tokenFor" :user="tokenFor.name" @close="tokenFor = null" />
 
   <div v-if="confirmDelete" class="modal-backdrop" @click.self="confirmDelete = null">
     <div class="panel" style="max-width:24rem">

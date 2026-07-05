@@ -108,3 +108,48 @@ func TestEnrollNode(t *testing.T) {
 		t.Fatal("enroll must fail on a rejected token")
 	}
 }
+
+// GenesisIdentity self-issues a node cert from a fresh CA: it chains to that CA,
+// carries server+client EKU and the advertised IP SAN, and round-trips to files.
+func TestGenesisIdentity(t *testing.T) {
+	id, caRec, err := GenesisIdentity("node-1", []string{"10.0.0.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(id.CAPEM) != string(caRec.CertPEM) {
+		t.Fatal("identity CA does not match returned CA record")
+	}
+	caB, _ := pem.Decode(id.CAPEM)
+	caCert, _ := x509.ParseCertificate(caB.Bytes)
+	leafB, _ := pem.Decode(id.CertPEM)
+	leaf, err := x509.ParseCertificate(leafB.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool := x509.NewCertPool()
+	pool.AddCert(caCert)
+	for _, ku := range []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth} {
+		if _, err := leaf.Verify(x509.VerifyOptions{Roots: pool, KeyUsages: []x509.ExtKeyUsage{ku}}); err != nil {
+			t.Fatalf("genesis node cert not valid for %v: %v", ku, err)
+		}
+	}
+	if len(leaf.IPAddresses) != 1 || leaf.IPAddresses[0].String() != "10.0.0.1" {
+		t.Fatalf("IP SANs = %v", leaf.IPAddresses)
+	}
+	// The CA record loads as a working signer (used later on the leader to enroll peers).
+	if _, err := caRec.Load(); err != nil {
+		t.Fatalf("genesis CA not loadable: %v", err)
+	}
+	// And the material builds mutual-TLS configs after a file round trip.
+	dir := t.TempDir()
+	if err := id.Save(dir); err != nil {
+		t.Fatal(err)
+	}
+	got, ok := LoadNodeIdentity(dir)
+	if !ok {
+		t.Fatal("genesis identity not reloadable")
+	}
+	if _, err := got.ServerTLSConfig(); err != nil {
+		t.Fatal(err)
+	}
+}

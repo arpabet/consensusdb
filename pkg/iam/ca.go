@@ -300,6 +300,29 @@ func ClientTLSConfig(caPEM, certPEM, keyPEM []byte) (*tls.Config, error) {
 	}, nil
 }
 
+// MutualTLSConfig builds one tls.Config usable for BOTH ends of a node↔node
+// connection: it presents certPEM/keyPEM, verifies a peer server against caPEM
+// (RootCAs, client role) and requires+verifies a peer client cert against caPEM
+// (ClientCAs + RequireAndVerifyClientCert, server role). Node certs carry both
+// server and client EKU, so the same material authenticates in either direction.
+func MutualTLSConfig(caPEM, certPEM, keyPEM []byte) (*tls.Config, error) {
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return nil, xerrors.Errorf("iam: node keypair: %w", err)
+	}
+	pool, err := certPool(caPEM)
+	if err != nil {
+		return nil, err
+	}
+	return &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      pool,
+		ClientCAs:    pool,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		MinVersion:   tls.VersionTLS12,
+	}, nil
+}
+
 func certPool(caPEM []byte) (*x509.CertPool, error) {
 	pool := x509.NewCertPool()
 	if !pool.AppendCertsFromPEM(caPEM) {
