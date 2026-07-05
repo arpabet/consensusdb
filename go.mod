@@ -6,7 +6,7 @@ require github.com/pkg/errors v0.9.1
 
 require github.com/dgraph-io/badger/v4 v4.9.2
 
-require google.golang.org/grpc v1.81.1 // indirect
+require google.golang.org/grpc v1.82.0 // indirect
 
 require go.uber.org/atomic v1.11.0 // indirect
 
@@ -14,21 +14,21 @@ require (
 	github.com/armon/go-metrics v0.4.1
 	github.com/cloudflare/circl v1.6.3
 	github.com/hashicorp/go-hclog v1.6.3
-	github.com/hashicorp/go-metrics v0.5.4
+	github.com/hashicorp/go-metrics v0.6.0
 	github.com/hashicorp/raft v1.7.3
 	github.com/minio/minio-go/v7 v7.2.1
 	github.com/shirou/gopsutil/v4 v4.26.6
 	go.arpabet.com/cligo v0.5.0
 	go.arpabet.com/glue v1.5.1
-	go.arpabet.com/raft/raftapi v0.3.1
-	go.arpabet.com/raft/raftmod v0.3.1
-	go.arpabet.com/raft/raftvrpc v0.3.1
-	go.arpabet.com/servion v1.5.0
+	go.arpabet.com/raft/raftapi v0.4.0
+	go.arpabet.com/raft/raftmod v0.4.0
+	go.arpabet.com/raft/raftvrpc v0.4.0
+	go.arpabet.com/servion v1.5.3
 	go.arpabet.com/store v1.3.3
 	go.arpabet.com/store/providers/badger v1.3.2
 	go.arpabet.com/value v1.3.1
-	go.arpabet.com/value-rpc v1.5.2
-	go.arpabet.com/value-rpc/quic v1.5.2
+	go.arpabet.com/value-rpc v1.5.4
+	go.arpabet.com/value-rpc/quic v1.5.4
 	go.uber.org/zap v1.28.0
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da
 	gopkg.in/yaml.v3 v3.0.1
@@ -71,7 +71,7 @@ require (
 	github.com/hashicorp/memberlist v0.5.4 // indirect
 	github.com/hashicorp/serf v0.10.2 // indirect
 	github.com/huandu/xstrings v1.5.0 // indirect
-	github.com/klauspost/compress v1.18.6 // indirect
+	github.com/klauspost/compress v1.19.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
@@ -90,7 +90,7 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.69.0 // indirect
-	github.com/prometheus/procfs v0.20.1 // indirect
+	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/quic-go/quic-go v0.60.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
@@ -105,9 +105,7 @@ require (
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
 	go.arpabet.com/raft-badger v1.2.2 // indirect
-	go.arpabet.com/raft/raftpb v0.3.1 // indirect
-	go.arpabet.com/sprint v1.2.1 // indirect
-	go.arpabet.com/sprint/sprintpb v1.2.1 // indirect
+	go.arpabet.com/raft/raftpb v0.4.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel v1.44.0 // indirect
 	go.opentelemetry.io/otel/metric v1.44.0 // indirect
@@ -119,11 +117,10 @@ require (
 	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.44.0 // indirect
 	golang.org/x/text v0.38.0 // indirect
-	golang.org/x/tools v0.46.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260622175928-b703f567277d // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260622175928-b703f567277d // indirect
+	golang.org/x/tools v0.47.0 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260630182238-925bb5da69e7 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260630182238-925bb5da69e7 // indirect
 	gopkg.in/ini.v1 v1.67.2 // indirect
-	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 )
 
 require (

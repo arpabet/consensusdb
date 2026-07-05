@@ -177,7 +177,7 @@ func assetsConsoleBpqasrxzJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/console-BPqAsrxz.js", size: 38213, mode: os.FileMode(420), modTime: time.Unix(1783160093, 0)}
+	info := bindataFileInfo{name: "assets/console-BPqAsrxz.js", size: 38213, mode: os.FileMode(420), modTime: time.Unix(1783160911, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -197,7 +197,7 @@ func assetsConsoleBuniu1noCss() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/console-BUNiu1no.css", size: 944, mode: os.FileMode(420), modTime: time.Unix(1783160093, 0)}
+	info := bindataFileInfo{name: "assets/console-BUNiu1no.css", size: 944, mode: os.FileMode(420), modTime: time.Unix(1783160911, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -217,7 +217,7 @@ func assetsDashboardCwhuhurJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/dashboard-CwhUhUr-.js", size: 5424, mode: os.FileMode(420), modTime: time.Unix(1783160093, 0)}
+	info := bindataFileInfo{name: "assets/dashboard-CwhUhUr-.js", size: 5424, mode: os.FileMode(420), modTime: time.Unix(1783160911, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -237,7 +237,7 @@ func assetsStyleCkhfjhohCss() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/style-CkHfJhOh.css", size: 2076, mode: os.FileMode(420), modTime: time.Unix(1783160093, 0)}
+	info := bindataFileInfo{name: "assets/style-CkHfJhOh.css", size: 2076, mode: os.FileMode(420), modTime: time.Unix(1783160911, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -257,7 +257,7 @@ func assetsStyleZ3fpfwtpJs() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "assets/style-z3fpFwtP.js", size: 70229, mode: os.FileMode(420), modTime: time.Unix(1783160093, 0)}
+	info := bindataFileInfo{name: "assets/style-z3fpFwtP.js", size: 70229, mode: os.FileMode(420), modTime: time.Unix(1783160911, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -277,7 +277,7 @@ func consoleHtml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "console.html", size: 563, mode: os.FileMode(420), modTime: time.Unix(1783160093, 0)}
+	info := bindataFileInfo{name: "console.html", size: 563, mode: os.FileMode(420), modTime: time.Unix(1783160911, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -297,7 +297,7 @@ func dashboardHtml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "dashboard.html", size: 485, mode: os.FileMode(420), modTime: time.Unix(1783160093, 0)}
+	info := bindataFileInfo{name: "dashboard.html", size: 485, mode: os.FileMode(420), modTime: time.Unix(1783160911, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
