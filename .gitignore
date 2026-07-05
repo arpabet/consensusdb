@@ -2,6 +2,8 @@
 consensusdb
 consensusdb.exe
 
+pkg/webui/bindata.go
+
 # Runtime state (project-local, like gazile): the default ./data store and the
 # settings file the node writes on first run. The committed consensus.yaml sample
 # is a different name and is kept.
