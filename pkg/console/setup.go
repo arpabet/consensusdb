@@ -80,6 +80,11 @@ func (t *ConsoleHandler) setupBootstrap(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusInternalServerError, "grant admin role")
 		return
 	}
+	// Mint the built-in CA now so the instance can issue client and node
+	// certificates. Non-fatal: it is also created lazily on first issuance.
+	if _, err := t.ensureCA(context.Background()); err != nil {
+		t.Log.Warn("PkiEnsureCA", zap.Error(err))
+	}
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"created":     req.Username,
 		"authEnabled": t.Auth != nil && t.Auth.Enabled,

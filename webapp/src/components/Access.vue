@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api.js'
+import CertManager from './CertManager.vue'
 
 // Service accounts (application tokens + mutual-TLS certificate identities) and
 // groups. Human users are on the Users tab; role assignments on the IAM tab.
@@ -14,7 +15,6 @@ const busy = ref(false)
 const newSA = ref({ name: '' })
 const newToken = ref(null) // { name, token } shown once
 const certFor = ref(null) // service account whose certs are being managed
-const newCert = ref('')
 const groupEditor = ref(null) // { name, members: [], isNew } while open
 const memberToAdd = ref('') // principal selected in the add-member dropdown
 const confirmDelete = ref(null) // { kind, name }
@@ -73,13 +73,6 @@ async function createSA() {
   } catch (e) { error.value = e.message } finally { busy.value = false }
 }
 
-function addCert() {
-  const id = newCert.value.trim()
-  if (!id) return
-  run(async () => { await api.addCert(certFor.value.name, id); newCert.value = '' })
-}
-function removeCert(id) { run(() => api.removeCert(certFor.value.name, id)) }
-
 function openNewGroup() {
   groupEditor.value = { name: '', members: [], isNew: true }
   memberToAdd.value = ''
@@ -137,7 +130,7 @@ onMounted(refresh)
         <tr v-for="s in accounts" :key="s.name" style="border-top:1px solid var(--border)">
           <td style="padding:0.45rem 0" class="mono">{{ s.name }}</td>
           <td><span :class="'badge ' + (s.hasToken ? 'ok' : '')">{{ s.hasToken ? 'set' : 'none' }}</span></td>
-          <td><a style="cursor:pointer" @click="certFor = s; newCert = ''">{{ (s.certIdentities || []).length }} cert(s) →</a></td>
+          <td><a style="cursor:pointer" @click="certFor = s">{{ (s.certIdentities || []).length }} cert(s) →</a></td>
           <td>
             <span v-for="(a, i) in (accessBySA['serviceAccount:' + s.name] || [])" :key="i" class="badge"
               style="margin:0.1rem 0.2rem 0.1rem 0;background:var(--panel-2)">{{ a.role }} @ {{ scopeLabel(a.scope) }}</span>
@@ -215,23 +208,12 @@ onMounted(refresh)
   </div>
 
   <!-- cert-identity modal -->
-  <div v-if="certFor" class="modal-backdrop" @click.self="certFor = null">
-    <div class="panel" style="max-width:32rem;width:100%">
-      <h2>mTLS identities — {{ certFor.name }}</h2>
-      <p class="hint">A client certificate whose SAN URI or CN matches one of these authenticates as this account.</p>
-      <div v-for="id in (certFor.certIdentities || [])" :key="id" style="display:flex;align-items:center;gap:0.5rem;padding:0.2rem 0;border-top:1px solid var(--border)">
-        <span class="mono" style="font-size:0.8rem;word-break:break-all">{{ id }}</span>
-        <button style="background:var(--err);padding:0.1rem 0.45rem;font-size:0.75rem;margin-left:auto" @click="removeCert(id)">remove</button>
-      </div>
-      <p v-if="!(certFor.certIdentities || []).length" class="hint">No certificate identities.</p>
-      <label style="margin-top:0.5rem">Add identity (SAN URI or CN)</label>
-      <input v-model="newCert" placeholder="spiffe://cluster/my-app  or  CN=my-app" @keyup.enter="addCert" />
-      <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:0.75rem">
-        <button style="background:var(--panel-2)" @click="certFor = null">Close</button>
-        <button :disabled="busy || !newCert.trim()" @click="addCert">Add</button>
-      </div>
-    </div>
-  </div>
+  <CertManager
+    v-if="certFor"
+    :principal="'serviceAccount:' + certFor.name"
+    :label="certFor.name"
+    @close="certFor = null"
+  />
 
   <!-- delete confirmation -->
   <div v-if="confirmDelete" class="modal-backdrop" @click.self="confirmDelete = null">

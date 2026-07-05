@@ -161,6 +161,10 @@ func main() {
 		&cmd.IamGroupSetCommand{},
 		&cmd.IamBindingAddCommand{},
 
+		// Cluster enrollment (CLI parity with the console): `consensusdb cluster join-token`.
+		&cmd.ClusterGroup{},
+		&cmd.ClusterJoinTokenCommand{},
+
 		// Backup / restore to a file or S3-compatible object storage.
 		&cmd.BackupCommand{},
 		&cmd.RestoreCommand{},

@@ -34,26 +34,29 @@ func TestPasswordHashVerify(t *testing.T) {
 	}
 }
 
-func TestTokenRoundTrip(t *testing.T) {
-	token, storedHash, err := GenerateToken("robot")
+func TestTokenOpaque(t *testing.T) {
+	token, hash, err := NewToken(TokenPrefixServiceAccount)
 	if err != nil {
 		t.Fatal(err)
 	}
-	name, secret, ok := ParseToken(token)
-	if !ok || name != "robot" {
-		t.Fatalf("parse: %q %v", name, ok)
+	// The token carries only the kind-prefix, never a name.
+	if !strings.HasPrefix(token, TokenPrefixServiceAccount) {
+		t.Fatalf("missing prefix: %q", token)
 	}
-	if !VerifyTokenSecret(storedHash, secret) {
-		t.Fatal("valid secret rejected")
+	// The stored hash is the index key, derivable from the presented token alone.
+	if hash != HashToken(token) {
+		t.Fatal("hash is not HashToken(token)")
 	}
-	if VerifyTokenSecret(storedHash, secret+"x") {
-		t.Fatal("tampered secret accepted")
+	if TokenIndexKey(hash) != TokenIndexPrefix+hash {
+		t.Fatalf("index key: %q", TokenIndexKey(hash))
 	}
-	if _, _, ok := ParseToken("no-separator"); ok {
-		t.Fatal("malformed token parsed")
+	// Fresh randomness every mint.
+	token2, hash2, _ := NewToken(TokenPrefixUser)
+	if token == token2 || hash == hash2 {
+		t.Fatal("token secret reuse")
 	}
-	if _, _, err := GenerateToken("has.dot"); err == nil {
-		t.Fatal("dotted name must be rejected")
+	if !strings.HasPrefix(token2, TokenPrefixUser) {
+		t.Fatalf("missing PAT prefix: %q", token2)
 	}
 }
 
@@ -71,7 +74,7 @@ func TestRecordCodecRoundTrip(t *testing.T) {
 		t.Fatalf("round trip mismatch: %+v", got)
 	}
 
-	sa := &ServiceAccountRecord{Name: "robot", TokenHash: "h", CertIdentities: []string{"urn:cdb:sa:robot"}}
+	sa := &ServiceAccountRecord{Name: "robot", TokenHash: "h", CreatedAt: 7}
 	raw, err = Encode(sa)
 	if err != nil {
 		t.Fatal(err)
@@ -80,8 +83,21 @@ func TestRecordCodecRoundTrip(t *testing.T) {
 	if err := Decode(raw, gotSA); err != nil {
 		t.Fatal(err)
 	}
-	if gotSA.Name != "robot" || len(gotSA.CertIdentities) != 1 || gotSA.CertIdentities[0] != "urn:cdb:sa:robot" {
+	if gotSA.Name != "robot" || gotSA.TokenHash != "h" || gotSA.CreatedAt != 7 {
 		t.Fatalf("sa round trip mismatch: %+v", gotSA)
+	}
+
+	idx := &CertIndexRecord{Principal: PrincipalServiceAccount("robot"), Issued: true, CreatedAt: 9}
+	raw, err = Encode(idx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gotIdx := &CertIndexRecord{}
+	if err := Decode(raw, gotIdx); err != nil {
+		t.Fatal(err)
+	}
+	if gotIdx.Principal != "serviceAccount:robot" || !gotIdx.Issued || gotIdx.CreatedAt != 9 {
+		t.Fatalf("cert index round trip mismatch: %+v", gotIdx)
 	}
 }
 

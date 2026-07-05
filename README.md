@@ -199,9 +199,9 @@ connection's principal at the addressed **(tenant, region)** scope.
 - **Permissions** the server enforces: `cdb.records.{get,put,delete,increment,
   batch,enumerate,watch}`, and `cdb.iam.{get,set}` for the system tenant.
 - **Roles** are permission lists. Predefined: `roles/cdb.viewer`,
-  `roles/cdb.editor`, `roles/cdb.auditor`, `roles/cdb.tenantAdmin`,
-  `roles/cdb.admin`. Custom roles are the GCP "text form" — a named permission
-  list you create.
+  `roles/cdb.editor`, `roles/cdb.auditor`, `roles/cdb.admin` (tenant-scoped
+  administration is just `roles/cdb.admin` bound to a tenant). Custom roles are
+  the GCP "text form" — a named permission list you create.
 - **Bindings** `{role, members[]}` attach at **instance → tenant → region**,
   inherited downward; a grant is never broader than its binding's scope. Members
   are `user:…`, `serviceAccount:…`, or `group:…` (groups expand one level).

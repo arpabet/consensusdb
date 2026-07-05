@@ -72,6 +72,11 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case path == "/api/setup/bootstrap" && method == http.MethodPost:
 		t.setupBootstrap(w, r)
 		return
+	case path == "/api/cluster/enroll" && method == http.MethodPost:
+		// A joining node has no user identity yet; its join token (in the body) is
+		// the credential, verified in enrollNode. Same exemption as bootstrap.
+		t.enrollNode(w, r)
+		return
 	}
 
 	// When auth is enabled every request must present a valid credential; when it
@@ -134,6 +139,10 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(path, "/api/cluster/nodes/") && method == http.MethodDelete:
 		if authorize(iam.PermClusterAdmin) {
 			t.removeNode(w, r, strings.TrimPrefix(path, "/api/cluster/nodes/"))
+		}
+	case path == "/api/cluster/join-token" && method == http.MethodPost:
+		if authorize(iam.PermClusterAdmin) {
+			t.mintJoinTokenHandler(w, r, principal)
 		}
 	case path == "/api/ledger/verify" && method == http.MethodPost:
 		if authorize(iam.PermProofsRead) {
@@ -209,10 +218,21 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if authorize(iam.PermIamSet) {
 			t.iamChangeBinding(w, r, false)
 		}
-	case strings.HasPrefix(path, "/api/iam/service-accounts/") && strings.HasSuffix(path, "/certs") && method == http.MethodPost:
+	case path == "/api/iam/certs" && method == http.MethodGet:
+		if authorize(iam.PermIamGet) {
+			t.iamListCerts(w, r)
+		}
+	case path == "/api/iam/certs/register" && method == http.MethodPost:
 		if authorize(iam.PermIamSet) {
-			name := strings.TrimSuffix(strings.TrimPrefix(path, "/api/iam/service-accounts/"), "/certs")
-			t.iamServiceAccountCert(w, r, name)
+			t.iamRegisterCert(w, r)
+		}
+	case path == "/api/iam/certs/issue" && method == http.MethodPost:
+		if authorize(iam.PermIamSet) {
+			t.iamIssueCert(w, r)
+		}
+	case path == "/api/iam/certs" && method == http.MethodDelete:
+		if authorize(iam.PermIamSet) {
+			t.iamRevokeCert(w, r.URL.Query().Get("identity"))
 		}
 	case path == "/api/iam/groups" && method == http.MethodGet:
 		if authorize(iam.PermIamGet) {

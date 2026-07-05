@@ -18,12 +18,24 @@ convention as the data plane (and the store/providers/cdb client), addressed at
 the system tenant. Used by `consensusdb iam …` against a running node.
 */
 
-// keyValue encodes an IAM record key on the wire.
-func keyValue(minor string) value.Value {
+// keyValueRegion encodes a system-tenant record key on the wire in an explicit
+// region.
+func keyValueRegion(region, minor string) value.Value {
 	return value.EmptyMap(true).
 		Put("major", value.Raw([]byte(SystemTenant), false)).
-		Put("region", value.Raw([]byte(Region), false)).
+		Put("region", value.Raw([]byte(region), false)).
 		Put("minor", value.Raw([]byte(minor), false))
+}
+
+// keyValue encodes an IAM-region record key on the wire.
+func keyValue(minor string) value.Value { return keyValueRegion(Region, minor) }
+
+// PutPKIRecord writes a record in the system tenant's PKI region (e.g. a join
+// token). Used by the CLI so it has parity with the console for cluster
+// enrollment.
+func PutPKIRecord(ctx context.Context, cli valueclient.Client, minor string, val []byte) error {
+	_, err := putRecordKey(ctx, cli, keyValueRegion(PKIRegion, minor), val, false)
+	return err
 }
 
 // CreateRecord writes an IAM record create-if-absent (CAS version 0). It returns
@@ -56,8 +68,12 @@ func GetRecord(ctx context.Context, cli valueclient.Client, minor string, obj in
 }
 
 func putRecord(ctx context.Context, cli valueclient.Client, minor string, val []byte, createOnly bool) (bool, error) {
+	return putRecordKey(ctx, cli, keyValue(minor), val, createOnly)
+}
+
+func putRecordKey(ctx context.Context, cli valueclient.Client, key value.Value, val []byte, createOnly bool) (bool, error) {
 	req := value.EmptyMap(true).
-		Put("key", keyValue(minor)).
+		Put("key", key).
 		Put("value", value.Raw(val, false)).
 		Put("metadata", value.Long(0)).
 		Put("ttl", value.Long(0)).

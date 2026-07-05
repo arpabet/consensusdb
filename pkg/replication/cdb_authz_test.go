@@ -118,12 +118,14 @@ func TestCdbAuthorizationEnforced(t *testing.T) {
 
 func seedSA(t *testing.T, storage server.KeyValueStorage, name string) string {
 	t.Helper()
-	token, hash, err := iam.GenerateToken(name)
+	token, hash, err := iam.NewToken(iam.TokenPrefixServiceAccount)
 	if err != nil {
 		t.Fatal(err)
 	}
 	seedIdentity(t, storage, iam.ServiceAccountPrefix+name,
 		&iam.ServiceAccountRecord{Name: name, TokenHash: hash, CreatedAt: time.Now().Unix()})
+	seedIdentity(t, storage, iam.TokenIndexKey(hash),
+		&iam.TokenRecord{Principal: iam.PrincipalServiceAccount(name)})
 	return token
 }
 

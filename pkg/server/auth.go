@@ -6,6 +6,8 @@
 package server
 
 import (
+	"time"
+
 	"go.arpabet.com/consensusdb/pkg/iam"
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/value"
@@ -92,23 +94,27 @@ func (t *AuthService) AuthenticatePassword(name, pass string) (string, error) {
 	return iam.PrincipalUser(name), nil
 }
 
-// AuthenticateToken validates an API token and returns the service-account
-// principal.
+// AuthenticateToken validates an opaque bearer token (service-account "sa-…" or
+// user PAT "pat-…") by hashing it and looking it up in the reverse index, then
+// returns the principal it authenticates. Disabled principals and expired
+// permissions are rejected at authorization time (Snapshot.Disabled).
 func (t *AuthService) AuthenticateToken(token string) (string, error) {
-	name, secret, ok := iam.ParseToken(token)
-	if !ok {
+	rec := &iam.TokenRecord{}
+	if !t.load(iam.TokenIndexKey(iam.HashToken(token)), rec) || rec.Principal == "" {
 		return "", xerrors.New("invalid token")
 	}
-	rec := &iam.ServiceAccountRecord{}
-	if !t.load(iam.ServiceAccountPrefix+name, rec) || rec.Disabled ||
-		rec.TokenHash == "" || !iam.VerifyTokenSecret(rec.TokenHash, secret) {
-		return "", xerrors.New("invalid token")
+	if rec.ExpiresAt != 0 && time.Now().Unix() > rec.ExpiresAt {
+		return "", xerrors.New("token expired")
 	}
-	return iam.PrincipalServiceAccount(name), nil
+	return rec.Principal, nil
 }
 
-// certificatePrincipal maps the verified peer certificate onto a registered
-// service account: SAN URIs first (the recommended identity form), then the CN.
+// certificatePrincipal maps the verified peer certificate onto the principal
+// registered for its identity: SAN URIs first (the recommended identity form),
+// then the CN. The identity may belong to a user or a service account, and the
+// cert may have been issued by the built-in CA or externally registered — the
+// cert index resolves all of these the same way. A disabled principal is rejected
+// at authorization time (Snapshot.Disabled).
 func (t *AuthService) certificatePrincipal(conn valuerpc.MsgConn) (string, bool) {
 	certs, ok := valuerpc.PeerCertificates(conn)
 	if !ok || len(certs) == 0 {
@@ -124,14 +130,9 @@ func (t *AuthService) certificatePrincipal(conn valuerpc.MsgConn) (string, bool)
 	}
 	for _, ident := range idents {
 		idx := &iam.CertIndexRecord{}
-		if !t.load(iam.CertPrefix+ident, idx) {
-			continue
+		if t.load(iam.CertPrefix+ident, idx) && idx.Principal != "" {
+			return idx.Principal, true
 		}
-		rec := &iam.ServiceAccountRecord{}
-		if !t.load(iam.ServiceAccountPrefix+idx.ServiceAccount, rec) || rec.Disabled {
-			continue
-		}
-		return iam.PrincipalServiceAccount(rec.Name), true
 	}
 	return "", false
 }

@@ -100,12 +100,14 @@ func TestCdbAuthPasswordAndToken(t *testing.T) {
 	offHash, _ := iam.HashPassword("off")
 	seedIdentity(t, probe.Storage, iam.UserPrefix+"off",
 		&iam.UserRecord{Name: "off", PasswordHash: offHash, Disabled: true})
-	token, tokenHash, err := iam.GenerateToken("robot")
+	token, tokenHash, err := iam.NewToken(iam.TokenPrefixServiceAccount)
 	if err != nil {
 		t.Fatal(err)
 	}
 	seedIdentity(t, probe.Storage, iam.ServiceAccountPrefix+"robot",
 		&iam.ServiceAccountRecord{Name: "robot", TokenHash: tokenHash, CreatedAt: time.Now().Unix()})
+	seedIdentity(t, probe.Storage, iam.TokenIndexKey(tokenHash),
+		&iam.TokenRecord{Principal: iam.PrincipalServiceAccount("robot")})
 
 	ctx := context.Background()
 
@@ -215,8 +217,9 @@ func TestCdbAuthMutualTLSIdentity(t *testing.T) {
 	// Register the workload identity the way `iam sa-add --cert-idents` does.
 	const ident = "urn:cdb:sa:webby"
 	seedIdentity(t, probe.Storage, iam.ServiceAccountPrefix+"webby",
-		&iam.ServiceAccountRecord{Name: "webby", CertIdentities: []string{ident}, CreatedAt: time.Now().Unix()})
-	seedIdentity(t, probe.Storage, iam.CertPrefix+ident, &iam.CertIndexRecord{ServiceAccount: "webby"})
+		&iam.ServiceAccountRecord{Name: "webby", CreatedAt: time.Now().Unix()})
+	seedIdentity(t, probe.Storage, iam.CertPrefix+ident,
+		&iam.CertIndexRecord{Principal: iam.PrincipalServiceAccount("webby"), CreatedAt: time.Now().Unix()})
 
 	pool := x509.NewCertPool()
 	pool.AppendCertsFromPEM(certs.caPEM)

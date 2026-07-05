@@ -250,7 +250,11 @@ func (t *IamSaAddCommand) Help() (string, string) {
 }
 
 func (t *IamSaAddCommand) Run(ctx context.Context) error {
-	token, tokenHash, err := iam.GenerateToken(t.Name)
+	token, tokenHash, err := iam.NewToken(iam.TokenPrefixServiceAccount)
+	if err != nil {
+		return err
+	}
+	tokenIndex, err := iam.Encode(&iam.TokenRecord{Principal: iam.PrincipalServiceAccount(t.Name)})
 	if err != nil {
 		return err
 	}
@@ -261,7 +265,7 @@ func (t *IamSaAddCommand) Run(ctx context.Context) error {
 		}
 	}
 	record, err := iam.Encode(&iam.ServiceAccountRecord{
-		Name: t.Name, TokenHash: tokenHash, CertIdentities: idents, CreatedAt: time.Now().Unix(),
+		Name: t.Name, TokenHash: tokenHash, CreatedAt: time.Now().Unix(),
 	})
 	if err != nil {
 		return err
@@ -274,8 +278,13 @@ func (t *IamSaAddCommand) Run(ctx context.Context) error {
 		if !created {
 			return xerrors.Errorf("service account %q already exists", t.Name)
 		}
+		if err := iam.PutRecord(ctx, cli, iam.TokenIndexKey(tokenHash), tokenIndex); err != nil {
+			return xerrors.Errorf("token index: %w", err)
+		}
 		for _, ident := range idents {
-			idx, err := iam.Encode(&iam.CertIndexRecord{ServiceAccount: t.Name})
+			idx, err := iam.Encode(&iam.CertIndexRecord{
+				Principal: iam.PrincipalServiceAccount(t.Name), CreatedAt: time.Now().Unix(),
+			})
 			if err != nil {
 				return err
 			}

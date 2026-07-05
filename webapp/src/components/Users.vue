@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { api } from '../api.js'
+import CertManager from './CertManager.vue'
 
 // User management: password identities. Their role/tenant assignments are managed
 // on the IAM tab; here we show a summary and allow create/delete. Filterable
@@ -12,6 +13,7 @@ const busy = ref(false)
 const filter = ref('')
 const newUser = ref({ username: '', password: '' })
 const confirmDelete = ref(null)
+const certFor = ref(null) // user whose mTLS certificates are being managed
 
 // user:name → [{role, scope}]
 const accessByUser = computed(() => {
@@ -97,7 +99,10 @@ onMounted(refresh)
               style="margin:0.1rem 0.2rem 0.1rem 0;background:var(--panel-2)">{{ a.role }} @ {{ scopeLabel(a.scope) }}</span>
             <span v-if="!(accessByUser['user:' + u.name] || []).length" class="hint">—</span>
           </td>
-          <td style="text-align:right"><button style="background:var(--err);padding:0.25rem 0.5rem" @click="confirmDelete = u">Delete</button></td>
+          <td style="text-align:right;white-space:nowrap">
+            <button style="background:var(--panel-2);padding:0.25rem 0.5rem;margin-right:0.35rem" @click="certFor = u">Certificates</button>
+            <button style="background:var(--err);padding:0.25rem 0.5rem" @click="confirmDelete = u">Delete</button>
+          </td>
         </tr>
         <tr v-if="!shown.length"><td colspan="3" class="hint" style="padding:0.5rem 0">No users.</td></tr>
       </tbody>
@@ -105,6 +110,13 @@ onMounted(refresh)
     <p class="hint" style="margin-top:0.5rem">Grant roles / assign tenants on the <strong>IAM</strong> tab.</p>
     <p v-if="error" class="err-text">{{ error }}</p>
   </div>
+
+  <CertManager
+    v-if="certFor"
+    :principal="'user:' + certFor.name"
+    :label="certFor.name"
+    @close="certFor = null"
+  />
 
   <div v-if="confirmDelete" class="modal-backdrop" @click.self="confirmDelete = null">
     <div class="panel" style="max-width:24rem">

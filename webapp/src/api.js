@@ -65,8 +65,11 @@ export const api = {
   serviceAccounts: () => req('GET', '/iam/service-accounts'),
   createServiceAccount: (name) => req('POST', '/iam/service-accounts', { name }),
   deleteServiceAccount: (name) => req('DELETE', `/iam/service-accounts/${encodeURIComponent(name)}`),
-  addCert: (name, identity) => req('POST', `/iam/service-accounts/${encodeURIComponent(name)}/certs`, { identity }),
-  removeCert: (name, identity) => req('POST', `/iam/service-accounts/${encodeURIComponent(name)}/certs`, { identity, remove: true }),
+  // client certificates (mTLS) — one CA, keyed by principal (user: or serviceAccount:)
+  certs: (principal) => req('GET', `/iam/certs?principal=${encodeURIComponent(principal)}`),
+  issueCert: (principal, ttlDays) => req('POST', '/iam/certs/issue', { principal, ttlDays }),
+  registerCert: (principal, identity) => req('POST', '/iam/certs/register', { principal, identity }),
+  revokeCert: (identity) => req('DELETE', `/iam/certs?identity=${encodeURIComponent(identity)}`),
   roles: () => req('GET', '/iam/roles'),
   bindings: () => req('GET', '/iam/bindings'),
   grant: (role, members, tenant, region) => req('POST', '/iam/bindings', { role, members, tenant, region }),

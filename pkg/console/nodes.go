@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -309,3 +310,94 @@ func (e stringError) Error() string { return string(e) }
 var errLoop = stringError("leader-forward loop detected")
 
 func errStatus(code int) error { return stringError(http.StatusText(code)) }
+
+// ---------------------------------------------------------------------------
+// Web/CLI cluster enrollment (join tokens + node certificate signing)
+// ---------------------------------------------------------------------------
+
+// mintJoinTokenHandler mints a single-use join token (admin-only). The operator
+// runs a new node with `--join <token>`; it enrolls, receives a CA-signed node
+// cert, and is added as a voter. The CLI `consensusdb cluster join-token` mints the
+// same record, so web and CLI operators have parity.
+func (t *ConsoleHandler) mintJoinTokenHandler(w http.ResponseWriter, r *http.Request, principal string) {
+	ttl := 30 * time.Minute
+	if m := r.URL.Query().Get("ttlMinutes"); m != "" {
+		if n, err := strconv.Atoi(m); err == nil && n > 0 {
+			ttl = time.Duration(n) * time.Minute
+		}
+	}
+	token, expiresAt, err := t.mintJoinToken(r.Context(), ttl, principal)
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, "mint join token: "+err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"joinToken": token,
+		"expiresAt": expiresAt,
+		"note":      "start the new node with:  consensusdb run --join " + token + " --peer <this-node-http>",
+	})
+}
+
+// enrollNode is the token-authenticated endpoint a joining node calls: verify the
+// join token, sign the node's CSR with the built-in CA, add it as a raft voter, and
+// return the node cert + CA bundle. Membership changes run on the leader, so a
+// follower proxies the whole request there.
+func (t *ConsoleHandler) enrollNode(w http.ResponseWriter, r *http.Request) {
+	rf, ok := t.raftHandle()
+	if !ok {
+		writeErr(w, http.StatusConflict, "replication is not enabled on this node")
+		return
+	}
+	if !t.Raft.IsLeader() {
+		leaderAddr, _ := rf.LeaderWithID()
+		if leaderAddr == "" {
+			writeErr(w, http.StatusServiceUnavailable, "no leader elected")
+			return
+		}
+		if err := t.proxyToLeader(w, r, string(leaderAddr)); err != nil {
+			writeErr(w, http.StatusBadGateway, "forward to leader: "+err.Error())
+		}
+		return
+	}
+	var req struct {
+		Token     string `json:"token"`
+		NodeId    string `json:"nodeId"`
+		RaftAddr  string `json:"raftAddr"`
+		Advertise string `json:"advertise"`
+		CsrPem    string `json:"csrPem"`
+	}
+	if err := decodeJSON(w, r, &req); err != nil {
+		return
+	}
+	if req.NodeId == "" || req.RaftAddr == "" || req.CsrPem == "" {
+		writeErr(w, http.StatusBadRequest, "nodeId, raftAddr and csrPem are required")
+		return
+	}
+	certPEM, caPEM, err := t.signNodeEnrollment(r.Context(), req.Token, req.NodeId,
+		[]string{hostOnly(req.RaftAddr), hostOnly(req.Advertise)}, []byte(req.CsrPem))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := rf.AddVoter(raft.ServerID(req.NodeId), raft.ServerAddress(req.RaftAddr), 0, 10*time.Second).Error(); err != nil {
+		writeErr(w, http.StatusInternalServerError, "add voter: "+err.Error())
+		return
+	}
+	t.consumeJoinToken(r.Context(), req.Token) // single-use, only after the node is added
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"nodeId":  req.NodeId,
+		"certPem": string(certPEM),
+		"caPem":   string(caPEM),
+	})
+}
+
+// hostOnly strips the port from a host:port address, tolerating a bare host.
+func hostOnly(addr string) string {
+	if addr == "" {
+		return ""
+	}
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		return host
+	}
+	return addr
+}

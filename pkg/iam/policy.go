@@ -122,10 +122,11 @@ func PredefinedRoles() map[string][]string {
 	viewer := []string{PermRecordsGet, PermRecordsEnumerate, PermRecordsWatch}
 	editor := append([]string{PermRecordsPut, PermRecordsDelete, PermRecordsIncrement, PermRecordsBatch}, viewer...)
 	return map[string][]string{
-		"roles/cdb.viewer":      viewer,
-		"roles/cdb.editor":      editor,
-		"roles/cdb.auditor":     append([]string{PermProofsRead}, viewer...),
-		"roles/cdb.tenantAdmin": append([]string{PermIamGet}, editor...),
+		// tenant-scoped administration is roles/cdb.admin bound to a tenant, so no
+		// separate roles/cdb.tenantAdmin is needed.
+		"roles/cdb.viewer":  viewer,
+		"roles/cdb.editor":  editor,
+		"roles/cdb.auditor": append([]string{PermProofsRead}, viewer...),
 		"roles/cdb.admin": {
 			PermRecordsGet, PermRecordsPut, PermRecordsDelete, PermRecordsIncrement,
 			PermRecordsBatch, PermRecordsEnumerate, PermRecordsWatch,

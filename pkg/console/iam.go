@@ -131,18 +131,36 @@ type saOut struct {
 }
 
 func (t *ConsoleHandler) iamListServiceAccounts(w http.ResponseWriter) {
-	var accounts []saOut
+	type base struct {
+		name     string
+		hasToken bool
+		disabled bool
+		created  int64
+	}
+	var bases []base
+	certs := map[string][]string{} // principal → identities, from the cert index
 	err := t.scanIAM(func(minor string, value []byte) {
 		if name, ok := strings.CutPrefix(minor, iam.ServiceAccountPrefix); ok {
 			sa := &iam.ServiceAccountRecord{}
 			if iam.Decode(value, sa) == nil {
-				accounts = append(accounts, saOut{name, sa.TokenHash != "", sa.CertIdentities, sa.Disabled, sa.CreatedAt})
+				bases = append(bases, base{name, sa.TokenHash != "", sa.Disabled, sa.CreatedAt})
+			}
+			return
+		}
+		if ident, ok := strings.CutPrefix(minor, iam.CertPrefix); ok {
+			idx := &iam.CertIndexRecord{}
+			if iam.Decode(value, idx) == nil && idx.Principal != "" {
+				certs[idx.Principal] = append(certs[idx.Principal], ident)
 			}
 		}
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "scan service accounts")
 		return
+	}
+	accounts := make([]saOut, 0, len(bases))
+	for _, b := range bases {
+		accounts = append(accounts, saOut{b.name, b.hasToken, certs[iam.PrincipalServiceAccount(b.name)], b.disabled, b.created})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"serviceAccounts": accounts})
 }
@@ -157,16 +175,16 @@ func (t *ConsoleHandler) iamCreateServiceAccount(w http.ResponseWriter, r *http.
 	if err := decodeJSON(w, r, &req); err != nil {
 		return
 	}
-	if req.Name == "" || strings.ContainsAny(req.Name, "./ ") {
-		writeErr(w, http.StatusBadRequest, "name is required and must not contain '.', '/' or spaces")
+	if req.Name == "" || strings.ContainsAny(req.Name, "/ ") {
+		writeErr(w, http.StatusBadRequest, "name is required and must not contain '/' or spaces")
 		return
 	}
-	token, secretHash, err := iam.GenerateToken(req.Name)
+	token, hash, err := iam.NewToken(iam.TokenPrefixServiceAccount)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, err.Error())
+		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	raw, err := iam.Encode(&iam.ServiceAccountRecord{Name: req.Name, TokenHash: secretHash, CreatedAt: time.Now().Unix()})
+	raw, err := iam.Encode(&iam.ServiceAccountRecord{Name: req.Name, TokenHash: hash, CreatedAt: time.Now().Unix()})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "encode record")
 		return
@@ -182,6 +200,11 @@ func (t *ConsoleHandler) iamCreateServiceAccount(w http.ResponseWriter, r *http.
 		writeErr(w, http.StatusConflict, "service account already exists")
 		return
 	}
+	// Reverse index: hash(token) → serviceAccount:<name>, long-lived (no expiry).
+	if err := t.writeTokenIndex(hash, iam.PrincipalServiceAccount(req.Name), 0); err != nil {
+		writeErr(w, http.StatusInternalServerError, "write token index")
+		return
+	}
 	// Token shown once.
 	writeJSON(w, http.StatusCreated, map[string]any{"name": req.Name, "token": token})
 }
@@ -191,11 +214,35 @@ func (t *ConsoleHandler) iamDeleteServiceAccount(w http.ResponseWriter, name str
 		writeErr(w, http.StatusBadRequest, "service account name required")
 		return
 	}
+	// Remove the token's reverse index first (best-effort), then the record.
+	if rec, err := t.svc.Get(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.ServiceAccountPrefix + name)}); err == nil && rec != nil && len(rec.Value) > 0 {
+		sa := &iam.ServiceAccountRecord{}
+		if iam.Decode(rec.Value, sa) == nil {
+			t.deleteTokenIndex(sa.TokenHash)
+		}
+	}
 	if _, err := t.svc.Remove(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.ServiceAccountPrefix + name)}); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": name})
+}
+
+// writeTokenIndex records the reverse index token/<hash> → {principal, expiresAt}.
+func (t *ConsoleHandler) writeTokenIndex(hash, principal string, expiresAt int64) error {
+	raw, err := iam.Encode(&iam.TokenRecord{Principal: principal, ExpiresAt: expiresAt})
+	if err != nil {
+		return err
+	}
+	_, err = t.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(iam.TokenIndexKey(hash)), Value: raw})
+	return err
+}
+
+// deleteTokenIndex removes a token's reverse index (no-op for an empty hash).
+func (t *ConsoleHandler) deleteTokenIndex(hash string) {
+	if hash != "" {
+		_, _ = t.svc.Remove(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.TokenIndexKey(hash))})
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -398,79 +445,6 @@ func dedup(in []string) []string {
 // ---------------------------------------------------------------------------
 // Service-account certificate identities (mutual TLS)
 // ---------------------------------------------------------------------------
-
-// iamServiceAccountCert adds or removes a certificate identity (a SAN URI or CN)
-// on a service account. Adding also writes the cert index (cert/<identity> → SA)
-// so an mTLS client presenting that identity authenticates as this account.
-func (t *ConsoleHandler) iamServiceAccountCert(w http.ResponseWriter, r *http.Request, saName string) {
-	var req struct {
-		Identity string `json:"identity"`
-		Remove   bool   `json:"remove"`
-	}
-	if err := decodeJSON(w, r, &req); err != nil {
-		return
-	}
-	if saName == "" || strings.TrimSpace(req.Identity) == "" {
-		writeErr(w, http.StatusBadRequest, "service account and identity are required")
-		return
-	}
-	identity := strings.TrimSpace(req.Identity)
-
-	rec, err := t.svc.Get(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.ServiceAccountPrefix + saName)})
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	if rec == nil || len(rec.Value) == 0 {
-		writeErr(w, http.StatusNotFound, "service account not found")
-		return
-	}
-	sa := &iam.ServiceAccountRecord{}
-	if err := iam.Decode(rec.Value, sa); err != nil {
-		writeErr(w, http.StatusInternalServerError, "decode record")
-		return
-	}
-
-	if req.Remove {
-		sa.CertIdentities = without(sa.CertIdentities, identity)
-		if _, err := t.svc.Remove(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.CertPrefix + identity)}); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-	} else {
-		sa.CertIdentities = dedup(append(sa.CertIdentities, identity))
-		idx, err := iam.Encode(&iam.CertIndexRecord{ServiceAccount: saName})
-		if err != nil {
-			writeErr(w, http.StatusInternalServerError, "encode cert index")
-			return
-		}
-		if _, err := t.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(iam.CertPrefix + identity), Value: idx}); err != nil {
-			writeErr(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-	}
-
-	raw, err := iam.Encode(sa)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "encode record")
-		return
-	}
-	if _, err := t.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(iam.ServiceAccountPrefix + saName), Value: raw}); err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"name": saName, "certIdentities": sa.CertIdentities})
-}
-
-func without(list []string, v string) []string {
-	var out []string
-	for _, s := range list {
-		if s != v {
-			out = append(out, s)
-		}
-	}
-	return out
-}
 
 // ---------------------------------------------------------------------------
 // Groups
