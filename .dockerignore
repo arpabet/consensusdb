@@ -1,0 +1,11 @@
+.git
+webapp/node_modules
+webapp/dist
+pkg/webui/bindata.go
+/data
+/demo-data
+consensusdb
+consensusdb.exe
+consensusdb.yaml
+*.log
+.DS_Store

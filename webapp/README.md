@@ -12,20 +12,25 @@ both calling the admin REST API under `/api`:
 Sign-in (`components/Login.vue`, shared) accepts a username + password *or* an IAM
 token.
 
-Dashboard view: cluster/raft status, the live ledger head, per-region footprint,
-and reads/writes per second.
+Dashboard tabs:
+
+- **Nodes** (`Nodes.vue`, primary) — raft members with up/down health and per-node
+  CPU/memory/storage load (red over 80%) and overall load. Read-only; add/remove
+  controls render only when the `can-manage` prop (admin) is set.
+- **Overview** (`Dashboard.vue`) — cluster/raft status, the live ledger head,
+  per-region footprint, and reads/writes per second.
 
 Admin console tabs:
 
-- **IAM** (`IAM.vue`) — GCP-style: each principal (user / service account / group)
-  and its roles, scoped to the whole database, a tenant (major key), or a region;
-  grant/revoke, multiple assignments per principal.
+- **IAM** (`IAM.vue`) — GCP-style: **every** principal (user / service account /
+  group, shown even role-less) and its roles, scoped to the whole database, a
+  tenant (major key), or a region; admin users show an implicit owner grant.
+  Grant/revoke via a dialog that selects the principal from existing ones.
 - **Users** (`Users.vue`) — password identities: create/delete, filterable, with a
   per-user role/scope summary.
 - **Access** (`Access.vue`) — service accounts (application tokens shown once +
-  mutual-TLS certificate identities) and groups.
-- **Nodes** — raft members with up/down health and per-node CPU/memory/storage
-  load (red over 80%), overall load, add/remove nodes.
+  mutual-TLS certificate identities) and groups (edited by selecting members from
+  existing users/service accounts).
 - **Database** — export/import dumps. **Verify ledger** — with a progress bar.
 - **Onboarding** — first-run wizard (create the admin, optionally generate the CA).
 
@@ -49,9 +54,11 @@ repo root:
 make webui          # npm ci && npm run build, then go-bindata → pkg/webui/bindata.go
 ```
 
-`pkg/webui/bindata.go` is committed, so `go build` stays self-contained; the node
-serves the embedded files at `/console` via `pkg/run/spa.go`. Commit the
-regenerated `pkg/webui/bindata.go` alongside your front-end changes.
+`pkg/webui/bindata.go` is **generated (git-ignored)**, so run `make webui` (or
+`make all`) before `go build` — a fresh checkout has an empty `pkg/webui` until
+then. The CI/release/Docker builds regenerate it themselves (the CI compile-check
+uses a placeholder). The node serves the embedded files at `/dashboard` and
+`/console` via `pkg/run/spa.go`.
 
 ## API used
 

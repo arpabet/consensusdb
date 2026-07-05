@@ -2,12 +2,16 @@
 import { ref, onMounted } from 'vue'
 import { api, clearCredential, hasCredential } from './api.js'
 import Login from './components/Login.vue'
+import Nodes from './components/Nodes.vue'
 import Dashboard from './components/Dashboard.vue'
 
-// The read-only monitoring dashboard, served at /. It never mutates anything —
-// all management lives in the admin console at /console.
+// The read-only monitoring dashboard, served at /dashboard. Nodes (cluster load)
+// is the primary tab — you see load first. Everything here is read-only; the
+// Nodes add/remove controls appear only for admins (canManage). Management lives
+// in the admin console at /console.
 const phase = ref('loading') // loading | setup | login | denied | app
 const me = ref(null)
+const tab = ref('nodes')
 
 function gate(m) {
   me.value = m
@@ -74,6 +78,13 @@ onMounted(boot)
         <a href="/console">admin console → IAM</a>.</p>
     </div>
 
-    <Dashboard v-else-if="phase === 'app'" />
+    <template v-else-if="phase === 'app'">
+      <nav style="display:flex;gap:0.5rem;margin-bottom:1rem">
+        <button :style="tab === 'nodes' ? '' : 'background:var(--panel-2)'" @click="tab = 'nodes'">Nodes</button>
+        <button :style="tab === 'overview' ? '' : 'background:var(--panel-2)'" @click="tab = 'overview'">Overview</button>
+      </nav>
+      <Nodes v-if="tab === 'nodes'" :can-manage="!!(me && me.isAdmin)" />
+      <Dashboard v-else-if="tab === 'overview'" />
+    </template>
   </div>
 </template>

@@ -34,6 +34,18 @@ jobs:
       # they eagerly resolve the test-only `replace => ../store/...` modules, which
       # are absent in a CI checkout. `go build` only pulls the packages it compiles
       # (test files excluded), so it succeeds from the published dependencies.
+      # pkg/webui/bindata.go is generated (git-ignored), so a clean checkout has an
+      # empty pkg/webui. Generate a placeholder set here — this job only verifies
+      # the Go sources compile; the real console is embedded at release/image time.
+      - name: Generate embedded console (placeholder)
+        run: |
+          go install go.arpabet.com/go-bindata/go-bindata@v1.1.0
+          mkdir -p webapp/dist
+          printf '<!doctype html>' > webapp/dist/dashboard.html
+          printf '<!doctype html>' > webapp/dist/console.html
+          "$(go env GOPATH)/bin/go-bindata" -pkg webui -o pkg/webui/bindata.go \
+            -fs -nocompress -nomemcopy -prefix "webapp/dist/" webapp/dist/...
+
       - name: Build all packages
         run: go build ./...
 

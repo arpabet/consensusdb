@@ -118,11 +118,11 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			t.regions(w)
 		}
 	case path == "/api/node/metrics" && method == http.MethodGet:
-		if authorize(iam.PermProofsRead) { // peers call this during fan-out
+		if authorize(iam.PermRecordsGet) { // peers call this during fan-out; dashboard Nodes tab
 			t.nodeMetricsEndpoint(w)
 		}
 	case path == "/api/cluster/nodes" && method == http.MethodGet:
-		if authorize(iam.PermProofsRead) {
+		if authorize(iam.PermRecordsGet) { // dashboard Nodes tab (viewer+)
 			t.clusterNodes(w, r)
 		}
 

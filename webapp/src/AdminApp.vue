@@ -6,7 +6,6 @@ import Login from './components/Login.vue'
 import IAM from './components/IAM.vue'
 import Users from './components/Users.vue'
 import Access from './components/Access.vue'
-import Nodes from './components/Nodes.vue'
 import Database from './components/Database.vue'
 import VerifyBackup from './components/VerifyBackup.vue'
 
@@ -79,7 +78,6 @@ onMounted(boot)
         <button :style="tab === 'iam' ? '' : 'background:var(--panel-2)'" @click="tab = 'iam'">IAM</button>
         <button :style="tab === 'users' ? '' : 'background:var(--panel-2)'" @click="tab = 'users'">Users</button>
         <button :style="tab === 'access' ? '' : 'background:var(--panel-2)'" @click="tab = 'access'">Access</button>
-        <button :style="tab === 'nodes' ? '' : 'background:var(--panel-2)'" @click="tab = 'nodes'">Nodes</button>
         <button :style="tab === 'database' ? '' : 'background:var(--panel-2)'" @click="tab = 'database'">Database</button>
         <button :style="tab === 'verify' ? '' : 'background:var(--panel-2)'" @click="tab = 'verify'">Verify ledger</button>
       </nav>
@@ -87,7 +85,6 @@ onMounted(boot)
       <IAM v-if="tab === 'iam'" />
       <Users v-else-if="tab === 'users'" />
       <Access v-else-if="tab === 'access'" />
-      <Nodes v-else-if="tab === 'nodes'" />
       <Database v-else-if="tab === 'database'" />
       <div v-else-if="tab === 'verify'" class="panel">
         <h2>Verify a backup against a quorum certificate</h2>

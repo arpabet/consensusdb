@@ -23,10 +23,11 @@ version:
 deps:
 	go install go.arpabet.com/go-bindata/go-bindata@v1.1.0
 
-# Rebuild the embedded admin console: build the Vite app (webapp/) and bake
-# webapp/dist into pkg/webui via go-bindata. The generated pkg/webui/bindata.go is
-# committed, so `go build` stays self-contained (no webapp/dist at runtime). Run
-# this whenever anything under webapp/ changes, then commit pkg/webui/bindata.go.
+# Rebuild the embedded web apps: build the Vite project (webapp/) and bake
+# webapp/dist into pkg/webui via go-bindata. pkg/webui/bindata.go is generated
+# (git-ignored), so run this (or `make all`) before `go build`; the release and
+# Docker builds regenerate it themselves. A fresh checkout has an empty pkg/webui
+# until this runs.
 webui:
 	npm --prefix webapp ci
 	npm --prefix webapp run build

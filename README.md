@@ -313,27 +313,32 @@ so the password admin created during onboarding can actually sign in.
 
 ### Dashboard (`/dashboard`, read-only)
 
-Cluster/raft status, the live ledger head, **per-region footprint** (keys, size
-on-transfer/on-disk), and store-wide **reads/writes per second**. Requires at least
-**`roles/cdb.viewer`** (`/api/me` reports `canRead`); anonymous when
-`auth.enabled=false`.
+Two tabs, requires at least **`roles/cdb.viewer`** (`/api/me` reports `canRead`;
+anonymous when `auth.enabled=false`):
+
+- **Nodes** (primary — load first) — raft members with **up/down** health and
+  **per-node CPU / memory / storage** load (red over 80%) and overall cluster
+  load. Read-only for viewers; **add**/**remove** node controls appear only for
+  admins (proxied to the leader — works from one Kubernetes Service endpoint).
+- **Overview** — cluster/raft status, the live ledger head, **per-region
+  footprint** (keys, size on-transfer/on-disk), and reads/writes per second.
 
 ### Admin console (`/console`, admin)
 
 - **First-run onboarding** — on a fresh cluster (`GET /api/setup/status`) a wizard
   creates the first admin (`POST /api/setup/bootstrap`) and can generate the
   **ledger CA**, then points you at enabling `AUTH_ENABLED`.
-- **IAM** — a GCP-style page: every principal (user / service account / group) and
-  the **roles** granted to it, each scoped to the **whole database**, a **tenant
-  (major key)**, or a **region**. Multiple assignments per principal. Grant/revoke
-  with a dialog.
+- **IAM** — a GCP-style page listing **every principal** (user / service account /
+  group — shown even with no roles) and the **roles** granted to it, each scoped to
+  the **whole database** (all tenants & regions), a **tenant (major key)**, or a
+  **region**. Multiple assignments per principal; administrator users (e.g. the
+  first `root`) show an implicit owner grant over everything. Grant/revoke via a
+  dialog that picks the principal from the existing ones.
 - **Users** — password identities: create/list/delete, filterable, with each
   user's role/scope summary.
 - **Access** — **service accounts** (application tokens shown once + **mutual-TLS
-  certificate identities**) and **groups**.
-- **Nodes** — raft members with **up/down** health and **per-node CPU / memory /
-  storage** load (red over 80%), overall load, **add**/**remove** (proxied to the
-  leader — works from one Kubernetes Service endpoint).
+  certificate identities**) and **groups** (edited by picking members from the
+  existing users/service accounts).
 - **Database** — **export**/**import** dumps. **Verify ledger** — backup
   verification with a progress bar.
 

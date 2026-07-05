@@ -52,6 +52,19 @@ jobs:
             echo "version=${{ github.event.inputs.version }}" >> "$GITHUB_OUTPUT"
           fi
 
+      # pkg/webui/bindata.go is generated (git-ignored). Build the Vue console and
+      # embed it via go-bindata before the Go build.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Build & embed the admin console
+        run: |
+          npm --prefix webapp ci --no-audit --no-fund
+          npm --prefix webapp run build
+          go install go.arpabet.com/go-bindata/go-bindata@v1.1.0
+          "$(go env GOPATH)/bin/go-bindata" -pkg webui -o pkg/webui/bindata.go \
+            -fs -nocompress -nomemcopy -prefix "webapp/dist/" webapp/dist/...
+
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}

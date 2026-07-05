@@ -3,8 +3,10 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { api } from '../api.js'
 import Meter from './Meter.vue'
 
-// Live cluster node management: members with health and per-node CPU/Mem/Storage
-// load (storage turns red over 80%), overall load, and add/remove controls.
+// Live cluster nodes: members with health and per-node CPU/Mem/Storage load
+// (storage turns red over 80%) and overall load — read-only for everyone, so it
+// lives on the dashboard. Add/remove controls appear only when canManage (admin).
+const props = defineProps({ canManage: { type: Boolean, default: false } })
 const nodes = ref([])
 const replication = ref(false)
 const error = ref('')
@@ -80,7 +82,7 @@ onUnmounted(() => clearInterval(timer))
       <h2>Cluster</h2>
       <div class="kv"><span class="k">Mode</span><span>{{ replication ? 'raft' : 'single-node' }}</span></div>
       <div class="kv"><span class="k">Nodes</span><span>{{ nodes.length }}</span></div>
-      <button v-if="replication" @click="showAdd = !showAdd">+ Add node</button>
+      <button v-if="replication && canManage" @click="showAdd = !showAdd">+ Add node</button>
     </div>
   </div>
 
@@ -117,7 +119,7 @@ onUnmounted(() => clearInterval(timer))
             <span v-else class="hint">—</span>
           </td>
           <td style="text-align:right">
-            <button v-if="replication && !n.leader" style="background:var(--err);padding:0.3rem 0.6rem"
+            <button v-if="replication && !n.leader && canManage" style="background:var(--err);padding:0.3rem 0.6rem"
               @click="confirmRemove = n">Remove</button>
           </td>
         </tr>
