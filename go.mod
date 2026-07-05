@@ -18,12 +18,12 @@ require (
 	github.com/hashicorp/raft v1.7.3
 	github.com/minio/minio-go/v7 v7.2.1
 	github.com/shirou/gopsutil/v4 v4.26.6
-	go.arpabet.com/cligo v0.5.0
+	go.arpabet.com/cligo v0.5.1
 	go.arpabet.com/glue v1.5.1
 	go.arpabet.com/raft/raftapi v0.4.2
 	go.arpabet.com/raft/raftmod v0.4.2
 	go.arpabet.com/raft/raftvrpc v0.4.2
-	go.arpabet.com/servion v1.5.3
+	go.arpabet.com/servion v1.5.4
 	go.arpabet.com/store v1.3.3
 	go.arpabet.com/store/providers/badger v1.3.2
 	go.arpabet.com/value v1.3.1
