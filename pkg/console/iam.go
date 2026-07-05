@@ -48,7 +48,6 @@ func (t *ConsoleHandler) scanIAM(fn func(minor string, value []byte)) error {
 
 type userOut struct {
 	Name      string `json:"name"`
-	Admin     bool   `json:"admin"`
 	Disabled  bool   `json:"disabled"`
 	CreatedAt int64  `json:"createdAt"`
 }
@@ -59,7 +58,7 @@ func (t *ConsoleHandler) iamListUsers(w http.ResponseWriter) {
 		if name, ok := strings.CutPrefix(minor, iam.UserPrefix); ok {
 			u := &iam.UserRecord{}
 			if iam.Decode(value, u) == nil {
-				users = append(users, userOut{name, u.Admin, u.Disabled, u.CreatedAt})
+				users = append(users, userOut{name, u.Disabled, u.CreatedAt})
 			}
 		}
 	})
@@ -74,7 +73,6 @@ func (t *ConsoleHandler) iamCreateUser(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
-		Admin    bool   `json:"admin"`
 	}
 	if err := decodeJSON(w, r, &req); err != nil {
 		return
@@ -88,7 +86,8 @@ func (t *ConsoleHandler) iamCreateUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "hash password")
 		return
 	}
-	raw, err := iam.Encode(&iam.UserRecord{Name: req.Username, PasswordHash: hash, Admin: req.Admin, CreatedAt: time.Now().Unix()})
+	// New users start with no roles — grant access on the IAM page.
+	raw, err := iam.Encode(&iam.UserRecord{Name: req.Username, PasswordHash: hash, CreatedAt: time.Now().Unix()})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "encode record")
 		return
@@ -104,7 +103,7 @@ func (t *ConsoleHandler) iamCreateUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusConflict, "user already exists")
 		return
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"created": req.Username, "admin": req.Admin})
+	writeJSON(w, http.StatusCreated, map[string]any{"created": req.Username})
 }
 
 func (t *ConsoleHandler) iamDeleteUser(w http.ResponseWriter, name string) {
@@ -257,7 +256,30 @@ func (t *ConsoleHandler) iamListBindings(w http.ResponseWriter) {
 	writeJSON(w, http.StatusOK, map[string]any{"bindings": out})
 }
 
-// iamGrant / iamRevoke add or remove members from a role binding at a scope.
+// grantRole adds (grant) or removes (!grant) members from a role binding at a
+// scope — empty tenant = the whole database, empty region = the whole tenant.
+// Read-modify-write of that scope's policy record. Reused by the onboarding
+// bootstrap to bind roles/cdb.admin to the first user.
+func (t *ConsoleHandler) grantRole(members []string, role, tenant, region string, grant bool) error {
+	minor := bindingMinor(tenant, region)
+	rec, err := t.svc.Get(context.Background(), &pb.KeyRequest{Key: iam.Key(minor)})
+	if err != nil {
+		return err
+	}
+	policy := &iam.PolicyRecord{}
+	if rec != nil && len(rec.Value) > 0 {
+		_ = iam.Decode(rec.Value, policy)
+	}
+	policy.Bindings = applyBinding(policy.Bindings, role, members, grant)
+	raw, err := iam.Encode(policy)
+	if err != nil {
+		return err
+	}
+	_, err = t.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(minor), Value: raw})
+	return err
+}
+
+// iamChangeBinding grants or revokes a role for members at a scope (REST).
 func (t *ConsoleHandler) iamChangeBinding(w http.ResponseWriter, r *http.Request, grant bool) {
 	var req struct {
 		Role    string   `json:"role"`
@@ -276,25 +298,7 @@ func (t *ConsoleHandler) iamChangeBinding(w http.ResponseWriter, r *http.Request
 		writeErr(w, http.StatusBadRequest, "region requires tenant")
 		return
 	}
-	minor := bindingMinor(req.Tenant, req.Region)
-
-	rec, err := t.svc.Get(context.Background(), &pb.KeyRequest{Key: iam.Key(minor)})
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	policy := &iam.PolicyRecord{}
-	if rec != nil && len(rec.Value) > 0 {
-		_ = iam.Decode(rec.Value, policy)
-	}
-	policy.Bindings = applyBinding(policy.Bindings, req.Role, req.Members, grant)
-
-	raw, err := iam.Encode(policy)
-	if err != nil {
-		writeErr(w, http.StatusInternalServerError, "encode policy")
-		return
-	}
-	if _, err := t.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(minor), Value: raw}); err != nil {
+	if err := t.grantRole(req.Members, req.Role, req.Tenant, req.Region, grant); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}

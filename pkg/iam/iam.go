@@ -34,7 +34,7 @@ const (
 	Region = "IAM"
 
 	UserPrefix           = "user/"
-	ServiceAccountPrefix = "sa/"
+	ServiceAccountPrefix = "sa-"
 	CertPrefix           = "cert/"
 )
 

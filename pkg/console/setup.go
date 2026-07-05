@@ -60,7 +60,7 @@ func (t *ConsoleHandler) setupBootstrap(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	raw, err := iam.Encode(&iam.UserRecord{
-		Name: req.Username, PasswordHash: hash, Admin: true, CreatedAt: time.Now().Unix(),
+		Name: req.Username, PasswordHash: hash, CreatedAt: time.Now().Unix(),
 	})
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "encode record")
@@ -72,6 +72,12 @@ func (t *ConsoleHandler) setupBootstrap(w http.ResponseWriter, r *http.Request) 
 	})
 	if err != nil || status == nil || !status.Updated {
 		writeErr(w, http.StatusConflict, "admin user already exists")
+		return
+	}
+	// The first user is the administrator: bind roles/cdb.admin at instance scope
+	// (all tenants & regions). Admin-ness is this role, not a separate flag.
+	if err := t.grantRole([]string{iam.PrincipalUser(req.Username)}, iam.RoleAdmin, "", "", true); err != nil {
+		writeErr(w, http.StatusInternalServerError, "grant admin role")
 		return
 	}
 	writeJSON(w, http.StatusCreated, map[string]any{

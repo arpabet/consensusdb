@@ -10,7 +10,7 @@ const bindings = ref([])
 const error = ref('')
 const busy = ref(false)
 const filter = ref('')
-const newUser = ref({ username: '', password: '', admin: false })
+const newUser = ref({ username: '', password: '' })
 const confirmDelete = ref(null)
 
 // user:name → [{role, scope}]
@@ -30,13 +30,9 @@ const shown = computed(() => {
 })
 
 function scopeLabel(scope) {
-  if (!scope) return 'db'
+  if (!scope) return 'all'
   const [t, r] = scope.split('/')
   return r ? `${t}/${r}` : t
-}
-
-function shortRole(role) {
-  return role.replace(/^roles\/cdb\./, '')
 }
 
 async function refresh() {
@@ -58,8 +54,8 @@ async function run(fn) {
 
 function createUser() {
   run(async () => {
-    await api.createUser(newUser.value.username.trim(), newUser.value.password, newUser.value.admin)
-    newUser.value = { username: '', password: '', admin: false }
+    await api.createUser(newUser.value.username.trim(), newUser.value.password)
+    newUser.value = { username: '', password: '' }
   })
 }
 
@@ -78,9 +74,6 @@ onMounted(refresh)
     <div class="grid" style="align-items:end">
       <div><label>Username</label><input v-model="newUser.username" placeholder="alice" /></div>
       <div><label>Password (min 8)</label><input v-model="newUser.password" type="password" /></div>
-      <div style="display:flex;align-items:center;gap:0.4rem;padding-bottom:0.5rem">
-        <label style="display:flex;gap:0.4rem;align-items:center;margin:0"><input type="checkbox" v-model="newUser.admin" /> Administrator</label>
-      </div>
       <div><button :disabled="busy || !newUser.username || newUser.password.length < 8" @click="createUser">Create user</button></div>
     </div>
   </div>
@@ -93,21 +86,20 @@ onMounted(refresh)
     <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
       <thead>
         <tr style="color:var(--muted);text-align:left">
-          <th style="padding:0.4rem 0">Username</th><th>Type</th><th>Access (role @ scope)</th><th></th>
+          <th style="padding:0.4rem 0">Username</th><th>Roles (role @ scope)</th><th></th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="u in shown" :key="u.name" style="border-top:1px solid var(--border)">
           <td style="padding:0.45rem 0" class="mono">{{ u.name }}</td>
-          <td><span v-if="u.admin" class="badge run">admin</span><span v-else class="hint">user</span></td>
           <td>
             <span v-for="(a, i) in (accessByUser['user:' + u.name] || [])" :key="i" class="badge"
-              style="margin:0.1rem 0.2rem 0.1rem 0;background:var(--panel-2)">{{ shortRole(a.role) }}@{{ scopeLabel(a.scope) }}</span>
+              style="margin:0.1rem 0.2rem 0.1rem 0;background:var(--panel-2)">{{ a.role }} @ {{ scopeLabel(a.scope) }}</span>
             <span v-if="!(accessByUser['user:' + u.name] || []).length" class="hint">—</span>
           </td>
           <td style="text-align:right"><button style="background:var(--err);padding:0.25rem 0.5rem" @click="confirmDelete = u">Delete</button></td>
         </tr>
-        <tr v-if="!shown.length"><td colspan="4" class="hint" style="padding:0.5rem 0">No users.</td></tr>
+        <tr v-if="!shown.length"><td colspan="3" class="hint" style="padding:0.5rem 0">No users.</td></tr>
       </tbody>
     </table>
     <p class="hint" style="margin-top:0.5rem">Grant roles / assign tenants on the <strong>IAM</strong> tab.</p>

@@ -129,7 +129,7 @@ func (t *IamBootstrapCommand) Run(ctx context.Context) error {
 		return err
 	}
 	record, err := iam.Encode(&iam.UserRecord{
-		Name: t.Username, PasswordHash: hash, Admin: true, CreatedAt: time.Now().Unix(),
+		Name: t.Username, PasswordHash: hash, CreatedAt: time.Now().Unix(),
 	})
 	if err != nil {
 		return err
@@ -143,7 +143,21 @@ func (t *IamBootstrapCommand) Run(ctx context.Context) error {
 			fmt.Printf("user %q already exists — bootstrap already done\n", t.Username)
 			return nil
 		}
-		fmt.Printf("admin user %q created\n", t.Username)
+		// The first user is the administrator: bind roles/cdb.admin at instance
+		// scope (admin-ness is this role binding, not a separate flag).
+		policy := &iam.PolicyRecord{}
+		if _, err := iam.GetRecord(ctx, cli, iam.PolicyInstance, policy); err != nil {
+			return err
+		}
+		policy.Bindings = mergeBinding(policy.Bindings, iam.RoleAdmin, []string{iam.PrincipalUser(t.Username)})
+		praw, err := iam.Encode(policy)
+		if err != nil {
+			return err
+		}
+		if err := iam.PutRecord(ctx, cli, iam.PolicyInstance, praw); err != nil {
+			return err
+		}
+		fmt.Printf("admin user %q created (bound %s)\n", t.Username, iam.RoleAdmin)
 		if generated {
 			fmt.Printf("password (shown once): %s\n", password)
 		}
@@ -157,7 +171,7 @@ type IamUserAddCommand struct {
 	Parent   cligo.CliGroup `cli:"group=iam"`
 	Username string         `cli:"argument=username,required"`
 	Password string         `cli:"option=password,default=,help=password (generated and printed when empty)"`
-	Admin    bool           `cli:"option=admin,default=false,help=mark as admin"`
+	Admin    bool           `cli:"option=admin,default=false,help=also bind roles/cdb.admin at instance scope (make this user an administrator)"`
 	iamDial
 	Log *zap.Logger `inject:""`
 }
@@ -183,7 +197,7 @@ func (t *IamUserAddCommand) Run(ctx context.Context) error {
 		return err
 	}
 	record, err := iam.Encode(&iam.UserRecord{
-		Name: t.Username, PasswordHash: hash, Admin: t.Admin, CreatedAt: time.Now().Unix(),
+		Name: t.Username, PasswordHash: hash, CreatedAt: time.Now().Unix(),
 	})
 	if err != nil {
 		return err
@@ -199,6 +213,21 @@ func (t *IamUserAddCommand) Run(ctx context.Context) error {
 		fmt.Printf("user %q created\n", t.Username)
 		if generated {
 			fmt.Printf("password (shown once): %s\n", password)
+		}
+		if t.Admin {
+			policy := &iam.PolicyRecord{}
+			if _, err := iam.GetRecord(ctx, cli, iam.PolicyInstance, policy); err != nil {
+				return err
+			}
+			policy.Bindings = mergeBinding(policy.Bindings, iam.RoleAdmin, []string{iam.PrincipalUser(t.Username)})
+			praw, err := iam.Encode(policy)
+			if err != nil {
+				return err
+			}
+			if err := iam.PutRecord(ctx, cli, iam.PolicyInstance, praw); err != nil {
+				return err
+			}
+			fmt.Printf("bound %s at instance scope\n", iam.RoleAdmin)
 		}
 		return nil
 	})

@@ -43,8 +43,7 @@ const accessBySA = computed(() => {
   return map
 })
 
-function shortRole(r) { return r.replace(/^roles\/cdb\./, '') }
-function scopeLabel(s) { if (!s) return 'db'; const [t, r] = s.split('/'); return r ? `${t}/${r}` : t }
+function scopeLabel(s) { if (!s) return 'all'; const [t, r] = s.split('/'); return r ? `${t}/${r}` : t }
 
 async function refresh() {
   error.value = ''
@@ -141,7 +140,7 @@ onMounted(refresh)
           <td><a style="cursor:pointer" @click="certFor = s; newCert = ''">{{ (s.certIdentities || []).length }} cert(s) →</a></td>
           <td>
             <span v-for="(a, i) in (accessBySA['serviceAccount:' + s.name] || [])" :key="i" class="badge"
-              style="margin:0.1rem 0.2rem 0.1rem 0;background:var(--panel-2)">{{ shortRole(a.role) }}@{{ scopeLabel(a.scope) }}</span>
+              style="margin:0.1rem 0.2rem 0.1rem 0;background:var(--panel-2)">{{ a.role }} @ {{ scopeLabel(a.scope) }}</span>
             <span v-if="!(accessBySA['serviceAccount:' + s.name] || []).length" class="hint">—</span>
           </td>
           <td style="text-align:right"><button style="background:var(--err);padding:0.25rem 0.5rem" @click="confirmDelete = { kind: 'sa', name: s.name }">Revoke</button></td>

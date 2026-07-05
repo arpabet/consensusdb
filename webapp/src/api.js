@@ -60,7 +60,7 @@ export const api = {
   removeNode: (id) => req('DELETE', `/cluster/nodes/${encodeURIComponent(id)}`),
   // IAM management (admin)
   users: () => req('GET', '/iam/users'),
-  createUser: (username, password, admin) => req('POST', '/iam/users', { username, password, admin }),
+  createUser: (username, password) => req('POST', '/iam/users', { username, password }),
   deleteUser: (name) => req('DELETE', `/iam/users/${encodeURIComponent(name)}`),
   serviceAccounts: () => req('GET', '/iam/service-accounts'),
   createServiceAccount: (name) => req('POST', '/iam/service-accounts', { name }),

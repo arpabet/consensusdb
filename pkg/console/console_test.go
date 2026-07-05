@@ -175,12 +175,30 @@ func TestRegionsDashboard(t *testing.T) {
 func TestBootstrapSetsAdmin(t *testing.T) {
 	h, storage := newConsole(t)
 	do(h, http.MethodPost, "/api/setup/bootstrap", []byte(`{"username":"root","password":"supersecret"}`))
-	rec, err := storage.Get(&pb.KeyRequest{Key: iam.Key(iam.UserPrefix + "root")})
-	if err != nil || rec == nil {
+	if rec, err := storage.Get(&pb.KeyRequest{Key: iam.Key(iam.UserPrefix + "root")}); err != nil || rec == nil {
 		t.Fatal("root user not stored")
 	}
-	u := &iam.UserRecord{}
-	if err := iam.Decode(rec.Value, u); err != nil || !u.Admin {
-		t.Fatalf("bootstrap user must be admin: %+v err=%v", u, err)
+	// Admin-ness is a roles/cdb.admin binding at instance scope, not a flag.
+	rec, err := storage.Get(&pb.KeyRequest{Key: iam.Key(iam.PolicyInstance)})
+	if err != nil || rec == nil {
+		t.Fatal("instance policy not stored")
+	}
+	p := &iam.PolicyRecord{}
+	if err := iam.Decode(rec.Value, p); err != nil {
+		t.Fatalf("decode policy: %v", err)
+	}
+	found := false
+	for _, b := range p.Bindings {
+		if b.Role != iam.RoleAdmin {
+			continue
+		}
+		for _, m := range b.Members {
+			if m == iam.PrincipalUser("root") {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("bootstrap must bind %s to user:root at instance; got %+v", iam.RoleAdmin, p.Bindings)
 	}
 }

@@ -76,6 +76,10 @@ const (
 	PolicyRegionPrefix = "policy/r/"
 )
 
+// RoleAdmin grants every permission; the first (bootstrap) user is bound to it at
+// instance scope, which is what makes them an administrator.
+const RoleAdmin = "roles/cdb.admin"
+
 // PolicyTenantMinor returns the record minor holding a tenant-scope policy.
 func PolicyTenantMinor(tenant string) string { return PolicyTenantPrefix + tenant }
 

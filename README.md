@@ -331,11 +331,12 @@ anonymous when `auth.enabled=false`):
 - **IAM** — a GCP-style page listing **every principal** (user / service account /
   group — shown even with no roles) and the **roles** granted to it, each scoped to
   the **whole database** (all tenants & regions), a **tenant (major key)**, or a
-  **region**. Multiple assignments per principal; administrator users (e.g. the
-  first `root`) show an implicit owner grant over everything. Grant/revoke via a
-  dialog that picks the principal from the existing ones.
+  **region**. Multiple assignments per principal. **Admin-ness is simply
+  `roles/cdb.admin` bound at the whole-database scope** — the first (`root`) user
+  gets it at bootstrap; there is no separate admin flag. An **Edit** button on each
+  principal adds/removes roles (requires `roles/cdb.admin`).
 - **Users** — password identities: create/list/delete, filterable, with each
-  user's role/scope summary.
+  user's role/scope summary. New users start with **no roles** (grant them on IAM).
 - **Access** — **service accounts** (application tokens shown once + **mutual-TLS
   certificate identities**) and **groups** (edited by picking members from the
   existing users/service accounts).
