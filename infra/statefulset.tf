@@ -144,15 +144,13 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
             name  = "COS"
             value = var.cos
           }
-          dynamic "env" {
-            for_each = var.encryption_key != "" ? [1] : []
-            content {
-              name = "CONSENSUSDB_ENCRYPTION_KEY"
-              value_from {
-                secret_key_ref {
-                  name = kubernetes_secret_v1.encryption[0].metadata[0].name
-                  key  = "encryption-key"
-                }
+          env {
+            name = "CONSENSUSDB_ENCRYPTION_KEY"
+
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.encryption[0].metadata[0].name
+                key  = "encryption-key"
               }
             }
           }
