@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/raft"
@@ -117,27 +118,38 @@ func (t *ConsoleHandler) clusterNodes(w http.ResponseWriter, r *http.Request) {
 	selfID := t.selfNodeID(r2)
 
 	auth := r.Header.Get("Authorization")
-	nodes := make([]Node, 0)
-	for _, srv := range cfg.Configuration().Servers {
-		n := Node{
+	servers := cfg.Configuration().Servers
+	nodes := make([]Node, len(servers))
+	// Fan out to the peers in parallel: each probe has its own 2s timeout, so a
+	// serial loop would stack timeouts (one page load per down peer) — the whole
+	// sweep should cost one probe, not N.
+	var wg sync.WaitGroup
+	for i, srv := range servers {
+		nodes[i] = Node{
 			ID:      string(srv.ID),
 			Address: string(srv.Address),
 			Voter:   srv.Suffrage == raft.Voter,
 			Leader:  srv.ID == leaderID,
 			Self:    string(srv.ID) == selfID,
 		}
-		if n.Self {
-			n.Up = true
-			n.Metrics = ptr(t.localMetrics())
-		} else if m, err := t.fetchPeerMetrics(string(srv.Address), auth); err == nil {
-			n.Up = true
-			n.Metrics = m
-		} else {
-			n.Up = false
-			n.Detail = err.Error()
+		if nodes[i].Self {
+			nodes[i].Up = true
+			nodes[i].Metrics = ptr(t.localMetrics())
+			continue
 		}
-		nodes = append(nodes, n)
+		wg.Add(1)
+		go func(n *Node, addr string) {
+			defer wg.Done()
+			if m, err := t.fetchPeerMetrics(addr, auth); err == nil {
+				n.Up = true
+				n.Metrics = m
+			} else {
+				n.Up = false
+				n.Detail = err.Error()
+			}
+		}(&nodes[i], string(srv.Address))
 	}
+	wg.Wait()
 	writeJSON(w, http.StatusOK, map[string]any{"replication": true, "nodes": nodes})
 }
 

@@ -12,9 +12,6 @@ import (
 	"reflect"
 	"time"
 
-	"go.arpabet.com/consensusdb/pkg/iam"
-	"go.arpabet.com/consensusdb/pkg/pb"
-	"go.arpabet.com/consensusdb/pkg/server"
 	"go.arpabet.com/glue"
 	"go.arpabet.com/raft/raftmod"
 	"go.uber.org/zap"
@@ -31,7 +28,8 @@ first start and loads it on restart, all from <data-dir>/pki/:
 
   - restart: load the existing cert/key/ca files;
   - seed (raft.bootstrap=true): generate the CA and self-issue a node cert
-    (genesis), persisting the CA to __system/PKI so every later cert chains to it;
+    (genesis), staging the CA key on disk — the console's ensureCA publishes the
+    record through raft on first use, so every later cert chains to this root;
   - joiner (consensusdb.join-token set): enroll against consensusdb.join-peer to
     obtain a CA-signed node cert.
 
@@ -39,10 +37,9 @@ The qualifier "raft-transport-tls" (raftmod's RaftServer.TlsConfig) keeps this o
 the control-plane pool and the client-facing data plane, so those are unaffected.
 */
 type NodeTLSFactory struct {
-	Log         *zap.Logger            `inject:""`
-	Properties  glue.Properties        `inject:""`
-	Storage     server.KeyValueStorage `inject:""`
-	NodeService *NodeService           `inject:""`
+	Log         *zap.Logger     `inject:""`
+	Properties  glue.Properties `inject:""`
+	NodeService *NodeService    `inject:""`
 }
 
 // NodeTLSConfigFactory constructs the factory bean.
@@ -97,30 +94,16 @@ func (t *NodeTLSFactory) provision(dataDir, nodeID string) (*NodeIdentity, error
 		if err := id.Save(dataDir); err != nil {
 			return nil, err
 		}
-		if err := t.persistGenesisCA(caRec); err != nil {
+		// Stage the CA key on disk; the console's ensureCA publishes the CA record
+		// through raft on first use. Writing it into local storage here would
+		// diverge replica state (the FSM must apply onto identical state).
+		if err := SaveGenesisCA(dataDir, caRec); err != nil {
 			return nil, err
 		}
 		t.Log.Info("NodeGenesis", zap.String("nodeId", nodeID), zap.String("advertise", advHost))
 		return id, nil
 	}
 	return nil, xerrors.New("cluster node has no identity: set consensusdb.join-token + consensusdb.join-peer to enroll, or raft.bootstrap=true for the seed")
-}
-
-// persistGenesisCA writes the genesis CA into __system/PKI (create-if-absent) so
-// every later certificate — client and node — chains to this same root, and the
-// console's ensureCA adopts it rather than minting a different one. It is written
-// to local storage at genesis (before raft is up); it enters the replicated state
-// through the FSM snapshot.
-func (t *NodeTLSFactory) persistGenesisCA(caRec *iam.CARecord) error {
-	if rec, err := t.Storage.Get(&pb.KeyRequest{Key: iam.PKIKey(iam.CAMinor)}); err == nil && rec != nil && len(rec.Value) > 0 {
-		return nil // already present (restart with files removed, or a prior genesis)
-	}
-	raw, err := iam.Encode(caRec)
-	if err != nil {
-		return err
-	}
-	_, err = t.Storage.Put(&pb.RecordRequest{Key: iam.PKIKey(iam.CAMinor), Value: raw}, 1)
-	return err
 }
 
 func (t *NodeTLSFactory) ObjectType() reflect.Type { return tlsConfigClass }

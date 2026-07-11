@@ -35,6 +35,7 @@ const (
 	nodeCertFile = "node-cert.pem"
 	nodeKeyFile  = "node-key.pem"
 	caCertFile   = "ca.pem"
+	caKeyFile    = "ca-key.pem" // genesis staging on the seed only; see SaveGenesisCA
 
 	// nodeSelfCertTTL is how long a node's own certificate is valid; rotation is a
 	// re-enroll (or, for the seed, a re-genesis).
@@ -89,9 +90,44 @@ func (id *NodeIdentity) ClientTLSConfig() (*tls.Config, error) {
 
 // MutualConfig builds one tls.Config for both roles of the consensus transport
 // (raft peers dial and accept each other). This is the config injected as the
-// "raft-transport-tls" bean.
+// "raft-transport-tls" bean. Peers are verified against the cluster-wide
+// iam.NodeSANDNS name (every node cert carries it), not their dial address, so
+// the transport survives node IP changes.
 func (id *NodeIdentity) MutualConfig() (*tls.Config, error) {
-	return iam.MutualTLSConfig(id.CAPEM, id.CertPEM, id.KeyPEM)
+	return iam.MutualTLSConfig(id.CAPEM, id.CertPEM, id.KeyPEM, iam.NodeSANDNS)
+}
+
+/*
+SaveGenesisCA stages the genesis CA's signing key next to the node's identity
+files (pki/ca-key.pem, mode 0600; the cert is already pki/ca.pem). The CA record
+must NOT be written straight into local storage: replicas apply the raft log to
+identical state, and a record present on the seed but absent on joiners makes a
+later create-if-absent apply diverge per node. Instead the console's ensureCA
+adopts this staged CA on its first use (bootstrap wizard, join-token mint, cert
+issue) and publishes it through raft, after which every node converges on the one
+root.
+*/
+func SaveGenesisCA(dataDir string, caRec *iam.CARecord) error {
+	return os.WriteFile(filepath.Join(pkiDir(dataDir), caKeyFile), caRec.KeyPEM, 0o600)
+}
+
+// LoadGenesisCA reads the staged genesis CA (cert + signing key); ok=false when
+// this node did not run genesis (joiners have the cert but never the key).
+func LoadGenesisCA(dataDir string) (*iam.CARecord, bool) {
+	dir := pkiDir(dataDir)
+	cert, e1 := os.ReadFile(filepath.Join(dir, caCertFile))
+	key, e2 := os.ReadFile(filepath.Join(dir, caKeyFile))
+	if e1 != nil || e2 != nil || len(cert) == 0 || len(key) == 0 {
+		return nil, false
+	}
+	return &iam.CARecord{CertPEM: cert, KeyPEM: key, CreatedAt: time.Now().Unix()}, true
+}
+
+// HasTransportCA reports whether this node trusts a cluster CA for its transport
+// (pki/ca.pem present) — used to refuse minting a second, conflicting root.
+func HasTransportCA(dataDir string) bool {
+	pem, err := os.ReadFile(filepath.Join(pkiDir(dataDir), caCertFile))
+	return err == nil && len(pem) > 0
 }
 
 // GenesisIdentity is the seed node's first identity: it generates a brand-new CA
@@ -112,7 +148,7 @@ func GenesisIdentity(nodeID string, hosts []string) (*NodeIdentity, *iam.CARecor
 	if err != nil {
 		return nil, nil, err
 	}
-	dns, ips := splitNodeHosts(append([]string{nodeID}, hosts...))
+	dns, ips := splitNodeHosts(append([]string{nodeID, iam.NodeSANDNS}, hosts...))
 	certPEM, err := ca.Sign(&iam.CertRequest{
 		PublicKey: pub, CommonName: nodeID, DNSNames: dns, IPs: ips,
 		Server: true, Client: true, TTL: nodeSelfCertTTL,

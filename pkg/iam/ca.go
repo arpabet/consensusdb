@@ -52,6 +52,13 @@ const (
 	// TokenPrefixJoin marks an opaque cluster join token ("join-<hex>").
 	TokenPrefixJoin = "join-"
 
+	// NodeSANDNS is the cluster-wide DNS SAN every node certificate carries, and
+	// the ServerName peers verify against when they dial each other. Verifying a
+	// stable name instead of the peer's IP keeps the mTLS transport working when a
+	// node's address changes (a Kubernetes reschedule); membership in the cluster —
+	// chaining to the one CA — is the identity that matters between nodes.
+	NodeSANDNS = "node.cdb.internal"
+
 	caCommonName = "consensusdb-ca"
 	caValidity   = 10 * 365 * 24 * time.Hour
 )
@@ -305,7 +312,9 @@ func ClientTLSConfig(caPEM, certPEM, keyPEM []byte) (*tls.Config, error) {
 // (RootCAs, client role) and requires+verifies a peer client cert against caPEM
 // (ClientCAs + RequireAndVerifyClientCert, server role). Node certs carry both
 // server and client EKU, so the same material authenticates in either direction.
-func MutualTLSConfig(caPEM, certPEM, keyPEM []byte) (*tls.Config, error) {
+// serverName, when non-empty, is what dialed peers' certificates are verified
+// against instead of the dial address (see NodeSANDNS).
+func MutualTLSConfig(caPEM, certPEM, keyPEM []byte, serverName string) (*tls.Config, error) {
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		return nil, xerrors.Errorf("iam: node keypair: %w", err)
@@ -319,6 +328,7 @@ func MutualTLSConfig(caPEM, certPEM, keyPEM []byte) (*tls.Config, error) {
 		RootCAs:      pool,
 		ClientCAs:    pool,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
+		ServerName:   serverName,
 		MinVersion:   tls.VersionTLS12,
 	}, nil
 }

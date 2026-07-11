@@ -19,11 +19,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
 	"go.arpabet.com/consensusdb/pkg/iam"
 	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/consensusdb/pkg/replication"
 	"go.arpabet.com/consensusdb/pkg/server"
 	"go.uber.org/zap"
 )
@@ -44,6 +46,7 @@ func newConsole(t *testing.T) (*ConsoleHandler, server.KeyValueStorage) {
 		Storage: storage,
 		Jobs:    NewJobManager(),
 		Log:     zap.NewNop(),
+		DataDir: conf.DataDir, // ensureCA looks here for a staged genesis CA
 		// Policy nil ⇒ Authorize is a no-op (auth disabled); this test focuses on
 		// the routing, onboarding self-guard, and data operations.
 	}
@@ -374,13 +377,19 @@ func TestJoinTokenNodeEnrollment(t *testing.T) {
 		t.Fatalf("IP SANs = %v", leaf.IPAddresses)
 	}
 
-	// Not consumed yet: still valid. Then consume → rejected (single use).
-	if _, _, err := h.signNodeEnrollment(ctx, token, "node-3", []string{"10.0.0.3"}, nodeCSR(t, "node-3")); err != nil {
-		t.Fatalf("token should still be valid before consume: %v", err)
+	// Single-use is enforced at signing: the token is burned atomically BEFORE the
+	// cert is issued, so a second enrollment is rejected even without the
+	// post-join cleanup.
+	if _, _, err := h.signNodeEnrollment(ctx, token, "node-3", []string{"10.0.0.3"}, nodeCSR(t, "node-3")); err == nil {
+		t.Fatal("a join token signed two enrollments")
 	}
-	h.consumeJoinToken(ctx, token)
+	h.consumeJoinToken(ctx, token) // tidy-up stays idempotent
 	if _, _, err := h.signNodeEnrollment(ctx, token, "node-2", []string{"10.0.0.2"}, nodeCSR(t, "node-2")); err == nil {
 		t.Fatal("consumed join token still signed a cert")
+	}
+	// The node cert carries the cluster-wide SAN peers verify against.
+	if !contains(leaf.DNSNames, iam.NodeSANDNS) {
+		t.Fatalf("node cert DNS SANs = %v, want %s present", leaf.DNSNames, iam.NodeSANDNS)
 	}
 
 	// An expired token is refused.
@@ -450,5 +459,98 @@ func TestUserPAT(t *testing.T) {
 	h.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(iam.TokenIndexKey(expHash)), Value: raw})
 	if _, err := h.Auth.AuthenticateToken(expTok); err == nil {
 		t.Fatal("expired PAT authenticated")
+	}
+}
+
+// Deleting a user revokes everything that could keep the identity alive: PATs,
+// cert identities, role bindings, and group memberships.
+func TestDeleteUserPurgesCredentials(t *testing.T) {
+	h, _ := newConsole(t)
+	do(h, http.MethodPost, "/api/setup/bootstrap", []byte(`{"username":"root","password":"supersecret"}`))
+	do(h, http.MethodPost, "/api/iam/users", []byte(`{"username":"mallory","password":"mallorypwd"}`))
+
+	// Arm the identity: a PAT, a cert identity, a role binding, a group membership.
+	rec := do(h, http.MethodPost, "/api/iam/users/mallory/tokens", []byte(`{"label":"x","ttlDays":30}`))
+	var pat struct{ Token string }
+	json.Unmarshal(rec.Body.Bytes(), &pat)
+	if rec := do(h, http.MethodPost, "/api/iam/certs/register", []byte(`{"principal":"user:mallory","identity":"CN=mallory"}`)); rec.Code != http.StatusCreated {
+		t.Fatalf("register cert = %d", rec.Code)
+	}
+	if rec := do(h, http.MethodPost, "/api/iam/bindings", []byte(`{"role":"roles/cdb.editor","members":["user:mallory"]}`)); rec.Code != http.StatusOK && rec.Code != http.StatusCreated {
+		t.Fatalf("bind = %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := do(h, http.MethodPost, "/api/iam/groups", []byte(`{"name":"team","members":["user:mallory","user:root"]}`)); rec.Code >= 300 {
+		t.Fatalf("group = %d %s", rec.Code, rec.Body.String())
+	}
+	if _, err := h.Auth.AuthenticateToken(pat.Token); err != nil {
+		t.Fatalf("PAT must work before delete: %v", err)
+	}
+
+	if rec := do(h, http.MethodDelete, "/api/iam/users/mallory", nil); rec.Code != http.StatusOK {
+		t.Fatalf("delete user = %d %s", rec.Code, rec.Body.String())
+	}
+
+	// The PAT no longer authenticates.
+	if _, err := h.Auth.AuthenticateToken(pat.Token); err == nil {
+		t.Fatal("deleted user's PAT still authenticates")
+	}
+	// The cert identity is gone.
+	rec = do(h, http.MethodGet, "/api/iam/certs?principal="+url.QueryEscape("user:mallory"), nil)
+	var certs struct {
+		Certs []any `json:"certs"`
+	}
+	json.Unmarshal(rec.Body.Bytes(), &certs)
+	if len(certs.Certs) != 0 {
+		t.Fatalf("deleted user's cert identities remain: %s", rec.Body.String())
+	}
+	// No binding anywhere still names the principal.
+	rec = do(h, http.MethodGet, "/api/iam/bindings", nil)
+	if strings.Contains(rec.Body.String(), "user:mallory") {
+		t.Fatalf("deleted user still bound: %s", rec.Body.String())
+	}
+	// The group no longer lists the member (but survives with other members).
+	rec = do(h, http.MethodGet, "/api/iam/groups", nil)
+	if strings.Contains(rec.Body.String(), "user:mallory") || !strings.Contains(rec.Body.String(), "user:root") {
+		t.Fatalf("group membership not cleaned: %s", rec.Body.String())
+	}
+}
+
+// In cluster mode the seed stages its genesis CA on disk; ensureCA must adopt
+// that root (never mint a second one), and a node that trusts a transport CA it
+// cannot sign for must refuse rather than fork the PKI.
+func TestEnsureCAAdoptsGenesis(t *testing.T) {
+	h, _ := newConsole(t)
+	ctx := context.Background()
+
+	// Stage a genesis CA + identity in the console's data dir, as NodeTLSFactory
+	// does on the seed.
+	id, caRec, err := replication.GenesisIdentity("node-1", []string{"10.0.0.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := id.Save(h.DataDir); err != nil {
+		t.Fatal(err)
+	}
+	if err := replication.SaveGenesisCA(h.DataDir, caRec); err != nil {
+		t.Fatal(err)
+	}
+
+	ca, err := h.ensureCA(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staged, _ := caRec.Load()
+	if ca.Cert.SerialNumber.Cmp(staged.Cert.SerialNumber) != 0 {
+		t.Fatal("ensureCA minted a new CA instead of adopting the staged genesis root")
+	}
+
+	// A joiner: trusts the transport CA (ca.pem) but has no signing key and no
+	// published record → must refuse, not fork.
+	h2, _ := newConsole(t)
+	if err := (&replication.NodeIdentity{CertPEM: id.CertPEM, KeyPEM: id.KeyPEM, CAPEM: id.CAPEM}).Save(h2.DataDir); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h2.ensureCA(context.Background()); err == nil {
+		t.Fatal("joiner without the CA key minted a second root")
 	}
 }

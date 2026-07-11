@@ -115,7 +115,118 @@ func (t *ConsoleHandler) iamDeleteUser(w http.ResponseWriter, name string) {
 		writeErr(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if err := t.purgePrincipal(iam.PrincipalUser(name)); err != nil {
+		writeErr(w, http.StatusInternalServerError, "revoke credentials: "+err.Error())
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": name})
+}
+
+/*
+purgePrincipal revokes everything that would keep a deleted identity alive: its
+bearer tokens (PATs / SA tokens), its mTLS certificate identities, its role
+bindings at every scope, and its group memberships. Without this a deleted user's
+PAT or client certificate would still authenticate, and a surviving binding would
+still authorize it (or silently re-attach to a future identity created under the
+same name) — deletion must mean the credentials die too.
+*/
+func (t *ConsoleHandler) purgePrincipal(principal string) error {
+	// Collect first, mutate after: scanIAM streams from a storage snapshot, so
+	// interleaving writes with the scan would be undefined.
+	var tokens, certs []string
+	groups := map[string]*iam.GroupRecord{}
+	policies := map[string]*iam.PolicyRecord{}
+	err := t.scanIAM(func(minor string, value []byte) {
+		switch {
+		case strings.HasPrefix(minor, iam.TokenIndexPrefix):
+			rec := &iam.TokenRecord{}
+			if iam.Decode(value, rec) == nil && rec.Principal == principal {
+				tokens = append(tokens, minor)
+			}
+		case strings.HasPrefix(minor, iam.CertPrefix):
+			rec := &iam.CertIndexRecord{}
+			if iam.Decode(value, rec) == nil && rec.Principal == principal {
+				certs = append(certs, minor)
+			}
+		case strings.HasPrefix(minor, iam.GroupPrefix):
+			g := &iam.GroupRecord{}
+			if iam.Decode(value, g) == nil && contains(g.Members, principal) {
+				groups[minor] = g
+			}
+		default:
+			if _, ok := iam.PolicyScopeKey(minor); ok {
+				p := &iam.PolicyRecord{}
+				if iam.Decode(value, p) == nil && policyHasMember(p, principal) {
+					policies[minor] = p
+				}
+			}
+		}
+	})
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	for _, minor := range append(tokens, certs...) {
+		if _, err := t.svc.Remove(ctx, &pb.KeyRequest{Key: iam.Key(minor)}); err != nil {
+			return err
+		}
+	}
+	for minor, g := range groups {
+		g.Members = without(g.Members, principal)
+		raw, err := iam.Encode(g)
+		if err != nil {
+			return err
+		}
+		if _, err := t.svc.Put(ctx, &pb.RecordRequest{Key: iam.Key(minor), Value: raw}); err != nil {
+			return err
+		}
+	}
+	for minor, p := range policies {
+		kept := p.Bindings[:0]
+		for _, b := range p.Bindings {
+			b.Members = without(b.Members, principal)
+			if len(b.Members) > 0 {
+				kept = append(kept, b)
+			}
+		}
+		p.Bindings = kept
+		raw, err := iam.Encode(p)
+		if err != nil {
+			return err
+		}
+		if _, err := t.svc.Put(ctx, &pb.RecordRequest{Key: iam.Key(minor), Value: raw}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func contains(list []string, v string) bool {
+	for _, s := range list {
+		if s == v {
+			return true
+		}
+	}
+	return false
+}
+
+func without(list []string, v string) []string {
+	out := make([]string, 0, len(list))
+	for _, s := range list {
+		if s != v {
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+func policyHasMember(p *iam.PolicyRecord, principal string) bool {
+	for _, b := range p.Bindings {
+		if contains(b.Members, principal) {
+			return true
+		}
+	}
+	return false
 }
 
 // ---------------------------------------------------------------------------
@@ -214,15 +325,14 @@ func (t *ConsoleHandler) iamDeleteServiceAccount(w http.ResponseWriter, name str
 		writeErr(w, http.StatusBadRequest, "service account name required")
 		return
 	}
-	// Remove the token's reverse index first (best-effort), then the record.
-	if rec, err := t.svc.Get(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.ServiceAccountPrefix + name)}); err == nil && rec != nil && len(rec.Value) > 0 {
-		sa := &iam.ServiceAccountRecord{}
-		if iam.Decode(rec.Value, sa) == nil {
-			t.deleteTokenIndex(sa.TokenHash)
-		}
-	}
 	if _, err := t.svc.Remove(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.ServiceAccountPrefix + name)}); err != nil {
 		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	// Revoke everything the account could still authenticate or act with: its
+	// token, cert identities, bindings and group memberships.
+	if err := t.purgePrincipal(iam.PrincipalServiceAccount(name)); err != nil {
+		writeErr(w, http.StatusInternalServerError, "revoke credentials: "+err.Error())
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"deleted": name})
@@ -236,13 +346,6 @@ func (t *ConsoleHandler) writeTokenIndex(hash, principal string, expiresAt int64
 	}
 	_, err = t.svc.Put(context.Background(), &pb.RecordRequest{Key: iam.Key(iam.TokenIndexKey(hash)), Value: raw})
 	return err
-}
-
-// deleteTokenIndex removes a token's reverse index (no-op for an empty hash).
-func (t *ConsoleHandler) deleteTokenIndex(hash string) {
-	if hash != "" {
-		_, _ = t.svc.Remove(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.TokenIndexKey(hash))})
-	}
 }
 
 // ---------------------------------------------------------------------------

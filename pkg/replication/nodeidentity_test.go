@@ -136,6 +136,16 @@ func TestGenesisIdentity(t *testing.T) {
 	if len(leaf.IPAddresses) != 1 || leaf.IPAddresses[0].String() != "10.0.0.1" {
 		t.Fatalf("IP SANs = %v", leaf.IPAddresses)
 	}
+	// The cluster-wide SAN peers verify against (survives node IP changes).
+	sanOK := false
+	for _, d := range leaf.DNSNames {
+		if d == iam.NodeSANDNS {
+			sanOK = true
+		}
+	}
+	if !sanOK {
+		t.Fatalf("DNS SANs = %v, want %s present", leaf.DNSNames, iam.NodeSANDNS)
+	}
 	// The CA record loads as a working signer (used later on the leader to enroll peers).
 	if _, err := caRec.Load(); err != nil {
 		t.Fatalf("genesis CA not loadable: %v", err)

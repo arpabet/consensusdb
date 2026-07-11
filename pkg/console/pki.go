@@ -14,6 +14,7 @@ import (
 
 	"go.arpabet.com/consensusdb/pkg/iam"
 	"go.arpabet.com/consensusdb/pkg/pb"
+	"go.arpabet.com/consensusdb/pkg/replication"
 	"golang.org/x/xerrors"
 )
 
@@ -51,20 +52,25 @@ func (t *ConsoleHandler) loadCA(ctx context.Context) (ca *iam.CA, ok bool, err e
 
 // ensureCA returns the built-in CA, creating it (create-if-absent) on first use.
 // Creation is idempotent: a lost CAS race means another node won, so we re-read.
-// Because the write routes through raft when replication is on, the seed/leader
-// mints the single shared root and the private key is generated node-side, never
-// travelling over the wire.
+// Because the write routes through raft when replication is on, one node mints
+// the single shared root and the private key never travels over the wire.
+//
+// In cluster mode the transport CA already exists before any record does (node
+// genesis stages it on the seed's disk), so the record is adopted from that
+// staging rather than freshly generated — the cluster must have exactly one root.
+// A node that trusts a transport CA it cannot sign for (a joiner) refuses to
+// mint: publishing happens on the seed, everything else retries.
 func (t *ConsoleHandler) ensureCA(ctx context.Context) (*iam.CA, error) {
 	if ca, ok, err := t.loadCA(ctx); err != nil {
 		return nil, err
 	} else if ok {
 		return ca, nil
 	}
-	fresh, err := iam.GenerateCA()
+	record, err := t.newCARecord()
 	if err != nil {
 		return nil, err
 	}
-	raw, err := iam.Encode(fresh)
+	raw, err := iam.Encode(record)
 	if err != nil {
 		return nil, err
 	}
@@ -82,7 +88,21 @@ func (t *ConsoleHandler) ensureCA(ctx context.Context) (*iam.CA, error) {
 		return nil, xerrors.New("CA creation raced; re-read failed")
 	}
 	t.Log.Info("PkiCaCreated")
-	return fresh.Load()
+	return record.Load()
+}
+
+// newCARecord picks the CA to publish: the staged genesis CA when this node ran
+// genesis (the transport already trusts that root), a fresh one when no transport
+// CA exists (single-node mode), and an error when this node trusts a transport CA
+// it cannot sign for — minting a second root would fork the PKI.
+func (t *ConsoleHandler) newCARecord() (*iam.CARecord, error) {
+	if rec, ok := replication.LoadGenesisCA(t.DataDir); ok {
+		return rec, nil
+	}
+	if replication.HasTransportCA(t.DataDir) {
+		return nil, xerrors.New("cluster CA not published yet: run this operation against the seed node's console")
+	}
+	return iam.GenerateCA()
 }
 
 // ---------------------------------------------------------------------------
@@ -257,9 +277,11 @@ func (t *ConsoleHandler) mintJoinToken(ctx context.Context, ttl time.Duration, c
 }
 
 // signNodeEnrollment verifies a join token and signs the node's CSR into a node
-// certificate (server+client EKU, chaining to the built-in CA), with the node id
-// and the given hosts as SANs. It is single-use: the join record is consumed on
-// success. It does not touch raft membership — the caller adds the voter.
+// certificate (server+client EKU, chaining to the built-in CA), with the node id,
+// the given hosts, and the cluster-wide iam.NodeSANDNS as SANs. The token is
+// burned atomically (CAS on its record version) BEFORE signing, so concurrent
+// enrolls with the same token cannot both win — single-use is enforced, not just
+// intended. It does not touch raft membership — the caller adds the voter.
 func (t *ConsoleHandler) signNodeEnrollment(ctx context.Context, token, nodeID string, hosts []string, csrPEM []byte) (certPEM, caPEM []byte, err error) {
 	if token == "" || nodeID == "" {
 		return nil, nil, xerrors.New("token and nodeId are required")
@@ -279,6 +301,25 @@ func (t *ConsoleHandler) signNodeEnrollment(ctx context.Context, token, nodeID s
 	if jr.ExpiresAt != 0 && time.Now().Unix() > jr.ExpiresAt {
 		return nil, nil, xerrors.New("join token expired")
 	}
+	if rec.Head == nil {
+		return nil, nil, xerrors.New("invalid join token")
+	}
+	// Burn before signing: CAS on the record version we just read. The loser of a
+	// concurrent enroll sees Updated=false and is rejected. (ExpiresAt=1 is in the
+	// past, so even a raced read path treats the record as spent.)
+	burned, err := iam.Encode(&iam.JoinRecord{ExpiresAt: 1, CreatedBy: jr.CreatedBy})
+	if err != nil {
+		return nil, nil, err
+	}
+	status, err := t.svc.Put(ctx, &pb.RecordRequest{
+		Key: iam.PKIKey(iam.JoinIndexKey(hash)), Value: burned, CompareAndSet: true, Version: rec.Head.Version,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	if status == nil || !status.Updated {
+		return nil, nil, xerrors.New("join token already used")
+	}
 	csr, err := iam.ParseCSR(csrPEM)
 	if err != nil {
 		return nil, nil, err
@@ -287,7 +328,7 @@ func (t *ConsoleHandler) signNodeEnrollment(ctx context.Context, token, nodeID s
 	if err != nil {
 		return nil, nil, err
 	}
-	dns, ips := splitHosts(append([]string{nodeID}, hosts...))
+	dns, ips := splitHosts(append([]string{nodeID, iam.NodeSANDNS}, hosts...))
 	certPEM, err = ca.Sign(&iam.CertRequest{
 		PublicKey: csr.PublicKey, CommonName: nodeID,
 		DNSNames: dns, IPs: ips, Server: true, Client: true, TTL: nodeCertTTL,
@@ -298,8 +339,8 @@ func (t *ConsoleHandler) signNodeEnrollment(ctx context.Context, token, nodeID s
 	return certPEM, ca.CertPEM, nil
 }
 
-// consumeJoinToken deletes a join token's record (single-use). Called only after
-// the node is successfully added, so a transient failure does not waste the token.
+// consumeJoinToken removes a spent join token's record (tidy-up after a
+// successful join; the token was already burned before signing).
 func (t *ConsoleHandler) consumeJoinToken(ctx context.Context, token string) {
 	_, _ = t.svc.Remove(ctx, &pb.KeyRequest{Key: iam.PKIKey(iam.JoinIndexKey(iam.HashToken(token)))})
 }
