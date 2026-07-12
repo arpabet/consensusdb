@@ -51,6 +51,10 @@ const (
 	JoinPrefix = "join/"
 	// TokenPrefixJoin marks an opaque cluster join token ("join-<hex>").
 	TokenPrefixJoin = "join-"
+	// LedgerCAPubMinor keys the pinned ledger-CA PUBLIC key (raw Ed25519 bytes).
+	// Convenience only — the CA private key stays offline, and an independent
+	// audit must take its trust anchor out-of-band, not from the cluster.
+	LedgerCAPubMinor = "ledger-ca-pub"
 
 	// NodeSANDNS is the cluster-wide DNS SAN every node certificate carries, and
 	// the ServerName peers verify against when they dial each other. Verifying a

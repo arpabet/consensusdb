@@ -269,6 +269,18 @@ consensusdb ledger verify   ca.pub quorum.bin node0.cert node1.cert --threshold 
 
 `ledger.digest` returns a node's current signed checkpoint (authorized by
 `cdb.proofs.read`; `roles/cdb.auditor` grants read + proofs and nothing else).
+Aggregation needs every signer over the **same canonical checkpoint bytes**, so
+a coordinator passes the checkpoint it wants co-signed and a node signs it only
+when it matches the node's own derived head — a node never attests state that
+is not its own. The console drives this end-to-end: `GET /api/ledger/materials`
+collects each member's attestation of one stamped head, aggregates the quorum
+certificate, and returns it with the node certs and the pinned CA public key
+(`POST /api/ledger/ca-pub` pins it once; the onboarding CA generator pins
+automatically). The Verify tab's **"Fetch from cluster"** prefills the form from
+it. One caveat, stated where it matters: cluster-supplied materials support an
+operational **consistency check** — an independent **audit** must take the CA
+public key (and ideally the certificate) from records kept outside the cluster,
+because a cluster must not be the source of the key that vouches for it.
 Anchoring each checkpoint to WORM object storage (via the backup infra) makes even
 a cluster admin unable to rewrite the anchored history — a follow-up. The full
 path is proven by `TestLedgerQuorumOverConvergedChain` (3 replicas converge → a
@@ -347,7 +359,10 @@ anonymous when `auth.enabled=false`):
   certificate identities**) and **groups** (edited by picking members from the
   existing users/service accounts).
 - **Database** — **export**/**import** dumps. **Verify ledger** — backup
-  verification with a progress bar.
+  verification with a progress bar; **"Fetch from cluster"** prefills the trust
+  material (quorum certificate, node certs, pinned CA public key) from the live
+  cluster for consistency checks, with every field still paste-able for
+  independent audits.
 
 Backed by `/api/iam/*` (reads need `cdb.iam.get`, writes `cdb.iam.set`), `/api/*`
 (admin = `cdb.cluster.admin` / `cdb.backups.*`).

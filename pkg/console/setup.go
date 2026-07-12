@@ -235,7 +235,9 @@ func (t *ConsoleHandler) importDatabase(w http.ResponseWriter, r *http.Request) 
 // generateLedgerCA mints a ledger CA and returns the key material (base64) for
 // download — a convenience for the onboarding wizard. For production the CA
 // private key should be generated and kept offline via `consensusdb ledger
-// ca-init`; this endpoint requires cluster-admin.
+// ca-init`; this endpoint requires cluster-admin. The PUBLIC key is pinned as a
+// replicated record so the Verify Ledger form can prefill it (the private key
+// is returned once and never stored).
 func (t *ConsoleHandler) generateLedgerCA(w http.ResponseWriter) {
 	ca, err := ledger.GenerateCA()
 	if err != nil {
@@ -244,6 +246,9 @@ func (t *ConsoleHandler) generateLedgerCA(w http.ResponseWriter) {
 	}
 	seed, _ := ca.MarshalBinary()
 	pub, _ := ca.Public().MarshalBinary()
+	if err := t.pinLedgerCAPub(pub); err != nil {
+		t.Log.Warn("LedgerCAPubPin", zap.Error(err))
+	}
 	writeJSON(w, http.StatusOK, map[string]string{
 		"caKey": base64.StdEncoding.EncodeToString(seed),
 		"caPub": base64.StdEncoding.EncodeToString(pub),

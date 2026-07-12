@@ -6,6 +6,7 @@
 package replication
 
 import (
+	"bytes"
 	"context"
 	"time"
 
@@ -111,21 +112,55 @@ var digestCodec = valuerpc.Codec[*digestResponse]{
 	},
 }
 
-func (t *LedgerService) digest(ctx context.Context, _ value.Value) (*digestResponse, error) {
+func (t *LedgerService) digest(ctx context.Context, req value.Value) (*digestResponse, error) {
 	if err := t.Policy.Authorize(ctx, iam.PermProofsRead, "", ""); err != nil {
 		return nil, err
 	}
-	index, digest := t.FSM.ChainHead()
-	ckpt := &ledger.Checkpoint{Height: index, Term: 0, Digest: digest[:], Unix: time.Now().Unix()}
+	ckpt, nodeID, sig, cert, _ := t.Attest(requestedCheckpoint(req))
+	return &digestResponse{checkpoint: ckpt, nodeID: nodeID, signature: sig, cert: cert}, nil
+}
 
-	resp := &digestResponse{checkpoint: ckpt}
-	if t.signer != nil {
-		ckpt.Term = 0
-		resp.nodeID = t.signer.NodeID()
-		resp.signature = t.signer.Sign(ckpt)
-		if raw, err := ledger.EncodeCert(t.signer.Cert()); err == nil {
-			resp.cert = raw
+/*
+Attest returns this node's statement of its chain head, signed when the node has
+a ledger identity. Aggregation into a quorum certificate requires every signer
+to sign the SAME canonical checkpoint bytes (VerifyQuorum reconstructs each
+signer's message from one checkpoint), so a coordinator passes the checkpoint it
+wants co-signed via want: the node signs it only when its (Height, Digest) equal
+the node's own derived head — a node never attests state that is not its own —
+and otherwise responds with its actual head, unsigned, so the coordinator can
+retry. want=nil is the standalone form: the node's own head with its own stamp.
+*/
+func (t *LedgerService) Attest(want *ledger.Checkpoint) (ckpt *ledger.Checkpoint, nodeID string, sig, cert []byte, signed bool) {
+	index, digest := t.FSM.ChainHead()
+	ckpt = &ledger.Checkpoint{Height: index, Term: 0, Digest: digest[:], Unix: time.Now().Unix()}
+	if want != nil {
+		if want.Height != index || !bytes.Equal(want.Digest, digest[:]) {
+			return ckpt, "", nil, nil, false // head mismatch: report ours, unsigned
 		}
+		ckpt = want // co-sign the coordinator's canonical bytes
 	}
-	return resp, nil
+	if t.signer == nil {
+		return ckpt, "", nil, nil, false
+	}
+	nodeID = t.signer.NodeID()
+	sig = t.signer.Sign(ckpt)
+	if raw, err := ledger.EncodeCert(t.signer.Cert()); err == nil {
+		cert = raw
+	}
+	return ckpt, nodeID, sig, cert, true
+}
+
+// requestedCheckpoint decodes an optional checkpoint from a digest request —
+// present when a coordinator asks this node to co-sign a specific head.
+func requestedCheckpoint(req value.Value) *ledger.Checkpoint {
+	m, ok := req.(value.Map)
+	if !ok || m.Get("height") == nil || m.Get("digest") == nil {
+		return nil
+	}
+	return &ledger.Checkpoint{
+		Height: uint64(m.GetNumber("height").Long()),
+		Term:   uint64(m.GetNumber("term").Long()),
+		Digest: m.GetString("digest").Raw(),
+		Unix:   m.GetNumber("unix").Long(),
+	}
 }

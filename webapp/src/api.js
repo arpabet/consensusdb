@@ -54,6 +54,9 @@ export const api = {
   ledgerStatus: () => req('GET', '/ledger/status'),
   startVerify: (payload) => req('POST', '/ledger/verify', payload),
   verifyJob: (id) => req('GET', `/ledger/verify/${id}`),
+  // live verification materials: aggregated quorum certificate, node certs,
+  // pinned CA public key (see the Verify tab's "Fetch from cluster")
+  ledgerMaterials: () => req('GET', '/ledger/materials'),
   // cluster node management (admin)
   nodes: () => req('GET', '/cluster/nodes'),
   addNode: (nodeId, address) => req('POST', '/cluster/nodes', { nodeId, address }),

@@ -35,9 +35,21 @@ func (s *NodeSigner) Cert() *NodeCert { return s.cert }
 // Sign attests a checkpoint as this node.
 func (s *NodeSigner) Sign(c *Checkpoint) []byte { return SignCheckpoint(s.key, s.cert.NodeID, c) }
 
-// LoadNodeSigner loads the BLS key and node cert from disk. It fails if the cert
-// does not certify the loaded key (a mismatched key/cert pair would sign
-// unverifiably).
+// NewNodeSigner builds a signer from in-memory material, enforcing the key↔cert
+// binding (a mismatched pair would sign unverifiably). The programmatic path for
+// tooling and tests; LoadNodeSigner is the on-disk one.
+func NewNodeSigner(key *NodePrivateKey, cert *NodeCert) (*NodeSigner, error) {
+	pub, err := key.Public().MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
+	if string(pub) != string(cert.PublicKey) {
+		return nil, xerrors.New("ledger: node cert does not certify this key")
+	}
+	return &NodeSigner{key: key, cert: cert}, nil
+}
+
+// LoadNodeSigner loads the BLS key and node cert from disk.
 func LoadNodeSigner(keyPath, certPath string) (*NodeSigner, error) {
 	keyBytes, err := os.ReadFile(keyPath)
 	if err != nil {
@@ -55,13 +67,5 @@ func LoadNodeSigner(keyPath, certPath string) (*NodeSigner, error) {
 	if err != nil {
 		return nil, xerrors.Errorf("ledger: parse node cert: %w", err)
 	}
-	// The cert must bind exactly this key.
-	pub, err := key.Public().MarshalBinary()
-	if err != nil {
-		return nil, err
-	}
-	if string(pub) != string(cert.PublicKey) {
-		return nil, xerrors.New("ledger: node cert does not certify this key")
-	}
-	return &NodeSigner{key: key, cert: cert}, nil
+	return NewNodeSigner(key, cert)
 }

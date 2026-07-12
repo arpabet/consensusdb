@@ -40,6 +40,7 @@ type ConsoleHandler struct {
 	Replicator server.Replicator      `inject:"optional"`
 	Jobs       *JobManager            `inject:""`
 	Head       LedgerHead             `inject:"optional"` // the FSM
+	Ledger     LedgerAttester         `inject:"optional"` // the LedgerService (cluster mode)
 	Raft       raftapi.RaftServer     `inject:"optional"`
 	Log        *zap.Logger            `inject:""`
 
@@ -158,6 +159,25 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case path == "/api/ledger/verify" && method == http.MethodGet:
 		if authorize(iam.PermProofsRead) {
 			writeJSON(w, http.StatusOK, map[string]any{"jobs": t.Jobs.List()})
+		}
+	// Verification materials from the live cluster (see pkg/console/ledger.go):
+	// per-node attestations, the aggregated quorum certificate, and the pinned
+	// ledger-CA public key that prefill the Verify Ledger form.
+	case path == "/api/ledger/digest" && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) {
+			t.ledgerDigest(w, r)
+		}
+	case path == "/api/ledger/materials" && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) {
+			t.ledgerMaterials(w, r)
+		}
+	case path == "/api/ledger/ca-pub" && method == http.MethodGet:
+		if authorize(iam.PermProofsRead) {
+			t.ledgerCAPubGet(w)
+		}
+	case path == "/api/ledger/ca-pub" && method == http.MethodPost:
+		if authorize(iam.PermClusterAdmin) {
+			t.ledgerCAPubSet(w, r)
 		}
 	case strings.HasPrefix(path, "/api/ledger/verify/") && method == http.MethodGet:
 		if authorize(iam.PermProofsRead) {

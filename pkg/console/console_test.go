@@ -11,9 +11,11 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
 	"net/http"
@@ -24,6 +26,7 @@ import (
 	"time"
 
 	"go.arpabet.com/consensusdb/pkg/iam"
+	"go.arpabet.com/consensusdb/pkg/ledger"
 	"go.arpabet.com/consensusdb/pkg/pb"
 	"go.arpabet.com/consensusdb/pkg/replication"
 	"go.arpabet.com/consensusdb/pkg/server"
@@ -689,5 +692,114 @@ func TestEnsureCAAdoptsGenesis(t *testing.T) {
 	}
 	if _, err := h2.ensureCA(context.Background()); err == nil {
 		t.Fatal("joiner without the CA key minted a second root")
+	}
+}
+
+// stubAttester is a LedgerAttester over a fixed head with a real BLS signer —
+// the console's collection/aggregation runs against genuine cryptography.
+type stubAttester struct {
+	signer *ledger.NodeSigner
+	height uint64
+	digest [32]byte
+}
+
+func (a *stubAttester) Attest(want *ledger.Checkpoint) (*ledger.Checkpoint, string, []byte, []byte, bool) {
+	ckpt := &ledger.Checkpoint{Height: a.height, Digest: a.digest[:], Unix: time.Now().Unix()}
+	if want != nil {
+		if want.Height != a.height || !bytes.Equal(want.Digest, a.digest[:]) {
+			return ckpt, "", nil, nil, false
+		}
+		ckpt = want
+	}
+	raw, _ := ledger.EncodeCert(a.signer.Cert())
+	return ckpt, a.signer.NodeID(), a.signer.Sign(ckpt), raw, true
+}
+
+// The Verify Ledger form can be filled by the cluster itself: /api/ledger/materials
+// aggregates live attestations into a quorum certificate and returns the node
+// certs plus the pinned CA public key — and the returned bundle passes the same
+// offline verification an auditor would run. The CA pub pin endpoint validates
+// its input.
+func TestLedgerMaterialsRoundTrip(t *testing.T) {
+	h, _ := newConsole(t)
+
+	ca, err := ledger.GenerateCA()
+	if err != nil {
+		t.Fatal(err)
+	}
+	blsKey, err := ledger.GenerateNodeKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pop, _ := ledger.ProofOfPossession(blsKey, "node-a")
+	cert, err := ca.Issue("node-a", blsKey.Public(), pop, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signer, err := ledger.NewNodeSigner(blsKey, cert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h.Ledger = &stubAttester{signer: signer, height: 7, digest: sha256.Sum256([]byte("head"))}
+
+	// A malformed CA public key is refused; the real one pins.
+	if rec := do(h, http.MethodPost, "/api/ledger/ca-pub", []byte(`{"caPub":"AAAA"}`)); rec.Code != http.StatusBadRequest {
+		t.Fatalf("bad ca-pub pin = %d, want 400", rec.Code)
+	}
+	pubBytes, _ := ca.Public().MarshalBinary()
+	pinBody, _ := json.Marshal(map[string]string{"caPub": base64.StdEncoding.EncodeToString(pubBytes)})
+	if rec := do(h, http.MethodPost, "/api/ledger/ca-pub", pinBody); rec.Code != http.StatusCreated {
+		t.Fatalf("ca-pub pin = %d %s", rec.Code, rec.Body.String())
+	}
+
+	rec := do(h, http.MethodGet, "/api/ledger/materials", nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("materials = %d %s", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Height     uint64   `json:"height"`
+		Digest     string   `json:"digest"`
+		Signers    []string `json:"signers"`
+		Members    int      `json:"members"`
+		QuorumCert string   `json:"quorumCert"`
+		NodeCerts  []string `json:"nodeCerts"`
+		CaPub      string   `json:"caPub"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.Height != 7 || out.Members != 1 || len(out.Signers) != 1 || out.Signers[0] != "node-a" {
+		t.Fatalf("materials = %+v, want height 7 with the one signer", out)
+	}
+	if out.CaPub != base64.StdEncoding.EncodeToString(pubBytes) {
+		t.Fatal("materials did not return the pinned CA public key")
+	}
+
+	// The returned bundle verifies offline — the same check an auditor runs.
+	qcRaw, err := base64.StdEncoding.DecodeString(out.QuorumCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	qc, err := ledger.DecodeQuorum(qcRaw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle := ledger.CertBundle{}
+	for _, c := range out.NodeCerts {
+		raw, err := base64.StdEncoding.DecodeString(c)
+		if err != nil {
+			t.Fatal(err)
+		}
+		nc, err := ledger.DecodeCert(raw)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bundle.AddCert(nc)
+	}
+	if err := ledger.Verify(ca.Public(), qc, bundle, 1, time.Now().Unix()); err != nil {
+		t.Fatalf("cluster-produced materials must verify offline: %v", err)
+	}
+	if err := qc.MatchesHead(7, sha256.Sum256([]byte("head"))); err != nil {
+		t.Fatalf("certificate must attest the collected head: %v", err)
 	}
 }
