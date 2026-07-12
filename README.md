@@ -480,6 +480,70 @@ Metrics for the cluster (raft leader contact, commit/apply latency, badger LSM
 counters) are on `:8441/metrics` for Prometheus; logs are structured JSON when
 `COS=prod` (set by the deployment).
 
+## External access
+
+Everything ships **internal-only**: the designed access model is apps running
+in-cluster, dialing the ClusterIP service
+(`tcp://consensusdb.consensusdb.svc.cluster.local:8444`). Expose interfaces
+deliberately, and **enable auth first** (Authentication runbook above).
+
+**Operators / your workstation — `kubectl port-forward`, no infra change.** The
+tunnel authenticates with your kubeconfig and is encrypted end-to-end by the API
+server connection:
+
+```bash
+kubectl -n consensusdb port-forward svc/consensusdb 8441:8441 8444:8444
+```
+
+- Admin console at <http://localhost:8441/console/> — a fresh cluster shows the
+  first-run wizard that creates the initial admin. Read-only dashboard at
+  `/dashboard/`, Prometheus at `/metrics`.
+- Data plane for the CLI or one-off jobs: `tcp://127.0.0.1:8444`. A forward to
+  the *service* pins one arbitrary pod — fine for reads and for console/IAM
+  actions (those are proxied to the leader server-side), but **data-plane writes
+  need the leader**: forward `pod/<leader>` (see `raft config`) for a write
+  session.
+
+**Console / dashboard / metrics for a team — expose the http port.** Every node
+serves the web apps and REST and forwards admin actions to the raft leader, so
+any entry point works. In `terraform.tfvars`:
+
+```hcl
+external_access = "LoadBalancer"   # or "NodePort"; creates consensusdb-external
+```
+
+The console speaks plain HTTP — front it with your ingress/gateway for TLS
+before it leaves a trusted network, and only expose it with
+`auth_enabled = true`.
+
+**App clients outside the cluster — pick a lane deliberately.** The data plane
+is leader-routed: any node serves reads, but a write landing on a follower is
+answered with a `not-leader:<endpoint>` redirect whose endpoint is the leader's
+**in-cluster** address (pod IP / headless DNS) — unreachable from outside. A
+naive external LB over all pods therefore serves reads fine and fails ~⅔ of
+writes. Options, best first:
+
+1. **Keep writers in-cluster** (the designed model) and expose *your service*,
+   not the database.
+2. **Make the cluster network routable** for the client (VPN/WireGuard into the
+   CNI, VPC-native pod IPs + cluster DNS forwarding): redirects then resolve,
+   and `external_expose_data_plane = true` (combined with `external_access`)
+   adds the vrpc port to the external Service.
+3. **Read-heavy external clients** can use `external_expose_data_plane = true`
+   as-is — reads land anywhere; writes only succeed via the leader.
+
+A first-class fix — advertising a per-node *external* endpoint in the redirect
+(the Kafka `advertised.listeners` pattern), or a leader-labeled Service the
+node maintains itself — is a code change; file it if external writers become a
+real requirement.
+
+Outside Kubernetes, the data plane can terminate TLS itself
+(`vrpc-server.bind-address: tls://…` + `tls-cert`/`tls-key`, `client-auth: true`
+for mutual TLS, or `quic://` — see "Secure transport" above). In this deployment
+the raft control plane shares the vrpc port and derives its port offset from the
+bare `host:port` form, so the in-cluster listener stays plain TCP and TLS
+belongs at the edge.
+
 # Quick start
 
 Build, Run, Write Client
@@ -564,7 +628,12 @@ the value-rpc data plane on 8444 (both on by default).
 
 The client is `go.arpabet.com/store/providers/cdb` — a `store.DataStore` over the
 value-rpc data plane (the old in-tree gRPC SDK was removed). Wrap it with the
-crypto middleware for client-side encryption.
+crypto middleware for client-side encryption. Which address to dial: local node
+`tcp://localhost:8444`; app in the same Kubernetes cluster
+`tcp://consensusdb.consensusdb.svc.cluster.local:8444`; your workstation against
+the k8s deployment — `kubectl port-forward` and dial `tcp://127.0.0.1:8444`
+(see "External access"). With `auth_enabled` add `cdb.WithCredential(…)` — see
+Authentication.
 
 ```go
 import (

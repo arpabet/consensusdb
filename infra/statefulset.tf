@@ -308,6 +308,40 @@ resource "kubernetes_pod_disruption_budget_v1" "consensusdb" {
   }
 }
 
+# Optional exposure outside the cluster (README "External access"). The admin
+# console/dashboard/metrics (http) are follower-safe behind any entry point —
+# every node serves them and forwards admin actions to the raft leader
+# server-side. The data plane (vrpc, opt-in) is NOT: any node serves reads, but
+# a write landing on a follower is answered with a redirect to the leader's
+# in-cluster endpoint, which external clients cannot reach. Enable auth before
+# exposing either port.
+resource "kubernetes_service_v1" "external" {
+  count = var.external_access != "" ? 1 : 0
+  metadata {
+    name      = "${var.deployment}-external"
+    namespace = var.namespace
+  }
+  spec {
+    type = var.external_access
+    selector = {
+      app = var.deployment
+    }
+    port {
+      name        = "http"
+      port        = var.http_port
+      target_port = var.http_port
+    }
+    dynamic "port" {
+      for_each = var.external_expose_data_plane ? [1] : []
+      content {
+        name        = "vrpc"
+        port        = var.vrpc_port
+        target_port = var.vrpc_port
+      }
+    }
+  }
+}
+
 # Stable in-cluster endpoint clients use, e.g. the cdb provider dials
 # tcp://<deployment>.<namespace>.svc.cluster.local:<vrpc_port>.
 resource "kubernetes_service_v1" "consensusdb" {

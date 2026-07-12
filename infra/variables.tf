@@ -77,3 +77,19 @@ variable "auth_enabled" {
   type        = bool
   default     = false
 }
+
+variable "external_access" {
+  description = "Expose the admin console/dashboard/metrics (http_port) outside the cluster via a NodePort or LoadBalancer Service; empty keeps everything internal (see the README 'External access' section). Enable auth first."
+  type        = string
+  default     = ""
+  validation {
+    condition     = contains(["", "NodePort", "LoadBalancer"], var.external_access)
+    error_message = "external_access must be \"\", \"NodePort\" or \"LoadBalancer\"."
+  }
+}
+
+variable "external_expose_data_plane" {
+  description = "Also expose the value-rpc data plane (vrpc_port) on the external Service. Reads are served by any node, but a write landing on a follower is redirected to the leader's IN-CLUSTER endpoint, which external clients cannot reach — see the README before enabling."
+  type        = bool
+  default     = false
+}
