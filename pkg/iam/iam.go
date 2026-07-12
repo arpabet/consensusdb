@@ -43,6 +43,13 @@ const (
 	UserPrefix           = "user/"
 	ServiceAccountPrefix = "sa/"
 	CertPrefix           = "cert/"
+
+	// GenesisMinor keys the cluster's replicated initialization marker — the
+	// "genesis record" written (create-if-absent, through raft) when first-run
+	// setup completes. Its presence is the authoritative "this database is
+	// initialized" fact, versioned and replicated like any record, so a replica
+	// that is merely behind can be told apart from a genuinely fresh cluster.
+	GenesisMinor = "cluster/genesis"
 )
 
 // PrincipalUser returns the principal string for a human user.
@@ -85,6 +92,12 @@ func Key(minor string) *pb.Key {
 		RegionName: []byte(Region),
 		MinorKey:   []byte(minor),
 	}
+}
+
+// GenesisRecord marks the database as initialized (see GenesisMinor).
+type GenesisRecord struct {
+	InitializedAt int64  `value:"initializedAt"` // unix seconds of first-run setup
+	CreatedBy     string `value:"createdBy"`     // the first admin's username
 }
 
 // UserRecord is a password-authenticated human identity.

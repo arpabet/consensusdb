@@ -28,20 +28,49 @@ cluster no identity exists yet; bootstrap self-guards on the absence of any admi
 user so it cannot be used to escalate once setup is done.
 */
 
-// setupStatus reports whether the cluster still needs first-run setup (no user
-// identity exists yet) and whether authentication is enforced.
-func (t *ConsoleHandler) setupStatus(w http.ResponseWriter) {
+/*
+setupStatus reports whether the cluster still needs first-run setup and whether
+authentication is enforced.
+
+Setup-ness is a cluster-level fact, but a node can only scan its own replica —
+and a replica that is merely behind (a fresh restart catching up, a re-added
+voter) has no users locally and would wrongly advertise the first-run wizard on
+an initialized cluster. Two defenses close that gap:
+
+  - the answer is leader-authoritative: a follower forwards the request to the
+    raft leader, whose applied state reflects every committed write (local
+    answer only as a fallback when no leader is reachable);
+  - the genesis record (iam.GenesisMinor) is the replicated, versioned marker
+    that setup completed — written by setupBootstrap and lazily adopted on
+    clusters initialized before the marker existed.
+*/
+func (t *ConsoleHandler) setupStatus(w http.ResponseWriter, r *http.Request) {
+	if t.forwardedToLeader(w, r) {
+		return
+	}
+	initialized := t.clusterInitialized()
+	users := t.anyUserExists()
+	if users && !initialized {
+		t.adoptGenesisRecord() // pre-marker cluster: publish the marker once, leader-side
+		initialized = true
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"needsSetup":  !t.anyUserExists(),
+		"needsSetup":  !initialized && !users,
+		"initialized": initialized || users,
 		"authEnabled": t.Auth != nil && t.Auth.Enabled,
 	})
 }
 
 // setupBootstrap creates the initial admin user. It succeeds only while no user
 // exists (create-if-absent on the record plus an up-front scan), so it is safe to
-// leave unauthenticated on a fresh cluster and inert afterwards.
+// leave unauthenticated on a fresh cluster and inert afterwards. Like
+// setupStatus, it runs on the leader: the guard must see committed state, not a
+// possibly-behind local replica.
 func (t *ConsoleHandler) setupBootstrap(w http.ResponseWriter, r *http.Request) {
-	if t.anyUserExists() {
+	if t.forwardedToLeader(w, r) {
+		return
+	}
+	if t.clusterInitialized() || t.anyUserExists() {
 		writeErr(w, http.StatusForbidden, "setup already completed")
 		return
 	}
@@ -80,6 +109,10 @@ func (t *ConsoleHandler) setupBootstrap(w http.ResponseWriter, r *http.Request) 
 		writeErr(w, http.StatusInternalServerError, "grant admin role")
 		return
 	}
+	// The genesis record: the replicated "database initialized" marker every
+	// replica converges on (see setupStatus). Best-effort create-if-absent —
+	// the admin user above is the source of truth, the marker is its beacon.
+	t.putGenesisRecord(req.Username)
 	// Mint the built-in CA now so the instance can issue client and node
 	// certificates. Non-fatal: it is also created lazily on first issuance.
 	if _, err := t.ensureCA(context.Background()); err != nil {
@@ -90,6 +123,55 @@ func (t *ConsoleHandler) setupBootstrap(w http.ResponseWriter, r *http.Request) 
 		"authEnabled": t.Auth != nil && t.Auth.Enabled,
 		"note":        "set AUTH_ENABLED=true and restart the nodes to enforce authentication",
 	})
+}
+
+/*
+forwardedToLeader proxies a setup request to the raft leader and reports whether
+it was handled there. False — the caller answers locally — when replication is
+off, this node leads, the request already came from a leader forward (loop
+guard), or the proxy fails (best effort beats no answer).
+*/
+func (t *ConsoleHandler) forwardedToLeader(w http.ResponseWriter, r *http.Request) bool {
+	rf, ok := t.raftHandle()
+	if !ok || t.Raft.IsLeader() || r.Header.Get("X-Forwarded-Leader") == "1" {
+		return false
+	}
+	leaderAddr, _ := rf.LeaderWithID()
+	if leaderAddr == "" {
+		return false
+	}
+	return t.proxyToLeader(w, r, string(leaderAddr)) == nil
+}
+
+// clusterInitialized reports whether the genesis record exists on this replica.
+func (t *ConsoleHandler) clusterInitialized() bool {
+	rec, err := t.svc.Get(context.Background(), &pb.KeyRequest{Key: iam.Key(iam.GenesisMinor)})
+	return err == nil && rec != nil && len(rec.Value) > 0
+}
+
+// putGenesisRecord publishes the initialization marker, create-if-absent through
+// the replicated write path. Losing the create race (or any error) is fine — one
+// marker exists either way.
+func (t *ConsoleHandler) putGenesisRecord(createdBy string) {
+	raw, err := iam.Encode(&iam.GenesisRecord{InitializedAt: time.Now().Unix(), CreatedBy: createdBy})
+	if err != nil {
+		return
+	}
+	if _, err := t.svc.Put(context.Background(), &pb.RecordRequest{
+		Key: iam.Key(iam.GenesisMinor), Value: raw, CompareAndSet: true, Version: 0,
+	}); err != nil {
+		t.Log.Warn("GenesisRecord", zap.Error(err))
+	}
+}
+
+// adoptGenesisRecord backfills the marker on a cluster initialized before the
+// marker existed. Writes go through raft, so only the leader (or a raft-off
+// single node) adopts; followers pick the record up from replication.
+func (t *ConsoleHandler) adoptGenesisRecord() {
+	if _, ok := t.raftHandle(); ok && !t.Raft.IsLeader() {
+		return
+	}
+	t.putGenesisRecord("")
 }
 
 // anyUserExists scans the IAM region for any user record.

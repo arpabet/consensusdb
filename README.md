@@ -327,7 +327,13 @@ anonymous when `auth.enabled=false`):
 
 - **First-run onboarding** — on a fresh cluster (`GET /api/setup/status`) a wizard
   creates the first admin (`POST /api/setup/bootstrap`) and can generate the
-  **ledger CA**, then points you at enabling `AUTH_ENABLED`.
+  **ledger CA**, then points you at enabling `AUTH_ENABLED`. Completing setup
+  writes the replicated **genesis record** (`__system/IAM/cluster/genesis`) — the
+  authoritative "database initialized" marker. Both setup endpoints are
+  **leader-authoritative** in cluster mode (a follower forwards them to the raft
+  leader), so a replica that is merely catching up after a restart can never
+  offer the wizard on an initialized cluster. Clusters initialized before the
+  marker existed adopt one automatically on the next status read.
 - **IAM** — a GCP-style page listing **every principal** (user / service account /
   group — shown even with no roles) and the **roles** granted to it, each scoped to
   the **whole database** (all tenants & regions), a **tenant (major key)**, or a

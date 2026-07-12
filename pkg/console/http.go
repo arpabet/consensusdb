@@ -74,7 +74,7 @@ func (t *ConsoleHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// yet); bootstrap self-guards on there being no admin user.
 	switch {
 	case path == "/api/setup/status" && method == http.MethodGet:
-		t.setupStatus(w)
+		t.setupStatus(w, r)
 		return
 	case path == "/api/setup/bootstrap" && method == http.MethodPost:
 		t.setupBootstrap(w, r)

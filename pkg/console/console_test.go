@@ -403,6 +403,68 @@ func TestJoinTokenNodeEnrollment(t *testing.T) {
 	}
 }
 
+// First-run setup leaves a replicated genesis record — the authoritative
+// "database initialized" marker. A fresh console needs setup; completing the
+// wizard writes the marker and flips the status; repeat bootstraps are refused;
+// and a cluster initialized before the marker existed adopts one lazily when
+// its status is read (users exist, marker missing).
+func TestGenesisRecordLifecycle(t *testing.T) {
+	h, _ := newConsole(t)
+	ctx := context.Background()
+
+	status := func() (needsSetup, initialized bool) {
+		rec := do(h, http.MethodGet, "/api/setup/status", nil)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("setup status = %d %s", rec.Code, rec.Body.String())
+		}
+		var out struct {
+			NeedsSetup  bool `json:"needsSetup"`
+			Initialized bool `json:"initialized"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatal(err)
+		}
+		return out.NeedsSetup, out.Initialized
+	}
+
+	if needs, init := status(); !needs || init {
+		t.Fatalf("fresh cluster: needsSetup=%v initialized=%v, want true/false", needs, init)
+	}
+	if rec := do(h, http.MethodPost, "/api/setup/bootstrap", []byte(`{"username":"root","password":"supersecret"}`)); rec.Code != http.StatusCreated {
+		t.Fatalf("bootstrap = %d %s", rec.Code, rec.Body.String())
+	}
+
+	// The marker exists as a replicated record and the status flipped.
+	genesis, err := h.svc.Get(ctx, &pb.KeyRequest{Key: iam.Key(iam.GenesisMinor)})
+	if err != nil || genesis == nil || len(genesis.Value) == 0 {
+		t.Fatalf("genesis record missing after bootstrap: %v", err)
+	}
+	gr := &iam.GenesisRecord{}
+	if err := iam.Decode(genesis.Value, gr); err != nil || gr.CreatedBy != "root" || gr.InitializedAt == 0 {
+		t.Fatalf("genesis record = %+v (err %v), want createdBy=root and a timestamp", gr, err)
+	}
+	if needs, init := status(); needs || !init {
+		t.Fatalf("after bootstrap: needsSetup=%v initialized=%v, want false/true", needs, init)
+	}
+
+	// Setup is one-shot.
+	if rec := do(h, http.MethodPost, "/api/setup/bootstrap", []byte(`{"username":"other","password":"supersecret"}`)); rec.Code != http.StatusForbidden {
+		t.Fatalf("second bootstrap = %d, want 403", rec.Code)
+	}
+
+	// A cluster initialized before the marker existed: users present, marker
+	// gone. The status read reports initialized and adopts the marker back.
+	if _, err := h.svc.Remove(ctx, &pb.KeyRequest{Key: iam.Key(iam.GenesisMinor)}); err != nil {
+		t.Fatal(err)
+	}
+	if needs, init := status(); needs || !init {
+		t.Fatalf("pre-marker cluster: needsSetup=%v initialized=%v, want false/true", needs, init)
+	}
+	if rec, err := h.svc.Get(ctx, &pb.KeyRequest{Key: iam.Key(iam.GenesisMinor)}); err != nil || rec == nil || len(rec.Value) == 0 {
+		t.Fatalf("genesis record not re-adopted: %v", err)
+	}
+}
+
 // The pre-shared bootstrap token (consensusdb.bootstrap-token, e.g. one
 // Kubernetes Secret shared by a whole StatefulSet) is adopted as a reusable join
 // record on first redemption: every fresh node enrolls with the same secret, the
