@@ -460,12 +460,16 @@ Pod anti-affinity spreads the voters across nodes and a PodDisruptionBudget caps
 voluntary disruptions at one voter, so maintenance never costs quorum. Membership
 is persisted in the raft log — restarts rejoin automatically. Operational notes:
 
-- **Address changes**: joiners are recorded under their stable headless DNS names
-  (`CONSENSUSDB_ADVERTISE_ADDRESS`, exported by the pod wrapper), so reschedules
-  don't strand membership on a dead pod IP. The seed still records its advertised
-  **pod IP** at bootstrap; if pod 0 is rescheduled and peers can't reach its old
-  IP, re-run `raft join <node_id_0> consensusdb-0.…:8300` from the current leader
-  — `join` with an existing id updates that server's address.
+- **Address changes are self-healing**: every node is recorded under its stable
+  headless DNS name (`CONSENSUSDB_ADVERTISE_ADDRESS`, exported by the pod
+  wrapper). Joiners enroll under it, and the **AddressReconciler** re-registers
+  any node whose recorded membership address drifts from its advertise address —
+  including the seed, which raft bootstrap initially records under its **pod
+  IP**: the record flips to the DNS name seconds after genesis (look for
+  `NodeAddressHealed` in the logs). A stale-addressed node that doesn't know the
+  current leader asks every peer, so it heals even after its own reschedule.
+  Manual `raft join <existing-id> <addr>` remains available as the by-hand
+  override.
 - **Scaling up**: raise `num_replicas` and apply — new ordinals enroll with the
   same Secret, no extra steps. Scale-downs must `RemoveServer` before deleting
   the pod (leader-side; CLI follow-up).

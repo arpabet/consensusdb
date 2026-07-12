@@ -49,6 +49,9 @@ transport and panic — is simply not present. The bundle is:
     the client pool used to reach the leader (forwarding + membership);
   - the FSM, the Replicator (server.Replicator write path), the Reclaimer and the
     RaftHost that drives the raft server lifecycle;
+  - the AddressReconciler that re-registers a node whose recorded membership
+    address drifted from consensusdb.advertise-address (seed genesis records the
+    private IP; Kubernetes reschedules change it);
   - the verifiable-ledger LedgerService (the ledger.digest control function, S6),
     which co-signs the FSM's hash chain and therefore only exists with raft.
 
@@ -78,6 +81,10 @@ func ClusterBeans() []interface{} {
 		&Replicator{},
 		&Reclaimer{},
 		&RaftHost{},
+
+		// Keeps this node's raft membership record equal to its advertise
+		// address (heals the seed's genesis-time IP and any reschedule drift).
+		&AddressReconciler{},
 
 		&LedgerService{},
 	}
