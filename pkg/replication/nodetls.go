@@ -31,7 +31,12 @@ first start and loads it on restart, all from <data-dir>/pki/:
     (genesis), staging the CA key on disk — the console's ensureCA publishes the
     record through raft on first use, so every later cert chains to this root;
   - joiner (consensusdb.join-token set): enroll against consensusdb.join-peer to
-    obtain a CA-signed node cert.
+    obtain a CA-signed node cert;
+  - joiner (consensusdb.bootstrap-token set, checked after raft.bootstrap so the
+    seed still runs genesis when it carries the same env): enroll the same way
+    with the deployment-wide pre-shared secret — the path a Kubernetes
+    StatefulSet takes, where one Secret is mounted into every ordinal and no
+    per-node token is minted.
 
 The qualifier "raft-transport-tls" (raftmod's RaftServer.TlsConfig) keeps this off
 the control-plane pool and the client-facing data plane, so those are unaffected.
@@ -66,28 +71,20 @@ func (t *NodeTLSFactory) provision(dataDir, nodeID string) (*NodeIdentity, error
 		return id, nil
 	}
 	advertised := raftmod.ReplaceToPrivateIP(t.Properties.GetString("raft.bind-address", ""))
-	advHost := hostOf(advertised)
+	// The address peers record for this node: a stable DNS name when configured
+	// (consensusdb.advertise-address — on Kubernetes the pod's headless-service
+	// name, which survives rescheduling), the private IP otherwise.
+	raftAddr := t.Properties.GetString("consensusdb.advertise-address", "")
+	if raftAddr == "" {
+		raftAddr = advertised
+	}
 
 	if token := t.Properties.GetString("consensusdb.join-token", ""); token != "" {
-		peer := t.Properties.GetString("consensusdb.join-peer", "")
-		if peer == "" {
-			return nil, xerrors.New("join requires consensusdb.join-peer (an existing node's http URL, e.g. http://10.0.0.1:8441)")
-		}
-		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-		defer cancel()
-		id, err := EnrollNode(ctx, peer, token, nodeID, advertised, advHost)
-		if err != nil {
-			return nil, err
-		}
-		if err := id.Save(dataDir); err != nil {
-			return nil, err
-		}
-		t.Log.Info("NodeEnrolled", zap.String("peer", peer))
-		return id, nil
+		return t.enroll(dataDir, nodeID, token, raftAddr, hostOf(advertised))
 	}
 
 	if t.Properties.GetBool("raft.bootstrap", true) {
-		id, caRec, err := GenesisIdentity(nodeID, []string{advHost})
+		id, caRec, err := GenesisIdentity(nodeID, []string{hostOf(raftAddr), hostOf(advertised)})
 		if err != nil {
 			return nil, err
 		}
@@ -100,10 +97,37 @@ func (t *NodeTLSFactory) provision(dataDir, nodeID string) (*NodeIdentity, error
 		if err := SaveGenesisCA(dataDir, caRec); err != nil {
 			return nil, err
 		}
-		t.Log.Info("NodeGenesis", zap.String("nodeId", nodeID), zap.String("advertise", advHost))
+		t.Log.Info("NodeGenesis", zap.String("nodeId", nodeID), zap.String("advertise", hostOf(advertised)))
 		return id, nil
 	}
-	return nil, xerrors.New("cluster node has no identity: set consensusdb.join-token + consensusdb.join-peer to enroll, or raft.bootstrap=true for the seed")
+
+	// The deployment-wide pre-shared secret, after raft.bootstrap so a seed
+	// carrying the same env still runs genesis instead of enrolling with itself.
+	if token := t.Properties.GetString("consensusdb.bootstrap-token", ""); token != "" {
+		return t.enroll(dataDir, nodeID, token, raftAddr, hostOf(advertised))
+	}
+	return nil, xerrors.New("cluster node has no identity: set consensusdb.join-token or consensusdb.bootstrap-token (+ consensusdb.join-peer) to enroll, or raft.bootstrap=true for the seed")
+}
+
+// enroll redeems a join or bootstrap token against consensusdb.join-peer and
+// persists the returned identity. raftAddr is what the leader records this node
+// under (AddVoter); advHost additionally lands in the certificate SANs.
+func (t *NodeTLSFactory) enroll(dataDir, nodeID, token, raftAddr, advHost string) (*NodeIdentity, error) {
+	peer := t.Properties.GetString("consensusdb.join-peer", "")
+	if peer == "" {
+		return nil, xerrors.New("join requires consensusdb.join-peer (an existing node's http URL, e.g. http://10.0.0.1:8441)")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	id, err := EnrollNode(ctx, peer, token, nodeID, raftAddr, advHost)
+	if err != nil {
+		return nil, err
+	}
+	if err := id.Save(dataDir); err != nil {
+		return nil, err
+	}
+	t.Log.Info("NodeEnrolled", zap.String("peer", peer), zap.String("raftAddr", raftAddr))
+	return id, nil
 }
 
 func (t *NodeTLSFactory) ObjectType() reflect.Type { return tlsConfigClass }

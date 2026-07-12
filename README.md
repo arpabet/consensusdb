@@ -426,41 +426,55 @@ must already exist.
 
 ## 3-node cluster formation (runbook)
 
-The StatefulSet deploys **3 raft voters** (`num_replicas = 3`): replication is
-enabled via `RAFT_BIND_ADDRESS`/`SERF_BIND_ADDRESS`, ordinal **0 bootstraps** a
-single-voter cluster on first start (`RAFT_BOOTSTRAP=true`, derived from the pod
-ordinal), and ordinals 1–2 start in **join mode**. Pod anti-affinity spreads the
-voters across nodes and a PodDisruptionBudget caps voluntary disruptions at one
-voter, so maintenance never costs quorum.
+The StatefulSet deploys **3 raft voters** (`num_replicas = 3`) and forms the
+cluster **by itself — `terraform apply` is the whole runbook**. Replication is
+enabled via `RAFT_BIND_ADDRESS`/`SERF_BIND_ADDRESS`; the node↔node transport is
+mandatory mutual TLS, so every node needs a CA-signed identity before it can
+serve raft:
 
-Forming the cluster is a one-time step — add each joiner as a voter, addressed by
-its **stable headless DNS name**:
+- Ordinal **0 bootstraps** on first start (`RAFT_BOOTSTRAP=true`, derived from
+  the pod ordinal): it runs **genesis** — mints the cluster CA and self-issues
+  its node certificate.
+- Ordinals **1–2 enroll themselves**: Terraform generates a random **bootstrap
+  token** into the `consensusdb-bootstrap-token` Secret, mounted into every pod
+  as `CONSENSUSDB_BOOTSTRAP_TOKEN`. A fresh joiner redeems it against
+  `CONSENSUSDB_JOIN_PEER` (the ClusterIP service, which routes to ready nodes
+  only — the seed, during formation); the leader verifies the token, signs the
+  node's CSR, and **adds it as a voter**. The identity lands on the node's data
+  volume, so every later start just loads it — the token is read exactly once
+  per node. Enrollment is what discovery alone can't be: a raft voter seat is
+  *authorization*, and possession of the deployment's secret is the credential.
+
+Pods start in parallel (`pod_management_policy = "Parallel"`): a joiner that
+comes up before the seed leads fails its enrollment, restarts on the container
+backoff, and succeeds on a later try — formation converges without ordering
+games, typically within a minute.
 
 ```bash
-# each joiner logs its node id on start:
-kubectl -n consensusdb logs consensusdb-1 | grep RaftJoinMode   # → id=<node_id>
-
-# the leader (pod 0 right after bootstrap) adds the voters:
-kubectl -n consensusdb exec consensusdb-0 -- /app/consensusdb raft join \
-  <node_id_1> consensusdb-1.consensusdb-headless.consensusdb.svc.cluster.local:8300
-kubectl -n consensusdb exec consensusdb-0 -- /app/consensusdb raft join \
-  <node_id_2> consensusdb-2.consensusdb-headless.consensusdb.svc.cluster.local:8300
-
-# verify: three voters
+# watch formation, then verify: three voters
+kubectl -n consensusdb get pods -w
 kubectl -n consensusdb exec consensusdb-0 -- /app/consensusdb raft config
 ```
 
-Membership is persisted in the raft log — restarts rejoin automatically. Two
-operational notes:
+Pod anti-affinity spreads the voters across nodes and a PodDisruptionBudget caps
+voluntary disruptions at one voter, so maintenance never costs quorum. Membership
+is persisted in the raft log — restarts rejoin automatically. Operational notes:
 
-- **Address changes**: joiners are recorded under DNS names (stable across pod
-  restarts). The seed records its own advertised **pod IP** at bootstrap; if pod
-  0 is rescheduled and peers can't reach its old IP, re-run `raft join <node_id_0>
-  consensusdb-0.…:8300` from the current leader — `join` with an existing id
-  updates that server's address.
-- **Scaling up**: raise `num_replicas`, then `raft join` the new ordinal the same
-  way. Scale-downs must `RemoveServer` before deleting the pod (leader-side; CLI
-  follow-up).
+- **Address changes**: joiners are recorded under their stable headless DNS names
+  (`CONSENSUSDB_ADVERTISE_ADDRESS`, exported by the pod wrapper), so reschedules
+  don't strand membership on a dead pod IP. The seed still records its advertised
+  **pod IP** at bootstrap; if pod 0 is rescheduled and peers can't reach its old
+  IP, re-run `raft join <node_id_0> consensusdb-0.…:8300` from the current leader
+  — `join` with an existing id updates that server's address.
+- **Scaling up**: raise `num_replicas` and apply — new ordinals enroll with the
+  same Secret, no extra steps. Scale-downs must `RemoveServer` before deleting
+  the pod (leader-side; CLI follow-up).
+- **Token lifecycle**: rotate with `terraform apply
+  -replace=random_password.bootstrap_token`. Enrolled nodes are unaffected
+  (their identity lives on the PVC); to also invalidate the *old* secret's
+  adopted record, delete `join/<sha256(token)>` from the system PKI region.
+  Per-node **single-use** tokens remain available for manual adds:
+  `consensusdb cluster join-token` (CLI) or the console's "Add node".
 
 Metrics for the cluster (raft leader contact, commit/apply latency, badger LSM
 counters) are on `:8441/metrics` for Prometheus; logs are structured JSON when
@@ -511,13 +525,26 @@ data in `./data`) and reads it on every later run — no IPs or ports have to be
 supplied. State is project-local (like gazile); `CONSENSUSDB_HOME` relocates it.
 
 To form a cluster, initialize the settings once — `init` detects this host's
-routable address and records the raft/serf bind addresses — then run:
+routable address and records the raft/serf bind addresses. The node↔node
+transport is mutual TLS, so a joiner enrolls on first start with a token minted
+on the seed; enrollment signs its node certificate **and adds it as a voter**:
 
 ```
-./consensusdb init --cluster                                # seed node (bootstraps the cluster)
-./consensusdb init --cluster --seed=false --host 10.0.0.5   # a joiner
+# seed (bootstraps the cluster and the cluster CA)
+./consensusdb init --cluster
 ./consensusdb run
+
+# on the seed: mint a single-use join token
+./consensusdb cluster join-token                            # → join-…
+
+# joiner: enroll on first start (identity persists in <data-dir>/pki after that)
+./consensusdb init --cluster --seed=false --host 10.0.0.5
+CONSENSUSDB_JOIN_TOKEN=join-… CONSENSUSDB_JOIN_PEER=http://<seed-ip>:8441 ./consensusdb run
 ```
+
+Fleets where every node shares one pre-provisioned secret can set
+`CONSENSUSDB_BOOTSTRAP_TOKEN` instead of minting per-node tokens — that is how
+the Kubernetes StatefulSet forms itself (see the runbook above).
 
 `consensusdb init` with no flags writes the single-node file explicitly (`--out`
 writes elsewhere; `--force` overwrites). Environment variables and `-c file` /
@@ -604,6 +631,16 @@ raft:
 serf:
   bind-address: 10.0.0.5:8301
 ```
+
+Cluster enrollment properties (joiners, read on first start only — the node's
+mTLS identity then persists in `<data-dir>/pki/`):
+
+| property | env | meaning |
+|---|---|---|
+| `consensusdb.join-token` | `CONSENSUSDB_JOIN_TOKEN` | single-use token minted on an existing node (`cluster join-token` / console "Add node") |
+| `consensusdb.bootstrap-token` | `CONSENSUSDB_BOOTSTRAP_TOKEN` | deployment-wide pre-shared secret, reusable by every fresh node (the Kubernetes path) |
+| `consensusdb.join-peer` | `CONSENSUSDB_JOIN_PEER` | an existing node's http URL to enroll against, e.g. `http://10.0.0.1:8441` |
+| `consensusdb.advertise-address` | `CONSENSUSDB_ADVERTISE_ADDRESS` | optional stable `host:port` peers record for this node (a DNS name that survives reschedules) |
 
 `CONSENSUSDB_HOME` relocates the base directory (settings + data); `CONSENSUSDB_MODE`
 forces single/cluster. In **single-node mode the raft stack is not wired at all**,

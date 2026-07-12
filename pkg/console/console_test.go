@@ -403,6 +403,81 @@ func TestJoinTokenNodeEnrollment(t *testing.T) {
 	}
 }
 
+// The pre-shared bootstrap token (consensusdb.bootstrap-token, e.g. one
+// Kubernetes Secret shared by a whole StatefulSet) is adopted as a reusable join
+// record on first redemption: every fresh node enrolls with the same secret, the
+// post-join tidy-up keeps the record, and strangers are still refused.
+// Revocation = rotate the secret out of the node environments AND delete the
+// adopted record.
+func TestBootstrapTokenEnrollment(t *testing.T) {
+	h, _ := newConsole(t)
+	if rec := do(h, http.MethodPost, "/api/setup/bootstrap", []byte(`{"username":"root","password":"supersecret"}`)); rec.Code != http.StatusCreated {
+		t.Fatalf("bootstrap = %d %s", rec.Code, rec.Body.String())
+	}
+	ctx := context.Background()
+	const secret = "tf-random-bootstrap-secret"
+
+	// Without the property set, the secret is just an unknown token.
+	if _, _, err := h.signNodeEnrollment(ctx, secret, "node-1", []string{"10.0.0.1"}, nodeCSR(t, "node-1")); err == nil {
+		t.Fatal("bootstrap token accepted while unconfigured")
+	}
+	h.BootstrapToken = secret
+
+	// A wrong token is still refused.
+	if _, _, err := h.signNodeEnrollment(ctx, "join-wrong", "node-x", []string{"10.0.0.9"}, nodeCSR(t, "node-x")); err == nil {
+		t.Fatal("stranger token accepted")
+	}
+
+	// Two nodes enroll with the same secret — reusable, unlike a minted token.
+	cert1, caPEM, err := h.signNodeEnrollment(ctx, secret, "node-1", []string{"10.0.0.1"}, nodeCSR(t, "node-1"))
+	if err != nil {
+		t.Fatalf("first bootstrap enrollment: %v", err)
+	}
+	if _, _, err := h.signNodeEnrollment(ctx, secret, "node-2", []string{"10.0.0.2"}, nodeCSR(t, "node-2")); err != nil {
+		t.Fatalf("second bootstrap enrollment: %v", err)
+	}
+
+	// The post-join tidy-up keeps the reusable record: a third node still enrolls.
+	h.consumeJoinToken(ctx, secret)
+	if _, _, err := h.signNodeEnrollment(ctx, secret, "node-3", []string{"10.0.0.3"}, nodeCSR(t, "node-3")); err != nil {
+		t.Fatalf("bootstrap token dead after tidy-up: %v", err)
+	}
+
+	// The record is only the adopted form of the configured secret: deleting it
+	// alone does not revoke — the next enrollment re-adopts it.
+	if _, err := h.svc.Remove(ctx, &pb.KeyRequest{Key: iam.PKIKey(iam.JoinIndexKey(iam.HashToken(secret)))}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := h.signNodeEnrollment(ctx, secret, "node-4", []string{"10.0.0.4"}, nodeCSR(t, "node-4")); err != nil {
+		t.Fatalf("re-adoption after record delete: %v", err)
+	}
+
+	// A bootstrap-enrolled cert chains to the built-in CA like any node cert.
+	caB, _ := pem.Decode(caPEM)
+	caCert, _ := x509.ParseCertificate(caB.Bytes)
+	pool := x509.NewCertPool()
+	pool.AddCert(caCert)
+	leafB, _ := pem.Decode(cert1)
+	leaf, err := x509.ParseCertificate(leafB.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ku := range []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth} {
+		if _, err := leaf.Verify(x509.VerifyOptions{Roots: pool, KeyUsages: []x509.ExtKeyUsage{ku}}); err != nil {
+			t.Fatalf("bootstrap-enrolled cert not valid for %v: %v", ku, err)
+		}
+	}
+
+	// Full revocation: rotate the secret out of config and delete the record.
+	h.BootstrapToken = ""
+	if _, err := h.svc.Remove(ctx, &pb.KeyRequest{Key: iam.PKIKey(iam.JoinIndexKey(iam.HashToken(secret)))}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := h.signNodeEnrollment(ctx, secret, "node-5", []string{"10.0.0.5"}, nodeCSR(t, "node-5")); err == nil {
+		t.Fatal("rotated-out bootstrap token still accepted")
+	}
+}
+
 // A user PAT is minted (shown once), authenticates as the user, is listed and
 // revoked, and expired PATs are rejected.
 func TestUserPAT(t *testing.T) {

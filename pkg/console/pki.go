@@ -7,6 +7,7 @@ package console
 
 import (
 	"context"
+	"crypto/subtle"
 	"net"
 	"net/http"
 	"strings"
@@ -278,10 +279,12 @@ func (t *ConsoleHandler) mintJoinToken(ctx context.Context, ttl time.Duration, c
 
 // signNodeEnrollment verifies a join token and signs the node's CSR into a node
 // certificate (server+client EKU, chaining to the built-in CA), with the node id,
-// the given hosts, and the cluster-wide iam.NodeSANDNS as SANs. The token is
+// the given hosts, and the cluster-wide iam.NodeSANDNS as SANs. A minted token is
 // burned atomically (CAS on its record version) BEFORE signing, so concurrent
 // enrolls with the same token cannot both win — single-use is enforced, not just
-// intended. It does not touch raft membership — the caller adds the voter.
+// intended. The pre-shared bootstrap token (adopted on first use, Reusable) is
+// exempt: every fresh node of a deployment enrolls with the same secret. It does
+// not touch raft membership — the caller adds the voter.
 func (t *ConsoleHandler) signNodeEnrollment(ctx context.Context, token, nodeID string, hosts []string, csrPEM []byte) (certPEM, caPEM []byte, err error) {
 	if token == "" || nodeID == "" {
 		return nil, nil, xerrors.New("token and nodeId are required")
@@ -292,7 +295,13 @@ func (t *ConsoleHandler) signNodeEnrollment(ctx context.Context, token, nodeID s
 		return nil, nil, err
 	}
 	if rec == nil || len(rec.Value) == 0 {
-		return nil, nil, xerrors.New("invalid join token")
+		// Not a minted token — adopt the pre-shared bootstrap token on first use.
+		if rec, err = t.adoptBootstrapToken(ctx, hash); err != nil {
+			return nil, nil, err
+		}
+		if rec == nil || len(rec.Value) == 0 {
+			return nil, nil, xerrors.New("invalid join token")
+		}
 	}
 	jr := &iam.JoinRecord{}
 	if err := iam.Decode(rec.Value, jr); err != nil {
@@ -301,24 +310,26 @@ func (t *ConsoleHandler) signNodeEnrollment(ctx context.Context, token, nodeID s
 	if jr.ExpiresAt != 0 && time.Now().Unix() > jr.ExpiresAt {
 		return nil, nil, xerrors.New("join token expired")
 	}
-	if rec.Head == nil {
-		return nil, nil, xerrors.New("invalid join token")
-	}
-	// Burn before signing: CAS on the record version we just read. The loser of a
-	// concurrent enroll sees Updated=false and is rejected. (ExpiresAt=1 is in the
-	// past, so even a raced read path treats the record as spent.)
-	burned, err := iam.Encode(&iam.JoinRecord{ExpiresAt: 1, CreatedBy: jr.CreatedBy})
-	if err != nil {
-		return nil, nil, err
-	}
-	status, err := t.svc.Put(ctx, &pb.RecordRequest{
-		Key: iam.PKIKey(iam.JoinIndexKey(hash)), Value: burned, CompareAndSet: true, Version: rec.Head.Version,
-	})
-	if err != nil {
-		return nil, nil, err
-	}
-	if status == nil || !status.Updated {
-		return nil, nil, xerrors.New("join token already used")
+	if !jr.Reusable {
+		if rec.Head == nil {
+			return nil, nil, xerrors.New("invalid join token")
+		}
+		// Burn before signing: CAS on the record version we just read. The loser of a
+		// concurrent enroll sees Updated=false and is rejected. (ExpiresAt=1 is in the
+		// past, so even a raced read path treats the record as spent.)
+		burned, err := iam.Encode(&iam.JoinRecord{ExpiresAt: 1, CreatedBy: jr.CreatedBy})
+		if err != nil {
+			return nil, nil, err
+		}
+		status, err := t.svc.Put(ctx, &pb.RecordRequest{
+			Key: iam.PKIKey(iam.JoinIndexKey(hash)), Value: burned, CompareAndSet: true, Version: rec.Head.Version,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		if status == nil || !status.Updated {
+			return nil, nil, xerrors.New("join token already used")
+		}
 	}
 	csr, err := iam.ParseCSR(csrPEM)
 	if err != nil {
@@ -339,10 +350,49 @@ func (t *ConsoleHandler) signNodeEnrollment(ctx context.Context, token, nodeID s
 	return certPEM, ca.CertPEM, nil
 }
 
-// consumeJoinToken removes a spent join token's record (tidy-up after a
-// successful join; the token was already burned before signing).
+/*
+adoptBootstrapToken publishes the pre-shared cluster bootstrap token
+(consensusdb.bootstrap-token — e.g. one Kubernetes Secret every StatefulSet pod
+mounts) as a Reusable join record the first time a node redeems it. Unlike minted
+join tokens it is multi-use by design: every fresh ordinal enrolls with the same
+secret, so `terraform apply` alone forms a cluster with no per-node minting.
+Possession of the secret stays the only credential — the presented token is
+compared hash-to-hash in constant time — and retiring it means rotating the
+secret out of the node environments and deleting join/<hash>. Returns nil when
+the presented hash is not the configured bootstrap token's.
+*/
+func (t *ConsoleHandler) adoptBootstrapToken(ctx context.Context, hash string) (*pb.Record, error) {
+	if t.BootstrapToken == "" ||
+		subtle.ConstantTimeCompare([]byte(iam.HashToken(t.BootstrapToken)), []byte(hash)) != 1 {
+		return nil, nil
+	}
+	raw, err := iam.Encode(&iam.JoinRecord{Reusable: true, CreatedBy: "bootstrap-token"})
+	if err != nil {
+		return nil, err
+	}
+	// Create-if-absent: concurrent first enrolls race benignly — the loser of the
+	// CAS reads the winner's identical record below.
+	if _, err := t.svc.Put(ctx, &pb.RecordRequest{
+		Key: iam.PKIKey(iam.JoinIndexKey(hash)), Value: raw, CompareAndSet: true, Version: 0,
+	}); err != nil {
+		return nil, err
+	}
+	t.Log.Info("PkiBootstrapTokenAdopted")
+	return t.svc.Get(ctx, &pb.KeyRequest{Key: iam.PKIKey(iam.JoinIndexKey(hash))})
+}
+
+// consumeJoinToken removes a spent single-use join token's record (tidy-up after
+// a successful join; the token was already burned before signing). The reusable
+// bootstrap token's record is kept — later nodes enroll with the same secret.
 func (t *ConsoleHandler) consumeJoinToken(ctx context.Context, token string) {
-	_, _ = t.svc.Remove(ctx, &pb.KeyRequest{Key: iam.PKIKey(iam.JoinIndexKey(iam.HashToken(token)))})
+	key := iam.PKIKey(iam.JoinIndexKey(iam.HashToken(token)))
+	if rec, err := t.svc.Get(ctx, &pb.KeyRequest{Key: key}); err == nil && rec != nil && len(rec.Value) > 0 {
+		jr := &iam.JoinRecord{}
+		if iam.Decode(rec.Value, jr) == nil && jr.Reusable {
+			return
+		}
+	}
+	_, _ = t.svc.Remove(ctx, &pb.KeyRequest{Key: key})
 }
 
 // splitHosts sorts host strings into IP-address and DNS-name SANs, de-duplicating.

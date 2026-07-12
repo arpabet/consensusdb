@@ -21,3 +21,11 @@ auth.enabled: false
 # raft.bind-address: 10.0.0.5:8300
 # raft.bootstrap:    true            # seed node; joiners set false
 # serf.bind-address: 10.0.0.5:8301
+#
+# Joiners enroll on their first start (mutual-TLS identity, then persisted in
+# <data-dir>/pki). Set ONE token: a single-use token minted on an existing node
+# (`consensusdb cluster join-token`), or the deployment-wide pre-shared secret.
+# consensusdb.join-token:        # join-… (single-use)
+# consensusdb.bootstrap-token:   # pre-shared, reusable by every fresh node
+# consensusdb.join-peer: http://10.0.0.1:8441   # existing node's http URL
+# consensusdb.advertise-address:                # optional stable host:port peers record

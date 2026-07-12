@@ -63,11 +63,16 @@ const (
 	caValidity   = 10 * 365 * 24 * time.Hour
 )
 
-// JoinRecord authorizes one node to enroll: it is looked up by the presented
-// join token's hash, checked for expiry, and (single-use) deleted on success.
+// JoinRecord authorizes node enrollment: it is looked up by the presented join
+// token's hash and checked for expiry. Minted tokens are single-use — burned at
+// signing, deleted after the join. A Reusable record is the adopted cluster
+// bootstrap token (one pre-shared secret every fresh node of a deployment
+// enrolls with, e.g. from a Kubernetes Secret): it survives redemptions and is
+// retired by rotating the secret, not by use.
 type JoinRecord struct {
 	ExpiresAt int64  `value:"expiresAt"` // unix seconds; 0 = never
 	CreatedBy string `value:"createdBy"` // principal that minted the token
+	Reusable  bool   `value:"reusable"`  // pre-shared bootstrap token: not burned on use
 }
 
 // JoinIndexKey is the PKI-region minor of the reverse index for a join token hash.

@@ -19,9 +19,11 @@ import (
 /*
 Cluster enrollment from the CLI — parity with the console "Add node" flow, for
 operators who drive terraform/scripts rather than the web UI. `cluster join-token`
-mints the same single-use join token the console does; a new node redeems it with
-`consensusdb run --join <token> --peer <existing-node-http>`, receiving a CA-signed
-node certificate and voter membership.
+mints the same single-use join token the console does; a new node redeems it by
+starting with CONSENSUSDB_JOIN_TOKEN=<token> and CONSENSUSDB_JOIN_PEER=<existing
+node's http URL>, receiving a CA-signed node certificate and voter membership.
+Deployments where every node shares one secret (a Kubernetes StatefulSet) skip
+minting entirely: see consensusdb.bootstrap-token in the README runbook.
 */
 
 // ClusterGroup roots `consensusdb cluster …`.
@@ -46,7 +48,7 @@ type ClusterJoinTokenCommand struct {
 func (t *ClusterJoinTokenCommand) Command() string { return "join-token" }
 
 func (t *ClusterJoinTokenCommand) Help() (string, string) {
-	return "mint a single-use node join token", "The new node redeems it with `consensusdb run --join <token> --peer <existing-node-http>`."
+	return "mint a single-use node join token", "The new node redeems it by starting with CONSENSUSDB_JOIN_TOKEN=<token> CONSENSUSDB_JOIN_PEER=<existing-node-http>."
 }
 
 func (t *ClusterJoinTokenCommand) Run(ctx context.Context) error {
@@ -71,7 +73,7 @@ func (t *ClusterJoinTokenCommand) Run(ctx context.Context) error {
 			return err
 		}
 		fmt.Printf("join token (valid %s, shown once): %s\n", t.TTL, token)
-		fmt.Printf("on the new node run:\n  consensusdb run --join %s --peer <existing-node-http>\n", token)
+		fmt.Printf("start the new node with:\n  CONSENSUSDB_JOIN_TOKEN=%s CONSENSUSDB_JOIN_PEER=<existing-node-http> consensusdb run\n", token)
 		return nil
 	})
 }

@@ -10,6 +10,27 @@ resource "kubernetes_secret_v1" "encryption" {
   }
 }
 
+# Pre-shared cluster bootstrap token: every ordinal gets the same secret; fresh
+# joiners (RAFT_BOOTSTRAP=false) enroll with it on first start and the leader
+# adopts it as a reusable join record, so `terraform apply` alone forms the
+# cluster — no manual token minting. A node's identity persists on its data
+# volume, so the token is only read on a node's very first start; rotate with
+# `terraform apply -replace=random_password.bootstrap_token`.
+resource "random_password" "bootstrap_token" {
+  length  = 48
+  special = false
+}
+
+resource "kubernetes_secret_v1" "bootstrap_token" {
+  metadata {
+    name      = "${var.deployment}-bootstrap-token"
+    namespace = var.namespace
+  }
+  data = {
+    "bootstrap-token" = random_password.bootstrap_token.result
+  }
+}
+
 # Force a rolling restart when the image tag is unchanged (SHA-tagged deploys roll
 # automatically; this covers re-deploying the same tag).
 resource "null_resource" "image_change_trigger" {
@@ -35,6 +56,14 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
   spec {
     replicas     = var.num_replicas
     service_name = kubernetes_service_v1.headless.metadata[0].name
+
+    # Start all ordinals at once instead of gating each on its predecessor's
+    # readiness: joiners that come up before the seed leads simply retry via the
+    # container restart backoff and enroll when it does. With the default
+    # OrderedReady, a joiner waiting on the seed would block pod creation (and
+    # rolling updates) behind its own not-ready state. Updates still roll one pod
+    # at a time — this only affects creation/scaling.
+    pod_management_policy = "Parallel"
 
     selector {
       match_labels = {
@@ -74,12 +103,17 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
           image_pull_policy = "IfNotPresent"
 
           # Ordinal 0 is the raft seed: it bootstraps a single-voter cluster on
-          # first start. The other ordinals start in join mode and are added by
-          # the leader via `consensusdb raft join` (see the README runbook).
+          # first start. The other ordinals enroll themselves with the shared
+          # bootstrap token (CONSENSUSDB_BOOTSTRAP_TOKEN below) and are added as
+          # voters by the leader — formation is automatic (see the README
+          # runbook). Peers record each node under its stable headless DNS name
+          # (CONSENSUSDB_ADVERTISE_ADDRESS), so a reschedule doesn't strand the
+          # membership on a dead pod IP.
           command = ["/bin/sh", "-c"]
           args = [<<-EOT
             ordinal="$${HOSTNAME##*-}"
             if [ "$ordinal" = "0" ]; then export RAFT_BOOTSTRAP=true; else export RAFT_BOOTSTRAP=false; fi
+            export CONSENSUSDB_ADVERTISE_ADDRESS="$${HOSTNAME}.${var.deployment}-headless.${var.namespace}.svc.cluster.local:${var.raft_port}"
             exec /app/consensusdb run
           EOT
           ]
@@ -133,6 +167,25 @@ resource "kubernetes_stateful_set_v1" "consensusdb" {
           env {
             name  = "RAFT_VRPC_CLIENT_ADDRESS"
             value = "tcp://127.0.0.1:${var.vrpc_port}"
+          }
+          # Cluster formation: a fresh joiner redeems the deployment-wide
+          # bootstrap token against the ClusterIP service — it routes to ready
+          # nodes only (the seed, during formation) and the console forwards
+          # enrollment to the raft leader. Both are ignored once the node's
+          # identity exists on its data volume.
+          env {
+            name = "CONSENSUSDB_BOOTSTRAP_TOKEN"
+
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret_v1.bootstrap_token.metadata[0].name
+                key  = "bootstrap-token"
+              }
+            }
+          }
+          env {
+            name  = "CONSENSUSDB_JOIN_PEER"
+            value = "http://${var.deployment}.${var.namespace}.svc.cluster.local:${var.http_port}"
           }
           # Data-plane authentication. Flip to true only after `iam bootstrap`
           # has created the admin (see the README auth runbook).

@@ -45,6 +45,13 @@ type ConsoleHandler struct {
 
 	DataDir  string `value:"consensusdb.data-dir,default=/tmp/consensusdb"`
 	HTTPBind string `value:"http-server.bind-address,default=0.0.0.0:8441"`
+	// BootstrapToken is the pre-shared cluster formation secret (env
+	// CONSENSUSDB_BOOTSTRAP_TOKEN; on Kubernetes one Secret shared by every pod).
+	// When a joining node presents it, the leader adopts it as a reusable join
+	// record (adoptBootstrapToken), so every fresh ordinal enrolls with the same
+	// secret and cluster formation needs no per-node token minting. Empty
+	// disables the fallback; minted single-use join tokens work regardless.
+	BootstrapToken string `value:"consensusdb.bootstrap-token,default="`
 
 	svc          *server.KeyValueService // routes IAM writes through raft when enabled
 	regionsCache regionsCache

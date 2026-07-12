@@ -328,9 +328,9 @@ func errStatus(code int) error { return stringError(http.StatusText(code)) }
 // ---------------------------------------------------------------------------
 
 // mintJoinTokenHandler mints a single-use join token (admin-only). The operator
-// runs a new node with `--join <token>`; it enrolls, receives a CA-signed node
-// cert, and is added as a voter. The CLI `consensusdb cluster join-token` mints the
-// same record, so web and CLI operators have parity.
+// starts a new node with CONSENSUSDB_JOIN_TOKEN=<token>; it enrolls, receives a
+// CA-signed node cert, and is added as a voter. The CLI `consensusdb cluster
+// join-token` mints the same record, so web and CLI operators have parity.
 func (t *ConsoleHandler) mintJoinTokenHandler(w http.ResponseWriter, r *http.Request, principal string) {
 	ttl := 30 * time.Minute
 	if m := r.URL.Query().Get("ttlMinutes"); m != "" {
@@ -346,7 +346,7 @@ func (t *ConsoleHandler) mintJoinTokenHandler(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"joinToken": token,
 		"expiresAt": expiresAt,
-		"note":      "start the new node with:  consensusdb run --join " + token + " --peer <this-node-http>",
+		"note":      "start the new node with:  CONSENSUSDB_JOIN_TOKEN=" + token + " CONSENSUSDB_JOIN_PEER=<this-node-http> consensusdb run",
 	})
 }
 

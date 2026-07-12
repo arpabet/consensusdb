@@ -165,9 +165,12 @@ When auth is on, attach the token with the provider's credential option (see the
 
 ## 6. Add more nodes (a cluster)
 
-A cluster replicates every write through Raft. Turn a node into a cluster member by
-giving it a **raft** and **serf** bind address; the seed node bootstraps, and you
-add the rest from the leader.
+A cluster replicates every write through Raft, and the node↔node transport is
+mutual TLS. Turn a node into a cluster member by giving it a **raft** and
+**serf** bind address; the seed node bootstraps (minting the cluster CA), and
+each joiner enrolls on its first start with a **join token** minted on the seed
+— enrollment signs the node's certificate **and adds it as a voter**, in one
+step.
 
 The easiest per-machine setup detects this host's address for you:
 
@@ -176,18 +179,24 @@ The easiest per-machine setup detects this host's address for you:
 ./consensusdb init --cluster            # writes a cluster settings file, detects the host IP
 ./consensusdb run
 
-# on each additional machine
+# still on the seed: mint a single-use token for the next node
+./consensusdb cluster join-token        # → join-…
+
+# on each additional machine (the token is read on the first start only;
+# the node's identity then persists in <data-dir>/pki)
 ./consensusdb init --cluster --seed=false --host <that-machine-ip>
-./consensusdb run
+CONSENSUSDB_JOIN_TOKEN=join-… CONSENSUSDB_JOIN_PEER=http://<seed-ip>:8441 ./consensusdb run
 ```
 
-Each node prints its **node id** on startup. From the **seed/leader**, add each
-other node by its id and raft address:
+Confirm membership from any node:
 
 ```bash
-./consensusdb raft join <node-id> <that-machine-ip>:8300
 ./consensusdb raft config          # lists the members and who is leader
 ```
+
+A pre-provisioned fleet can share one `CONSENSUSDB_BOOTSTRAP_TOKEN` (reusable by
+every fresh node) instead of per-node tokens — that is how the Kubernetes
+StatefulSet forms itself; see the README runbook.
 
 ### Two nodes on one laptop (for testing)
 
@@ -202,14 +211,17 @@ CONSENSUSDB_HOME=~/.cdb0 NODE_ID=1 CONSENSUSDB_MODE=cluster RAFT_BOOTSTRAP=true 
   VRPC_SERVER_BIND_ADDRESS=0.0.0.0:8444 HTTP_SERVER_BIND_ADDRESS=0.0.0.0:8441 \
   ./consensusdb run
 
-# node 1 — a joiner (another terminal)
+# mint a join token on node 0 (dials its data plane on 8444)
+./consensusdb cluster join-token        # → join-…
+
+# node 1 — a joiner (another terminal): enrolls and is added as a voter
 CONSENSUSDB_HOME=~/.cdb1 NODE_ID=2 CONSENSUSDB_MODE=cluster RAFT_BOOTSTRAP=false \
+  CONSENSUSDB_JOIN_TOKEN=join-… CONSENSUSDB_JOIN_PEER=http://$IP:8441 \
   RAFT_BIND_ADDRESS=$IP:8310 SERF_BIND_ADDRESS=$IP:8311 \
   VRPC_SERVER_BIND_ADDRESS=0.0.0.0:8454 HTTP_SERVER_BIND_ADDRESS=0.0.0.0:8451 \
   ./consensusdb run
 
-# from the leader, add node 1, then confirm two voters
-RAFT_VRPC_CLIENT_ADDRESS=tcp://127.0.0.1:8444 ./consensusdb raft join 2 $IP:8310
+# confirm two voters
 RAFT_VRPC_CLIENT_ADDRESS=tcp://127.0.0.1:8444 ./consensusdb raft config
 #   server_list:{node_id:"1" … } server_list:{node_id:"2" … }
 ```

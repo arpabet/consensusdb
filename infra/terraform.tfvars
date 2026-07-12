@@ -5,9 +5,10 @@ project = "consensusdb"
 namespace  = "consensusdb"
 deployment = "consensusdb"
 
-# 3-node raft cluster: ordinal 0 bootstraps, 1 and 2 are joined by the leader
-# (one-time `raft join`, see the README runbook). Quorum = 2, so one voter can
-# fail (or drain — the PDB enforces max one) without losing writes.
+# 3-node raft cluster: ordinal 0 bootstraps; the other ordinals enroll with the
+# generated bootstrap-token Secret and are added as voters automatically — one
+# `terraform apply` forms the cluster (see the README runbook). Quorum = 2, so
+# one voter can fail (or drain — the PDB enforces max one) without losing writes.
 num_replicas = 3
 
 # Persistent data volume for the badger store.
