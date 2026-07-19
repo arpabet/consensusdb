@@ -500,6 +500,21 @@ is persisted in the raft log — restarts rejoin automatically. Operational note
   adopted record, delete `join/<sha256(token)>` from the system PKI region.
   Per-node **single-use** tokens remain available for manual adds:
   `consensusdb cluster join-token` (CLI) or the console's "Add node".
+- **Cluster identity — why two clusters on one network can't interconnect**: a
+  cluster is identified by its transport-CA fingerprint; `consensusdb cluster
+  identity` prints it (offline, from `pki/ca.pem`), the dashboard's Cluster
+  panel shows it, and `/api/cluster` returns it as `clusterId` — compare it
+  across nodes and deployments to tell clusters apart. There is no discovery
+  protocol to find a foreign node by accident, the raft transport requires
+  certificates chaining to the cluster's own CA in **both** directions, and the
+  console's "Add node" **preflights** the target over mutual TLS — its
+  certificate must chain to this cluster's CA and carry the requested node id —
+  before any membership change commits, so a mistyped or foreign address is
+  rejected instead of becoming a phantom voter that counts toward quorum. (The
+  raw `raft join` CLI stays unchecked by design — prefer the console/API for
+  manual adds.) One rule to keep the property true: a cluster **cloned from
+  another cluster's backup shares its identity** — give a clone a fresh
+  transport CA rather than inheriting one.
 
 Metrics for the cluster (raft leader contact, commit/apply latency, badger LSM
 counters) are on `:8441/metrics` for Prometheus; logs are structured JSON when

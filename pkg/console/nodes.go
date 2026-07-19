@@ -19,6 +19,7 @@ import (
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/mem"
+	"go.arpabet.com/consensusdb/pkg/replication"
 )
 
 /*
@@ -193,6 +194,20 @@ func (t *ConsoleHandler) addNode(w http.ResponseWriter, r *http.Request) {
 		req.NodeID == "" || req.Address == "" {
 		writeErr(w, http.StatusBadRequest, "nodeId and address are required")
 		return
+	}
+	// Membership requires cluster identity, proven BEFORE the config change
+	// commits: the target must complete a mutual-TLS handshake with a
+	// certificate chaining to THIS cluster's CA and carrying the requested node
+	// id. Without this, a mistyped or foreign address still becomes a phantom
+	// voter that counts toward quorum (raft's own mTLS refuses it only after
+	// the fact). Enrollment (/api/cluster/enroll) needs no preflight — its join
+	// token authorizes the node before it is reachable. Checked after the
+	// replication gate so a raft-less node still answers 409, not a dial error.
+	if _, ok := t.raftHandle(); ok {
+		if err := replication.PreflightClusterPeer(t.DataDir, req.NodeID, req.Address, 5*time.Second); err != nil {
+			writeErr(w, http.StatusBadRequest, "target is not a reachable member of this cluster: "+err.Error())
+			return
+		}
 	}
 	t.membershipChange(w, r, func(rf *raft.Raft) error {
 		return rf.AddVoter(raft.ServerID(req.NodeID), raft.ServerAddress(req.Address), 0, 10*time.Second).Error()

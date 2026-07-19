@@ -7,11 +7,15 @@ package cmd
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"time"
 
 	"go.arpabet.com/cligo"
+	"go.arpabet.com/consensusdb/pkg/config"
 	"go.arpabet.com/consensusdb/pkg/iam"
+	"go.arpabet.com/consensusdb/pkg/replication"
 	"go.arpabet.com/value-rpc/valueclient"
 	"go.uber.org/zap"
 )
@@ -76,4 +80,44 @@ func (t *ClusterJoinTokenCommand) Run(ctx context.Context) error {
 		fmt.Printf("start the new node with:\n  CONSENSUSDB_JOIN_TOKEN=%s CONSENSUSDB_JOIN_PEER=<existing-node-http> consensusdb run\n", token)
 		return nil
 	})
+}
+
+/*
+ClusterIdentityCommand prints this node's cluster identity — the transport-CA
+fingerprint every member of the cluster (and only its members) chains to. Two
+clusters in one network show different fingerprints; a node cloned from another
+cluster's backup shows the same one. Reads the local pki/ material, so it works
+offline against a stopped node.
+*/
+type ClusterIdentityCommand struct {
+	Parent  cligo.CliGroup `cli:"group=cluster"`
+	DataDir string         `value:"consensusdb.data-dir,default="`
+}
+
+func (t *ClusterIdentityCommand) Command() string { return "identity" }
+
+func (t *ClusterIdentityCommand) Help() (string, string) {
+	return "print this node's cluster identity (transport-CA fingerprint)",
+		"Members of one cluster share the fingerprint; compare it across nodes and deployments to tell clusters apart."
+}
+
+func (t *ClusterIdentityCommand) Run(ctx context.Context) error {
+	dir := t.DataDir
+	if dir == "" {
+		dir = config.DefaultDataDir()
+	}
+	fp, ok := replication.TransportCAFingerprint(dir)
+	if !ok {
+		fmt.Printf("no cluster identity: %s/pki/ca.pem not found (single-node, or the node has not joined a cluster)\n", dir)
+		return nil
+	}
+	fmt.Printf("cluster identity: %s\n", fp)
+	if id, ok := replication.LoadNodeIdentity(dir); ok {
+		if block, _ := pem.Decode(id.CertPEM); block != nil {
+			if cert, err := x509.ParseCertificate(block.Bytes); err == nil {
+				fmt.Printf("node id:          %s\n", cert.Subject.CommonName)
+			}
+		}
+	}
+	return nil
 }

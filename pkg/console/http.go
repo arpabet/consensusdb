@@ -6,6 +6,7 @@
 package console
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"go.arpabet.com/consensusdb/pkg/backup"
 	"go.arpabet.com/consensusdb/pkg/iam"
 	"go.arpabet.com/consensusdb/pkg/ledger"
+	"go.arpabet.com/consensusdb/pkg/replication"
 	"go.arpabet.com/consensusdb/pkg/server"
 	"go.arpabet.com/consensusdb/pkg/verify"
 	"go.arpabet.com/raft/raftapi"
@@ -313,6 +315,18 @@ func (t *ConsoleHandler) authenticate(r *http.Request) (string, bool) {
 
 func (t *ConsoleHandler) cluster(w http.ResponseWriter) {
 	out := map[string]any{"replication": false}
+	// The cluster's identity: the transport-CA fingerprint every member (and
+	// only members) chain to. Two clusters on one network show different
+	// fingerprints; a clone restored from this cluster's backup shows the same
+	// one — both exactly what an operator needs to see. Falls back to the
+	// replicated CA record on single-node deployments (no transport CA).
+	if fp, ok := replication.TransportCAFingerprint(t.DataDir); ok {
+		out["clusterId"] = fp
+	} else if ca, ok, err := t.loadCA(context.Background()); err == nil && ok {
+		if fp, err := replication.CAFingerprintFromPEM(ca.CertPEM); err == nil {
+			out["clusterId"] = fp
+		}
+	}
 	if t.Raft != nil {
 		if r, ok := t.Raft.Raft(); ok {
 			out["replication"] = true

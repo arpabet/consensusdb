@@ -803,3 +803,52 @@ func TestLedgerMaterialsRoundTrip(t *testing.T) {
 		t.Fatalf("certificate must attest the collected head: %v", err)
 	}
 }
+
+// The /api/cluster overview reports the cluster's identity: the transport-CA
+// fingerprint when the node has cluster pki/ material, else the replicated
+// (single-node) CA record's fingerprint once one exists.
+func TestClusterIdentityInOverview(t *testing.T) {
+	// Cluster-mode identity: genesis material in the data dir wins.
+	h, _ := newConsole(t)
+	id, _, err := replication.GenesisIdentity("node-1", []string{"127.0.0.1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := id.Save(h.DataDir); err != nil {
+		t.Fatal(err)
+	}
+	want, ok := replication.TransportCAFingerprint(h.DataDir)
+	if !ok {
+		t.Fatal("no transport CA fingerprint after genesis save")
+	}
+	rec := do(h, http.MethodGet, "/api/cluster", nil)
+	var out struct {
+		ClusterID string `json:"clusterId"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if out.ClusterID != want {
+		t.Fatalf("clusterId = %q, want %q", out.ClusterID, want)
+	}
+
+	// Single-node fallback: no pki/ material; bootstrap mints the built-in CA
+	// and its fingerprint becomes the identity.
+	h2, _ := newConsole(t)
+	out.ClusterID = ""
+	rec = do(h2, http.MethodGet, "/api/cluster", nil)
+	json.Unmarshal(rec.Body.Bytes(), &out)
+	if out.ClusterID != "" {
+		t.Fatalf("fresh single node reported identity %q before any CA exists", out.ClusterID)
+	}
+	do(h2, http.MethodPost, "/api/setup/bootstrap", []byte(`{"username":"root","password":"supersecret"}`))
+	out.ClusterID = ""
+	rec = do(h2, http.MethodGet, "/api/cluster", nil)
+	json.Unmarshal(rec.Body.Bytes(), &out)
+	if !strings.HasPrefix(out.ClusterID, "sha256:") {
+		t.Fatalf("single-node clusterId = %q, want a sha256 fingerprint of the built-in CA", out.ClusterID)
+	}
+	if out.ClusterID == want {
+		t.Fatal("two distinct deployments reported the same identity")
+	}
+}

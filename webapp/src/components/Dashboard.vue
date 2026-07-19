@@ -57,6 +57,12 @@ onUnmounted(() => clearInterval(timer))
         <div class="kv"><span class="k">Applied</span><span>{{ cluster.appliedIndex }}</span></div>
         <div class="kv"><span class="k">Peers</span><span>{{ cluster.numPeers }}</span></div>
       </template>
+      <!-- The transport-CA fingerprint: members of one cluster share it, so two
+           clusters on one network are distinguishable at a glance. -->
+      <template v-if="cluster?.clusterId">
+        <div class="kv"><span class="k">Identity</span></div>
+        <div class="mono" :title="cluster.clusterId">{{ cluster.clusterId }}</div>
+      </template>
     </div>
 
     <div class="panel">
